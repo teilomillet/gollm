@@ -5,17 +5,18 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
 	"github.com/teilomillet/goal/llm"
+	"go.uber.org/zap"
 )
 
 func main() {
 	// Define flags for optional parameters
 	temperature := flag.Float64("temperature", 0.7, "Temperature for the LLM")
 	maxTokens := flag.Int("max-tokens", 100, "Max tokens for the LLM response")
+	logLevel := flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 
 	// Custom usage message
 	flag.Usage = func() {
@@ -27,6 +28,20 @@ func main() {
 
 	// Parse flags
 	flag.Parse()
+
+	// Set log level
+	switch *logLevel {
+	case "debug":
+		llm.SetLogLevel(zap.DebugLevel)
+	case "info":
+		llm.SetLogLevel(zap.InfoLevel)
+	case "warn":
+		llm.SetLogLevel(zap.WarnLevel)
+	case "error":
+		llm.SetLogLevel(zap.ErrorLevel)
+	default:
+		llm.Logger.Fatal("Invalid log level", zap.String("log_level", *logLevel))
+	}
 
 	// Check remaining arguments
 	args := flag.Args()
@@ -51,7 +66,7 @@ func main() {
 			}
 		}
 		if provider == "" {
-			log.Fatal("Provider not specified and couldn't be determined from environment variables")
+			llm.Logger.Fatal("Provider not specified and couldn't be determined from environment variables")
 		}
 	case 3:
 		// If three args, use them as provider, model, and prompt
@@ -69,14 +84,14 @@ func main() {
 	apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(provider))
 	apiKey := os.Getenv(apiKeyEnv)
 	if apiKey == "" {
-		log.Fatalf("%s environment variable is not set", apiKeyEnv)
+		llm.Logger.Fatal("API key not set", zap.String("env_var", apiKeyEnv))
 	}
 
 	ctx := context.Background()
 
 	llmProvider, err := llm.GetProvider(provider, apiKey, model)
 	if err != nil {
-		log.Fatalf("Error creating LLM provider: %v", err)
+		llm.Logger.Fatal("Error creating LLM provider", zap.Error(err))
 	}
 
 	llmClient := llm.NewLLM(llmProvider)
@@ -87,7 +102,7 @@ func main() {
 
 	response, err := llmClient.Generate(ctx, prompt)
 	if err != nil {
-		log.Fatalf("Error generating text: %v", err)
+		llm.Logger.Fatal("Error generating text", zap.Error(err))
 	}
 
 	fmt.Println("Response:", response)
