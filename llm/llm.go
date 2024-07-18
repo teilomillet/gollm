@@ -1,113 +1,80 @@
 package llm
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"net/http"
 )
 
 // LLM defines the common interface for all LLM providers
 type LLM interface {
 	Generate(ctx context.Context, prompt string) (string, error)
-	SetOption(opt Option) error
-	SetProviderOption(opt ProviderOption) error
+	SetOption(key string, value interface{})
 }
 
-// Option defines a function type for configuring common LLM options
-type Option func(*BaseOptions) error
-
-// ProviderOption defines a function type for configuring provider-specific options
-type ProviderOption interface {
-	apply(LLM) error
+// Provider defines the interface for different LLM providers
+type Provider interface {
+	Name() string
+	Endpoint() string
+	Headers() map[string]string
+	PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error)
+	ParseResponse(body []byte) (string, error)
 }
 
-// BaseOptions contains common options for all LLM providers
-type BaseOptions struct {
-	Temperature      *float64
-	MaxTokens        *int
-	FrequencyPenalty *float64
-	PresencePenalty  *float64
-	TopP             *float64
-	N                *int
-	Stream           *bool
-	Stop             []string
-	User             *string
+// LLMImpl represents a generic language model instance
+type LLMImpl struct {
+	Provider Provider
+	Options  map[string]interface{}
+	client   *http.Client
 }
 
-// LLMMessage defines the structure for individual messages in the request payload
-type LLMMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// BaseLLM provides a common implementation for all LLM providers
-type BaseLLM struct {
-	Options BaseOptions
-}
-
-func (b *BaseLLM) SetOption(opt Option) error {
-	return opt(&b.Options)
-}
-
-// WithTemperature sets the temperature for the LLM
-func WithTemperature(temperature float64) Option {
-	return func(o *BaseOptions) error {
-		o.Temperature = &temperature
-		return nil
+// NewLLM creates a new LLM instance
+func NewLLM(provider Provider) LLM {
+	return &LLMImpl{
+		Provider: provider,
+		Options:  make(map[string]interface{}),
+		client:   &http.Client{},
 	}
 }
 
-// WithMaxTokens sets the max tokens for the LLM
-func WithMaxTokens(maxTokens int) Option {
-	return func(o *BaseOptions) error {
-		o.MaxTokens = &maxTokens
-		return nil
-	}
+// SetOption sets an option for the LLM
+func (l *LLMImpl) SetOption(key string, value interface{}) {
+	l.Options[key] = value
 }
 
-func WithFrequencyPenalty(penalty float64) Option {
-	return func(o *BaseOptions) error {
-		o.FrequencyPenalty = &penalty
-		return nil
+// Generate generates text based on the given prompt
+func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, error) {
+	reqBody, err := l.Provider.PrepareRequest(prompt, l.Options)
+	if err != nil {
+		return "", fmt.Errorf("error preparing request: %w", err)
 	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(reqBody))
+	if err != nil {
+		return "", fmt.Errorf("error creating request: %w", err)
+	}
+
+	for k, v := range l.Provider.Headers() {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := l.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error sending request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("API error: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading response body: %w", err)
+	}
+
+	return l.Provider.ParseResponse(body)
 }
 
-func WithPresencePenalty(penalty float64) Option {
-	return func(o *BaseOptions) error {
-		o.PresencePenalty = &penalty
-		return nil
-	}
-}
-
-func WithTopP(topP float64) Option {
-	return func(o *BaseOptions) error {
-		o.TopP = &topP
-		return nil
-	}
-}
-
-func WithN(n int) Option {
-	return func(o *BaseOptions) error {
-		o.N = &n
-		return nil
-	}
-}
-
-func WithStream(stream bool) Option {
-	return func(o *BaseOptions) error {
-		o.Stream = &stream
-		return nil
-	}
-}
-
-func WithStop(stop []string) Option {
-	return func(o *BaseOptions) error {
-		o.Stop = stop
-		return nil
-	}
-}
-
-func WithUser(user string) Option {
-	return func(o *BaseOptions) error {
-		o.User = &user
-		return nil
-	}
-}
