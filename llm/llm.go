@@ -1,3 +1,5 @@
+// File: llm/llm.go
+
 package llm
 
 import (
@@ -10,7 +12,7 @@ import (
 
 // LLM defines the common interface for all LLM providers
 type LLM interface {
-	Generate(ctx context.Context, prompt string) (string, error)
+	Generate(ctx context.Context, prompt string) (response string, fullPrompt string, err error)
 	SetOption(key string, value interface{})
 }
 
@@ -46,19 +48,19 @@ func (l *LLMImpl) SetOption(key string, value interface{}) {
 }
 
 // Generate generates text based on the given prompt
-func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, error) {
+func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, string, error) {
 	Logger.Info("Generating text", zap.String("provider", l.Provider.Name()), zap.String("prompt", prompt))
 
 	reqBody, err := l.Provider.PrepareRequest(prompt, l.Options)
 	if err != nil {
 		Logger.Error("Failed to prepare request", zap.Error(err))
-		return "", NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
+		return "", prompt, NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {
 		Logger.Error("Failed to create request", zap.Error(err))
-		return "", NewLLMError(ErrorTypeRequest, "failed to create request", err)
+		return "", prompt, NewLLMError(ErrorTypeRequest, "failed to create request", err)
 	}
 
 	for k, v := range l.Provider.Headers() {
@@ -68,28 +70,28 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, error) {
 	resp, err := l.client.Do(req)
 	if err != nil {
 		Logger.Error("Failed to send request", zap.Error(err))
-		return "", NewLLMError(ErrorTypeRequest, "failed to send request", err)
+		return "", prompt, NewLLMError(ErrorTypeRequest, "failed to send request", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		Logger.Error("API error", zap.Int("status_code", resp.StatusCode))
-		return "", NewLLMError(ErrorTypeAPI, "API error", nil)
+		return "", prompt, NewLLMError(ErrorTypeAPI, "API error", nil)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		Logger.Error("Failed to read response body", zap.Error(err))
-		return "", NewLLMError(ErrorTypeResponse, "failed to read response body", err)
+		return "", prompt, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
 	}
 
 	result, err := l.Provider.ParseResponse(body)
 	if err != nil {
 		Logger.Error("Failed to parse response", zap.Error(err))
-		return "", NewLLMError(ErrorTypeResponse, "failed to parse response", err)
+		return "", prompt, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
 	}
 
 	Logger.Info("Text generated successfully", zap.String("result", result))
-	return result, nil
+	return result, prompt, nil
 }
 
