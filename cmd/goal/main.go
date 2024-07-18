@@ -14,61 +14,53 @@ import (
 )
 
 func main() {
-	// Define flags for optional parameters
-	temperature := flag.Float64("temperature", 0.7, "Temperature for the LLM")
-	maxTokens := flag.Int("max-tokens", 300, "Max tokens for the LLM response")
-	logLevel := flag.String("log-level", "info", "Log level (debug, info, warn, error)")
+	configPaths := flag.String("configs", "", "Comma-separated paths to config files")
+	compare := flag.Bool("compare", false, "Compare responses from multiple providers")
 	promptType := flag.String("type", "raw", "Prompt type (raw, qa, cot, summarize)")
 	verbose := flag.Bool("verbose", false, "Display verbose output including full prompt")
 
-	// Parse flags
 	flag.Parse()
 
-	// Set log level
-	switch *logLevel {
-	case "debug":
-		llm.SetLogLevel(zap.DebugLevel)
-	case "info":
-		llm.SetLogLevel(zap.InfoLevel)
-	case "warn":
-		llm.SetLogLevel(zap.WarnLevel)
-	case "error":
-		llm.SetLogLevel(zap.ErrorLevel)
-	default:
-		llm.Logger.Fatal("Invalid log level", zap.String("log_level", *logLevel))
+	// Load configurations
+	var configs []*llm.Config
+	if *configPaths == "" {
+		loadedConfigs, err := llm.LoadConfigs()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading configs: %v\n", err)
+			os.Exit(1)
+		}
+		for _, cfg := range loadedConfigs {
+			configs = append(configs, cfg)
+		}
+	} else {
+		paths := strings.Split(*configPaths, ",")
+		loadedConfigs, err := llm.LoadConfigs(paths...)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading configs: %v\n", err)
+			os.Exit(1)
+		}
+		for _, cfg := range loadedConfigs {
+			configs = append(configs, cfg)
+		}
 	}
+
+	if len(configs) == 0 {
+		fmt.Fprintf(os.Stderr, "No valid configurations found\n")
+		os.Exit(1)
+	}
+
+	// Set log level based on the first config
+	llm.SetLogLevel(llm.LogLevelFromString(configs[0].LogLevel))
 
 	// Check remaining arguments
 	args := flag.Args()
-	if len(args) < 3 {
-		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <provider> <model> <prompt>\n", os.Args[0])
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <prompt>\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	provider := args[0]
-	model := args[1]
-	rawPrompt := strings.Join(args[2:], " ")
-
-	// Ensure the appropriate API key is set in the environment
-	apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(provider))
-	apiKey := os.Getenv(apiKeyEnv)
-	if apiKey == "" {
-		llm.Logger.Fatal("API key not set", zap.String("env_var", apiKeyEnv))
-	}
-
-	ctx := context.Background()
-
-	llmProvider, err := llm.GetProvider(provider, apiKey, model)
-	if err != nil {
-		llm.Logger.Fatal("Error creating LLM provider", zap.Error(err))
-	}
-
-	llmClient := llm.NewLLM(llmProvider)
-
-	// Set options
-	llmClient.SetOption("temperature", *temperature)
-	llmClient.SetOption("max_tokens", *maxTokens)
+	rawPrompt := strings.Join(args, " ")
 
 	// Create prompt based on type
 	var prompt *llm.Prompt
@@ -85,20 +77,55 @@ func main() {
 		llm.Logger.Fatal("Invalid prompt type", zap.String("type", *promptType))
 	}
 
-	// Generate response
-	response, fullPrompt, err := llmClient.Generate(ctx, prompt.String())
-	if err != nil {
-		llm.Logger.Fatal("Error generating text", zap.Error(err))
-	}
+	ctx := context.Background()
 
-	if *verbose {
-		fmt.Println("Full Prompt:")
-		fmt.Println("------------")
-		fmt.Println(fullPrompt)
-		fmt.Println("\nResponse:")
-		fmt.Println("---------")
-	}
+	if *compare {
+		results := llm.CompareProviders(ctx, prompt.String(), configs...)
+		llm.PrintComparisonResults(results)
+	} else {
+		// Use the first config for single provider mode
+		config := configs[0]
 
-	fmt.Println(response)
+		fmt.Println("Debug: Loaded configurations:")
+		for i, cfg := range configs {
+			fmt.Printf("Config %d: %+v\n", i, *cfg)
+		}
+
+		fmt.Println("Debug: All environment variables:")
+		for _, env := range os.Environ() {
+			fmt.Println(env)
+		}
+		fmt.Printf("Debug: ANTHROPIC_API_KEY=%s\n", os.Getenv("ANTHROPIC_API_KEY"))
+
+		apiKey := os.Getenv(config.Provider + "_API_KEY")
+		if apiKey == "" {
+			fmt.Fprintf(os.Stderr, "Error: API key for %s not set. Please set the %s_API_KEY environment variable.\n", config.Provider, strings.ToUpper(config.Provider))
+			os.Exit(1)
+		}
+
+		llmProvider, err := llm.GetProvider(config.Provider, apiKey, config.Model)
+		if err != nil {
+			llm.Logger.Fatal("Error creating LLM provider", zap.Error(err))
+		}
+
+		llmClient := llm.NewLLM(llmProvider)
+		llmClient.SetOption("temperature", config.Temperature)
+		llmClient.SetOption("max_tokens", config.MaxTokens)
+
+		response, fullPrompt, err := llmClient.Generate(ctx, prompt.String())
+		if err != nil {
+			llm.Logger.Fatal("Error generating text", zap.Error(err))
+		}
+
+		if *verbose {
+			fmt.Println("Full Prompt:")
+			fmt.Println("------------")
+			fmt.Println(fullPrompt)
+			fmt.Println("\nResponse:")
+			fmt.Println("---------")
+		}
+
+		fmt.Println(response)
+	}
 }
 

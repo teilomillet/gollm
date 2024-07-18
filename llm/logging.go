@@ -1,3 +1,5 @@
+// File: llm/logging.go
+
 package llm
 
 import (
@@ -24,4 +26,20 @@ func init() {
 func SetLogLevel(level zapcore.Level) {
 	newLogger := Logger.WithOptions(zap.IncreaseLevel(level))
 	Logger = newLogger
+}
+
+// LogLevelFromString converts a string log level to zapcore.Level
+func LogLevelFromString(level string) zapcore.Level {
+	switch level {
+	case "debug":
+		return zapcore.DebugLevel
+	case "info":
+		return zapcore.InfoLevel
+	case "warn":
+		return zapcore.WarnLevel
+	case "error":
+		return zapcore.ErrorLevel
+	default:
+		return zapcore.InfoLevel // Default to InfoLevel if unknown
+	}
 }
