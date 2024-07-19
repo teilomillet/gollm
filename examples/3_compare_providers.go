@@ -4,23 +4,38 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 
-	"github.com/teilomillet/goal/llm"
+	"github.com/joho/godotenv"
+	"github.com/teilomillet/goal"
 )
 
 func main() {
-	configs, err := llm.LoadConfigs()
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: Error loading .env file")
+	}
+
+	llm, err := goal.NewLLM("")
 	if err != nil {
-		log.Fatalf("Failed to load configs: %v", err)
+		log.Fatalf("Failed to create LLM client: %v", err)
 	}
 
-	if len(configs) < 2 {
-		log.Fatalf("Please provide at least two different provider configurations in ~/.goal/configs/")
+	ctx := context.Background()
+
+	questions := []string{
+		"What is the capital of France?",
+		"How does photosynthesis work?",
+		"Who wrote 'To Kill a Mockingbird'?",
+		"What are the main principles of object-oriented programming?",
 	}
 
-	prompt := "Explain the concept of artificial intelligence in one sentence."
-	results := llm.CompareProviders(context.Background(), prompt, configs["anthropic.yaml"], configs["openai.yaml"])
-
-	llm.PrintComparisonResults(results)
+	for _, question := range questions {
+		answer, err := goal.QuestionAnswer(ctx, llm, question)
+		if err != nil {
+			log.Printf("Failed to get answer for question '%s': %v\n", question, err)
+			continue
+		}
+		fmt.Printf("Q: %s\nA: %s\n\n", question, answer)
+	}
 }
