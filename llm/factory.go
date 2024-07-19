@@ -15,3 +15,17 @@ func getProvider(name, model string) (Provider, error) {
 
 	return GetProvider(name, apiKey, model)
 }
+
+// CreatePrompt creates a prompt based on the specified type
+func CreatePrompt(promptType, rawPrompt string) *Prompt {
+	switch promptType {
+	case "qa":
+		return QuestionAnswer(rawPrompt)
+	case "cot":
+		return ChainOfThought(rawPrompt)
+	case "summarize":
+		return Summarize(rawPrompt)
+	default:
+		return NewPrompt(rawPrompt)
+	}
+}

@@ -26,6 +26,23 @@ var DefaultConfig = Config{
 	LogLevel:    "info",
 }
 
+// LoadConfig loads a single configuration file or returns the default config
+func LoadConfig(path string) (*Config, error) {
+	if path == "" {
+		Logger.Info("No config file specified, using default configuration")
+		return &DefaultConfig, nil
+	}
+
+	config, err := loadSingleConfig(path)
+	if err != nil {
+		Logger.Warn("Failed to load config, using default", zap.String("path", path), zap.Error(err))
+		return &DefaultConfig, nil
+	}
+
+	return config, nil
+}
+
+// LoadConfigs loads multiple configuration files
 func LoadConfigs(paths ...string) (map[string]*Config, error) {
 	configs := make(map[string]*Config)
 

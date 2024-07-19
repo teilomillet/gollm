@@ -43,3 +43,16 @@ func LogLevelFromString(level string) zapcore.Level {
 		return zapcore.InfoLevel // Default to InfoLevel if unknown
 	}
 }
+
+// InitLogging initializes the logger with the specified log level
+func InitLogging(logLevel string) {
+	level := LogLevelFromString(logLevel)
+	config := zap.NewProductionConfig()
+	config.Level = zap.NewAtomicLevelAt(level)
+	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	newLogger, err := config.Build()
+	if err != nil {
+		panic(err)
+	}
+	Logger = newLogger
+}

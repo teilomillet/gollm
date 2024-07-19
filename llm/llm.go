@@ -5,9 +5,12 @@ package llm
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 )
 
 // LLM defines the common interface for all LLM providers
@@ -95,3 +98,22 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, string, 
 	return result, prompt, nil
 }
 
+// NewLLMFromConfig creates a new LLM instance from a Config
+func NewLLMFromConfig(config *Config) (LLM, error) {
+	apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(config.Provider))
+	apiKey := os.Getenv(apiKeyEnv)
+	if apiKey == "" {
+		return nil, fmt.Errorf("API key for %s not set. Please set the %s environment variable", config.Provider, apiKeyEnv)
+	}
+
+	provider, err := GetProvider(config.Provider, apiKey, config.Model)
+	if err != nil {
+		return nil, err
+	}
+
+	llmClient := NewLLM(provider)
+	llmClient.SetOption("temperature", config.Temperature)
+	llmClient.SetOption("max_tokens", config.MaxTokens)
+
+	return llmClient, nil
+}
