@@ -10,9 +10,9 @@ To install the `goal` package, use `go get`:
 go get github.com/teilomillet/goal
 ```
 
-## Usage
+## Quick Start
 
-Here's a quick example of how to use `goal`:
+Here's a simple example to get you started:
 
 ```go
 package main
@@ -20,107 +20,72 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
+	"log"
 
-	"github.com/teilomillet/goal/llm"
-	"go.uber.org/zap"
+	"github.com/teilomillet/goal"
 )
 
 func main() {
-	// Set log level
-	llm.SetLogLevel(zap.InfoLevel)
-
-	// Ensure the appropriate API key is set in the environment
-	provider := "anthropic"
-	apiKeyEnv := fmt.Sprintf("%s_API_KEY", provider)
-	apiKey := os.Getenv(apiKeyEnv)
-	if apiKey == "" {
-		llm.Logger.Fatal("API key not set", zap.String("env_var", apiKeyEnv))
-	}
-
-	// Create LLM provider
-	model := "claude-3-opus-20240229"
-	llmProvider, err := llm.GetProvider(provider, apiKey, model)
+	// Create a new LLM client
+	llmClient, err := goal.NewLLM("")
 	if err != nil {
-		llm.Logger.Fatal("Error creating LLM provider", zap.Error(err))
+		log.Fatalf("Failed to create LLM client: %v", err)
 	}
 
-	// Create LLM client
-	llmClient := llm.NewLLM(llmProvider)
-
-	// Set options
-	llmClient.SetOption("temperature", 0.7)
-	llmClient.SetOption("max_tokens", 100)
-
-	// Generate text
+	// Generate a response
 	ctx := context.Background()
-	prompt := "Explain the concept of recursion in programming."
-	response, err := llmClient.Generate(ctx, prompt)
+	question := "What are the main benefits of artificial intelligence?"
+	answer, err := goal.QuestionAnswer(ctx, llmClient, question, "")
 	if err != nil {
-		llm.Logger.Fatal("Error generating text", zap.Error(err))
+		log.Fatalf("Failed to generate answer: %v", err)
 	}
 
-	fmt.Println("Response:", response)
+	fmt.Printf("Question: %s\n", question)
+	fmt.Printf("Answer:\n%s\n", answer)
 }
 ```
 
-# goal - Go Abstract Language Model Interface
+## Key Features
 
-...
+1. **Unified Interface**: Interact with different LLM providers using a consistent API.
+2. **Chain of Thought**: Perform step-by-step reasoning for complex problems.
+3. **Customizable Prompts**: Create and reuse structured prompts for various tasks.
+4. **High-Level Functions**: Use pre-built functions for common tasks like question answering and summarization.
 
-## Package Structure
+## Advanced Usage
 
-The `goal` package is structured as follows:
+### Creating Custom Prompts
 
-- `llm/`: This directory contains the core package files.
-  - `provider.go`: Defines the `Provider` interface.
-  - `provider_registry.go`: Contains the provider registry and `RegisterProvider` function.
-  - `llm.go`: Implements the main LLM client.
-  - Individual provider implementations (e.g., `anthropic.go`, `openai.go`).
-- `templates/`: Contains templates for adding new providers.
-- `examples/`: Contains example usage of the package.
+You can create reusable prompt templates for more complex tasks:
 
-## Adding New Providers
+```go
+promptTemplate := goal.NewPrompt("Analyze the following topic:").
+	WithDirective("Consider multiple perspectives").
+	WithDirective("Provide pros and cons").
+	WithOutput("Analysis:")
 
-To add support for a new LLM provider, you can use the template provided in `templates/new_provider_template.go`. Here's how to do it:
-
-1. Copy the `new_provider_template.go` file and rename it to match your new provider (e.g., `myprovider.go`).
-2. Place the new file in the `llm/` directory.
-3. Replace all occurrences of `NewProviderName` with your provider's name (e.g., `MyProvider`).
-4. Update the `Name()` method to return the lowercase name of your provider.
-5. Modify the `Endpoint()` method to return the correct API endpoint for your provider.
-6. Update the `Headers()` method to include any necessary headers for API requests.
-7. Adjust the `PrepareRequest()` method to create the correct request body for your provider's API.
-8. Modify the `ParseResponse()` method to correctly extract the generated text from your provider's API response.
-9. Update the `ParseStreamResponse()` method if your provider supports streaming responses.
-10. In the `init()` function, register your new provider with the correct name.
-
-Note: The `Provider` interface and `RegisterProvider` function are already defined in the package. You don't need to include their definitions in your new provider file.
-
-For a detailed example of how to implement a provider, look at the existing provider implementations in the `llm` directory.
-
-...
-
-## Command-line Interface
-
-The `goal` package also includes a command-line interface for quick interactions with LLMs. You can find it in `cmd/goal/main.go`. To use it, build the binary and run:
-
-```
-goal [flags] <provider> <model> <prompt>
+topic := "The impact of AI on job markets"
+fullPrompt := promptTemplate.WithInput(topic)
+analysis, _, err := llmClient.Generate(ctx, fullPrompt.String())
 ```
 
-or
+### Chaining Operations
 
+Combine different goal package features for more complex workflows:
+
+```go
+expertAnalysis, _, err := llmClient.Generate(ctx, promptTemplate.WithInput(topic).String())
+if err != nil {
+	log.Fatal(err)
+}
+
+summary, err := goal.Summarize(ctx, llmClient, expertAnalysis, 50)
+if err != nil {
+	log.Fatal(err)
+}
+
+keyPoints, err := goal.ChainOfThought(ctx, llmClient, fmt.Sprintf("Extract key points from:\n%s", expertAnalysis))
+if err != nil {
+	log.Fatal(err)
+}
 ```
-goal [flags] <model> <prompt>
-```
-
-For more details, run `goal -help`.
-
-## Contributing
-
-We welcome contributions to the `goal` package! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines on how to contribute.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
