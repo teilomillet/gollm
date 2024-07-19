@@ -11,10 +11,11 @@ func Summarize(ctx context.Context, l LLM, text string, maxLength int) (string, 
 		ctx = context.Background()
 	}
 	prompt := NewPrompt("Summarize the following text:").
-		WithDirective(fmt.Sprintf("Provide a concise summary within %d words", maxLength)).
-		WithDirective("Capture the main points and key details").
-		WithOutput("Summary:").
-		WithInput(text)
+		Directive(fmt.Sprintf("Provide a concise summary within %d words", maxLength)).
+		Directive("Capture the main points and key details").
+		Output("Summary:").
+		Input(text)
+
 	response, _, err := l.Generate(ctx, prompt.String())
 	return response, err
 }
