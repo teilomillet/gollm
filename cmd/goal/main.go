@@ -1,5 +1,3 @@
-// File: cmd/goal/main.go
-
 package main
 
 import (
@@ -10,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/teilomillet/goal/llm"
+	"github.com/teilomillet/goal/use"
 )
 
 func main() {
@@ -36,7 +35,18 @@ func main() {
 	}
 
 	rawPrompt := strings.Join(flag.Args(), " ")
-	prompt := llm.CreatePrompt(*promptType, rawPrompt)
+
+	var prompt *llm.Prompt
+	switch *promptType {
+	case "qa":
+		prompt = use.QuestionAnswer(rawPrompt)
+	case "cot":
+		prompt = use.ChainOfThought(rawPrompt)
+	case "summarize":
+		prompt = use.Summarize(rawPrompt)
+	default:
+		prompt = llm.NewPrompt(rawPrompt)
+	}
 
 	llmClient, err := llm.NewLLMFromConfig(config)
 	llm.HandleError(err, true)

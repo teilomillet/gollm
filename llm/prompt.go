@@ -1,12 +1,8 @@
-// File: llm/prompt.go
-
 package llm
 
 import (
-	"fmt"
-	"strings"
-
 	"go.uber.org/zap"
+	"strings"
 )
 
 // Prompt represents a structured prompt for an LLM
@@ -62,34 +58,5 @@ func (p *Prompt) String() string {
 	fullPrompt := sb.String()
 	Logger.Debug("Generated full prompt", zap.String("prompt", fullPrompt))
 	return fullPrompt
-}
-
-// Common prompt templates
-func QuestionAnswer(question string) *Prompt {
-	Logger.Debug("Using QuestionAnswer template", zap.String("question", question))
-	return NewPrompt(fmt.Sprintf("Question: %s", question)).
-		WithOutput("Answer:")
-}
-
-func ChainOfThought(question string) *Prompt {
-	Logger.Debug("Using ChainOfThought template", zap.String("question", question))
-	return NewPrompt(fmt.Sprintf("Question: %s", question)).
-		WithOutput("Answer:").
-		WithDirective("Think step-by-step").
-		WithDirective("Show your reasoning")
-}
-
-func Summarize(text string) *Prompt {
-	Logger.Debug("Using Summarize template", zap.String("text", text[:min(len(text), 50)]))
-	return NewPrompt(fmt.Sprintf("Text to summarize: %s", text)).
-		WithOutput("Summary:").
-		WithDirective("Summarize in 2-3 sentences")
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
