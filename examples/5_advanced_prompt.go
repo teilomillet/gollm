@@ -7,33 +7,73 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/teilomillet/goal/llm"
+	"github.com/teilomillet/goal"
 )
 
 func main() {
-	config, err := llm.LoadConfig("")
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
-	}
-
-	llmClient, err := llm.NewLLMFromConfig(config)
+	llmClient, err := goal.NewLLM("")
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
 
-	prompt := llm.NewPrompt("Analyze the following statement:").
-		WithDirective("Consider both positive and negative implications").
-		WithDirective("Use a formal, academic tone").
-		WithDirective("Provide at least three key points").
-		WithOutput("Analysis:")
+	ctx := context.Background()
 
-	statement := "The widespread adoption of artificial intelligence in various industries."
-	fullPrompt := fmt.Sprintf("%s\n\n%s", prompt.String(), statement)
-
-	response, _, err := llmClient.Generate(context.Background(), fullPrompt)
+	// Easy: Using a pre-defined high-level function
+	easyQuestion := "What are the main benefits of artificial intelligence?"
+	easyAnswer, err := goal.QuestionAnswer(ctx, llmClient, easyQuestion, "")
 	if err != nil {
-		log.Fatalf("Failed to generate response: %v", err)
+		log.Fatalf("Failed to generate easy answer: %v", err)
 	}
 
-	fmt.Printf("Advanced Analysis:\n%s\n", response)
+	fmt.Printf("Easy Question: %s\n", easyQuestion)
+	fmt.Printf("Easy Answer:\n%s\n\n", easyAnswer)
+
+	// Advanced: Creating a custom, reusable prompt template
+	advancedPromptTemplate := goal.NewPrompt("Analyze the following topic from multiple perspectives:").
+		WithDirective("Consider technological, economic, social, and ethical implications").
+		WithDirective("Provide at least one potential positive and one potential negative outcome for each perspective").
+		WithDirective("Conclude with a balanced summary of no more than 3 sentences").
+		WithOutput("Multi-perspective Analysis:")
+
+	// Using the custom prompt template for different topics
+	topics := []string{
+		"The widespread adoption of artificial intelligence in healthcare",
+		"The implementation of a universal basic income",
+		"The transition to renewable energy sources",
+	}
+
+	for _, topic := range topics {
+		fullPrompt := advancedPromptTemplate.WithInput(topic)
+		analysis, _, err := llmClient.Generate(ctx, fullPrompt.String())
+		if err != nil {
+			log.Fatalf("Failed to generate analysis for topic '%s': %v", topic, err)
+		}
+
+		fmt.Printf("Topic: %s\n", topic)
+		fmt.Printf("Analysis:\n%s\n\n", analysis)
+	}
+
+	// Expert: Combining custom prompts with other goal package features
+	expertTopic := "The impact of social media on democratic processes"
+	expertPrompt := advancedPromptTemplate.WithInput(expertTopic)
+
+	expertAnalysis, _, err := llmClient.Generate(ctx, expertPrompt.String())
+	if err != nil {
+		log.Fatalf("Failed to generate expert analysis: %v", err)
+	}
+
+	summary, err := goal.Summarize(ctx, llmClient, expertAnalysis, 50)
+	if err != nil {
+		log.Fatalf("Failed to generate summary: %v", err)
+	}
+
+	keyPoints, err := goal.ChainOfThought(ctx, llmClient, fmt.Sprintf("Extract 3-5 key points from this analysis:\n%s", expertAnalysis))
+	if err != nil {
+		log.Fatalf("Failed to extract key points: %v", err)
+	}
+
+	fmt.Printf("Expert Topic: %s\n", expertTopic)
+	fmt.Printf("Expert Analysis:\n%s\n\n", expertAnalysis)
+	fmt.Printf("Summary (50 words):\n%s\n\n", summary)
+	fmt.Printf("Key Points:\n%s\n", keyPoints)
 }

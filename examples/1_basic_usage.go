@@ -7,25 +7,23 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/teilomillet/goal/llm"
+	"github.com/teilomillet/goal"
 )
 
 func main() {
-	config, err := llm.LoadConfig("")
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
-	}
-
-	llmClient, err := llm.NewLLMFromConfig(config)
+	llmClient, err := goal.NewLLM("")
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
 
-	prompt := llm.NewPrompt("What is the capital of France?")
-	response, _, err := llmClient.Generate(context.Background(), prompt.String())
+	ctx := context.Background()
+	question := "What is the capital of France?"
+
+	answer, err := goal.QuestionAnswer(ctx, llmClient, question, "")
 	if err != nil {
 		log.Fatalf("Failed to generate response: %v", err)
 	}
 
-	fmt.Printf("Response: %s\n", response)
+	fmt.Printf("Question: %s\n", question)
+	fmt.Printf("Answer: %s\n", answer)
 }

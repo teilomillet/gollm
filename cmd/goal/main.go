@@ -7,8 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/teilomillet/goal/llm"
-	"github.com/teilomillet/goal/use"
+	"github.com/teilomillet/goal"
 )
 
 func main() {
@@ -19,13 +18,11 @@ func main() {
 
 	flag.Parse()
 
-	config, err := llm.LoadConfig(*configPath)
-	llm.HandleError(err, true)
-
-	llm.InitLogging(config.LogLevel)
+	llmClient, err := goal.NewLLM(*configPath)
+	handleError(err, true)
 
 	if *showConfig {
-		fmt.Printf("Loaded configuration:\n%+v\n\n", *config)
+		fmt.Printf("Loaded configuration:\n%+v\n\n", llmClient)
 	}
 
 	if len(flag.Args()) < 1 {
@@ -36,26 +33,34 @@ func main() {
 
 	rawPrompt := strings.Join(flag.Args(), " ")
 
-	var prompt *llm.Prompt
+	ctx := context.Background()
+	var response string
+
 	switch *promptType {
 	case "qa":
-		prompt = use.QuestionAnswer(rawPrompt)
+		response, err = goal.QuestionAnswer(ctx, llmClient, rawPrompt, "")
 	case "cot":
-		prompt = use.ChainOfThought(rawPrompt)
+		response, err = goal.ChainOfThought(ctx, llmClient, rawPrompt)
 	case "summarize":
-		prompt = use.Summarize(rawPrompt)
+		response, err = goal.Summarize(ctx, llmClient, rawPrompt, 100) // Default to 100 words summary
 	default:
-		prompt = llm.NewPrompt(rawPrompt)
+		prompt := goal.NewPrompt(rawPrompt)
+		response, _, err = llmClient.Generate(ctx, prompt.String())
 	}
 
-	llmClient, err := llm.NewLLMFromConfig(config)
-	llm.HandleError(err, true)
-
-	response, fullPrompt, err := llmClient.Generate(context.Background(), prompt.String())
-	llm.HandleError(err, true)
+	handleError(err, true)
 
 	if *verbose {
-		fmt.Printf("Full Prompt:\n------------\n%s\n\nResponse:\n---------\n", fullPrompt)
+		fmt.Printf("Prompt Type: %s\nRaw Prompt: %s\n\nResponse:\n---------\n", *promptType, rawPrompt)
 	}
 	fmt.Println(response)
+}
+
+func handleError(err error, fatal bool) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		if fatal {
+			os.Exit(1)
+		}
+	}
 }
