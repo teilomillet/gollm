@@ -1,4 +1,4 @@
-// File: llm/config.go
+// File: internal/llm/config.go
 
 package llm
 
@@ -15,7 +15,6 @@ type Config struct {
 	Model       string  `yaml:"model"`
 	Temperature float64 `yaml:"temperature"`
 	MaxTokens   int     `yaml:"max_tokens"`
-	LogLevel    string  `yaml:"log_level"`
 }
 
 var DefaultConfig = Config{
@@ -23,13 +22,14 @@ var DefaultConfig = Config{
 	Model:       "claude-3-opus-20240229",
 	Temperature: 0.7,
 	MaxTokens:   100,
-	LogLevel:    "info",
 }
 
 // LoadConfig loads a single configuration file or returns the default config
 func LoadConfig(path string) (*Config, error) {
 	if path == "" {
-		Logger.Info("No config file specified, using default configuration")
+		if IsVerbose() {
+			Logger.Info("No config file specified, using default configuration")
+		}
 		return &DefaultConfig, nil
 	}
 

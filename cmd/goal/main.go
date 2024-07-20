@@ -15,10 +15,18 @@ func main() {
 	promptType := flag.String("type", "raw", "Prompt type (raw, qa, cot, summarize)")
 	verbose := flag.Bool("verbose", false, "Display verbose output including full prompt")
 	showConfig := flag.Bool("show-config", false, "Display the loaded configuration")
+	logLevel := flag.String("log-level", "", "Log level (debug, info, warn, error)")
 
 	flag.Parse()
 
-	llmClient, err := goal.NewLLM(*configPath)
+	var llmClient goal.LLM
+	var err error
+
+	if *logLevel != "" {
+		llmClient, err = goal.NewLLM(*configPath, *logLevel)
+	} else {
+		llmClient, err = goal.NewLLM(*configPath)
+	}
 	handleError(err, true)
 
 	if *showConfig {
@@ -38,7 +46,7 @@ func main() {
 
 	switch *promptType {
 	case "qa":
-		response, err = goal.QuestionAnswer(ctx, llmClient, rawPrompt, "")
+		response, err = goal.QuestionAnswer(ctx, llmClient, rawPrompt)
 	case "cot":
 		response, err = goal.ChainOfThought(ctx, llmClient, rawPrompt)
 	case "summarize":

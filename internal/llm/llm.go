@@ -47,12 +47,16 @@ func NewLLM(provider Provider) LLM {
 // SetOption sets an option for the LLM
 func (l *LLMImpl) SetOption(key string, value interface{}) {
 	l.Options[key] = value
-	Logger.Info("Option set", zap.String("key", key), zap.Any("value", value))
+	if IsVerbose() {
+		Logger.Info("Option set", zap.String("key", key), zap.Any("value", value))
+	}
 }
 
 // Generate generates text based on the given prompt
 func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, string, error) {
-	Logger.Info("Generating text", zap.String("provider", l.Provider.Name()), zap.String("prompt", prompt))
+	if IsVerbose() {
+		Logger.Info("Generating text", zap.String("provider", l.Provider.Name()), zap.String("prompt", prompt))
+	}
 
 	reqBody, err := l.Provider.PrepareRequest(prompt, l.Options)
 	if err != nil {
@@ -94,7 +98,9 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, string, 
 		return "", prompt, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
 	}
 
-	Logger.Info("Text generated successfully", zap.String("result", result))
+	if IsVerbose() {
+		Logger.Info("Text generated successfully", zap.String("result", result))
+	}
 	return result, prompt, nil
 }
 

@@ -1,31 +1,31 @@
-// File: llm/logging.go
+// File: internal/llm/logging.go
 
 package llm
 
 import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"sync"
 )
 
 var (
 	// Logger is the global logger for the LLM package
-	Logger *zap.Logger
+	Logger    *zap.Logger
+	once      sync.Once
+	isVerbose bool
 )
 
 func init() {
-	var err error
-	config := zap.NewProductionConfig()
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	Logger, err = config.Build()
-	if err != nil {
-		panic(err)
-	}
+	// Initialize with default logger (warn level)
+	initLogger(zapcore.WarnLevel)
 }
 
 // SetLogLevel sets the log level for the LLM package
 func SetLogLevel(level zapcore.Level) {
-	newLogger := Logger.WithOptions(zap.IncreaseLevel(level))
-	Logger = newLogger
+	once.Do(func() {
+		initLogger(level)
+	})
+	isVerbose = level <= zapcore.InfoLevel
 }
 
 // LogLevelFromString converts a string log level to zapcore.Level
@@ -40,19 +40,29 @@ func LogLevelFromString(level string) zapcore.Level {
 	case "error":
 		return zapcore.ErrorLevel
 	default:
-		return zapcore.ErrorLevel // Default to InfoLevel if unknown
+		return zapcore.WarnLevel // Default to WarnLevel if unknown
 	}
 }
 
 // InitLogging initializes the logger with the specified log level
 func InitLogging(logLevel string) {
 	level := LogLevelFromString(logLevel)
+	SetLogLevel(level)
+}
+
+// initLogger is a helper function to initialize the logger
+func initLogger(level zapcore.Level) {
 	config := zap.NewProductionConfig()
 	config.Level = zap.NewAtomicLevelAt(level)
 	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	newLogger, err := config.Build()
+	var err error
+	Logger, err = config.Build()
 	if err != nil {
 		panic(err)
 	}
-	Logger = newLogger
+}
+
+// IsVerbose returns true if verbose logging is enabled (info or debug level)
+func IsVerbose() bool {
+	return isVerbose
 }
