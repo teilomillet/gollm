@@ -40,7 +40,7 @@ func LogLevelFromString(level string) zapcore.Level {
 	case "error":
 		return zapcore.ErrorLevel
 	default:
-		return zapcore.InfoLevel // Default to InfoLevel if unknown
+		return zapcore.ErrorLevel // Default to InfoLevel if unknown
 	}
 }
 

@@ -20,7 +20,7 @@ func main() {
 
 	// Easy: Using a pre-defined high-level function
 	easyQuestion := "What are the main benefits of artificial intelligence?"
-	easyAnswer, err := goal.QuestionAnswer(ctx, llmClient, easyQuestion, "")
+	easyAnswer, err := goal.QuestionAnswer(ctx, llmClient, easyQuestion)
 	if err != nil {
 		log.Fatalf("Failed to generate easy answer: %v", err)
 	}
@@ -29,11 +29,17 @@ func main() {
 	fmt.Printf("Easy Answer:\n%s\n\n", easyAnswer)
 
 	// Advanced: Creating a custom, reusable prompt template
+	// Save a reusable directive
+	balancedAnalysisDirective := goal.NewPrompt("").
+		Directive("Consider technological, economic, social, and ethical implications").
+		Directive("Provide at least one potential positive and one potential negative outcome for each perspective").
+		Directive("Conclude with a balanced summary of no more than 3 sentences")
+
 	advancedPromptTemplate := goal.NewPrompt("Analyze the following topic from multiple perspectives:").
-		WithDirective("Consider technological, economic, social, and ethical implications").
-		WithDirective("Provide at least one potential positive and one potential negative outcome for each perspective").
-		WithDirective("Conclude with a balanced summary of no more than 3 sentences").
-		WithOutput("Multi-perspective Analysis:")
+		Directive(balancedAnalysisDirective.String()). // Reuse the saved directive
+		Output("Multi-perspective Analysis:").
+		Examples("path/to/examples.txt", 2, "random").
+		MaxLength(300)
 
 	// Using the custom prompt template for different topics
 	topics := []string{
@@ -43,7 +49,7 @@ func main() {
 	}
 
 	for _, topic := range topics {
-		fullPrompt := advancedPromptTemplate.WithInput(topic)
+		fullPrompt := advancedPromptTemplate.Input(topic)
 		analysis, _, err := llmClient.Generate(ctx, fullPrompt.String())
 		if err != nil {
 			log.Fatalf("Failed to generate analysis for topic '%s': %v", topic, err)
@@ -55,7 +61,9 @@ func main() {
 
 	// Expert: Combining custom prompts with other goal package features
 	expertTopic := "The impact of social media on democratic processes"
-	expertPrompt := advancedPromptTemplate.WithInput(expertTopic)
+	expertPrompt := advancedPromptTemplate.Input(expertTopic).
+		Context("Recent studies have shown increasing polarization in online political discussions.").
+		Directive("Focus particularly on the spread of misinformation and its effects on voter behavior")
 
 	expertAnalysis, _, err := llmClient.Generate(ctx, expertPrompt.String())
 	if err != nil {
@@ -77,3 +85,4 @@ func main() {
 	fmt.Printf("Summary (50 words):\n%s\n\n", summary)
 	fmt.Printf("Key Points:\n%s\n", keyPoints)
 }
+
