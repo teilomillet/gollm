@@ -143,7 +143,6 @@ provider: anthropic
 model: claude-3-opus-20240229
 temperature: 0.7
 max_tokens: 100
-log_level: info
 ```
 
 Then, use it when creating an LLM client:
