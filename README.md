@@ -12,7 +12,6 @@
 - **Provider Comparison**: Easily compare responses from multiple LLM providers for the same prompt.
 - **Extensible Architecture**: Add new LLM providers with minimal effort.
 - **CLI Tool**: Use `goal` directly from the command line for quick experiments and workflows.
-- **Robust Error Handling**: Detailed error types for better error management and debugging.
 
 ## Installation
 
@@ -36,14 +35,12 @@ import (
 )
 
 func main() {
-	cfg := goal.NewConfigBuilder().
-		SetProvider("openai").
-		SetModel("gpt-3.5-turbo").
-		SetMaxTokens(100).
-		SetAPIKey("your-api-key-here").
-		Build()
-
-	llm, err := goal.NewLLM(cfg)
+	llm, err := goal.NewLLM(
+		goal.SetProvider("openai"),
+		goal.SetModel("gpt-3.5-turbo"),
+		goal.SetMaxTokens(100),
+		goal.SetAPIKey("your-api-key-here"),
+	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}
@@ -91,13 +88,11 @@ providers := []string{"openai", "anthropic"}
 llms := make(map[string]goal.LLM)
 
 for _, provider := range providers {
-	cfg := goal.NewConfigBuilder().
-		SetProvider(provider).
-		SetMaxTokens(100).
-		SetAPIKey("your-api-key-here").
-		Build()
-
-	llm, _ := goal.NewLLM(cfg)
+	llm, _ := goal.NewLLM(
+		goal.SetProvider(provider),
+		goal.SetMaxTokens(100),
+		goal.SetAPIKey("your-api-key-here"),
+	)
 	llms[provider] = llm
 }
 
@@ -136,39 +131,6 @@ analysis, _, _ := llmClient.Generate(ctx, prompt.String())
 fmt.Printf("Analysis:\n%s\n", analysis)
 ```
 
-## Error Handling
-
-`goal` provides detailed error types to help you handle different failure scenarios:
-
-- `ErrorTypeProvider`: Issues with the LLM provider
-- `ErrorTypeRequest`: Problems preparing or sending the request
-- `ErrorTypeResponse`: Issues parsing or processing the API response
-- `ErrorTypeAPI`: Errors returned by the LLM provider's API
-- `ErrorTypeRateLimit`: Rate limiting errors
-- `ErrorTypeAuthentication`: Authentication-related errors
-- `ErrorTypeInvalidInput`: Invalid input errors
-
-Example error handling:
-
-```go
-response, _, err := llm.Generate(ctx, prompt.String())
-if err != nil {
-	if llmErr, ok := err.(*goal.LLMError); ok {
-		switch llmErr.Type {
-		case goal.ErrorTypeRateLimit:
-			// Handle rate limiting
-		case goal.ErrorTypeAuthentication:
-			// Handle authentication issues
-		default:
-			log.Printf("An error occurred: %v", llmErr)
-		}
-	} else {
-		log.Printf("An unexpected error occurred: %v", err)
-	}
-	return
-}
-```
-
 ## Performance Considerations
 
 While `goal` adds a thin abstraction layer, its impact on performance is minimal. The main performance factors will be the responsiveness of the chosen LLM provider and the complexity of your prompts.
@@ -190,7 +152,6 @@ Check out our [examples directory](https://github.com/teilomillet/goal/tree/main
 - Comparing providers
 - Advanced prompt templates
 - Combining multiple `goal` features
-
 
 ## Contributing
 
