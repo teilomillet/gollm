@@ -9,7 +9,14 @@ import (
 )
 
 func main() {
-	llmClient, err := goal.NewLLM("")
+	cfg := goal.NewConfigBuilder().
+		SetProvider("openai").
+		SetModel("gpt-3.5-turbo").
+		SetMaxTokens(200).
+		SetAPIKey("your-api-key-here"). // Replace with your actual API key
+		Build()
+
+	llmClient, err := goal.NewLLM(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
@@ -22,13 +29,11 @@ func main() {
 	much faster than classical computers, particularly in areas like cryptography, optimization, and 
 	simulation of quantum systems.`
 
-	prompt := goal.NewPrompt("Answer the following question:").
-		Directive("Provide a clear and concise answer").
-		Output("Answer:").
-		Context(contextInfo).
-		Input(question)
-
-	response, _, err := llmClient.Generate(ctx, prompt.String())
+	response, err := goal.QuestionAnswer(ctx, llmClient, question,
+		goal.WithContext(contextInfo),
+		goal.WithExamples("Challenge: Decoherence, Solution: Error correction techniques"),
+		goal.WithMaxLength(200),
+	)
 	if err != nil {
 		log.Fatalf("QuestionAnswer failed: %v", err)
 	}

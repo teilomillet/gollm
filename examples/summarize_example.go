@@ -9,7 +9,15 @@ import (
 )
 
 func main() {
-	llmClient, err := goal.NewLLM("")
+	cfg := goal.NewConfigBuilder().
+		SetProvider("openai").
+		SetModel("gpt-3.5-turbo").
+		SetMaxTokens(150).
+		SetTemperature(0.7).
+		SetAPIKey("your-api-key-here"). // Replace with your actual API key
+		Build()
+
+	llmClient, err := goal.NewLLM(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
@@ -22,7 +30,10 @@ func main() {
 	As AI continues to advance, it's crucial to address these challenges and ensure responsible development 
 	and deployment of AI technologies.`
 
-	summary, err := goal.Summarize(ctx, llmClient, text, 50)
+	summary, err := goal.Summarize(ctx, llmClient, text,
+		goal.WithMaxLength(50),
+		goal.WithDirectives("Focus on the main impacts and challenges"),
+	)
 	if err != nil {
 		log.Fatalf("Summarize failed: %v", err)
 	}

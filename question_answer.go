@@ -2,18 +2,39 @@ package goal
 
 import (
 	"context"
+	"fmt"
 )
 
-// QuestionAnswer performs question answering
-func QuestionAnswer(ctx context.Context, l LLM, question string) (string, error) {
+var QuestionAnswerTemplate = &PromptTemplate{
+	Name:        "QuestionAnswer",
+	Description: "Answer the given question",
+	Template:    "Answer the following question:\n\n{{.Question}}",
+	Directives:  []string{"Provide a clear and concise answer"},
+	Output:      "Answer:",
+}
+
+// QuestionAnswer performs question answering with optional configurations
+func QuestionAnswer(ctx context.Context, l LLM, question string, opts ...PromptOption) (string, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	prompt := NewPrompt("Answer the following question:").
-		Directive("Provide a clear and concise answer").
-		Output("Answer:").
-		Input(question)
+
+	prompt, err := QuestionAnswerTemplate.Execute(map[string]interface{}{
+		"Question": question,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to execute question answer template: %w", err)
+	}
+
+	// Apply all the provided options
+	for _, opt := range opts {
+		opt(prompt)
+	}
 
 	response, _, err := l.Generate(ctx, prompt.String())
-	return response, err
+	if err != nil {
+		return "", fmt.Errorf("failed to generate answer: %w", err)
+	}
+
+	return response, nil
 }

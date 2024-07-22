@@ -2,8 +2,6 @@ package llm
 
 import (
 	"fmt"
-	"go.uber.org/zap"
-	"os"
 )
 
 // ErrorType represents the type of an error
@@ -69,20 +67,19 @@ func NewLLMError(errType ErrorType, message string, err error) *LLMError {
 }
 
 // HandleError logs the error and exits the program if it's a fatal error
-func HandleError(err error, fatal bool) {
+func HandleError(err error, fatal bool, logger Logger) {
 	if err == nil {
 		return
 	}
 
 	if llmErr, ok := err.(*LLMError); ok {
-		Logger.Error(llmErr.Message,
-			zap.String("error_type", llmErr.TypeString()),
-			zap.Error(llmErr.Err))
+		logger.Error(llmErr.Message, "error_type", llmErr.TypeString(), "error", llmErr.Err)
 	} else {
-		Logger.Error("An error occurred", zap.Error(err))
+		logger.Error("An error occurred", "error", err)
 	}
 
 	if fatal {
-		os.Exit(1)
+		// Consider using os.Exit(1) here or returning an error to let the caller decide
+		panic(err)
 	}
 }

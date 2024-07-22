@@ -3,66 +3,91 @@
 package llm
 
 import (
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"sync"
+	"fmt"
+	"log"
+	"os"
 )
 
-var (
-	// Logger is the global logger for the LLM package
-	Logger    *zap.Logger
-	once      sync.Once
-	isVerbose bool
+// Logger defines the interface for logging within the LLM package
+type Logger interface {
+	Debug(msg string, keysAndValues ...interface{})
+	Info(msg string, keysAndValues ...interface{})
+	Warn(msg string, keysAndValues ...interface{})
+	Error(msg string, keysAndValues ...interface{})
+}
+
+// DefaultLogger is a simple implementation of the Logger interface
+type DefaultLogger struct {
+	logger *log.Logger
+	level  LogLevel
+}
+
+type LogLevel int
+
+const (
+	DebugLevel LogLevel = iota
+	InfoLevel
+	WarnLevel
+	ErrorLevel
 )
 
-func init() {
-	// Initialize with default logger (warn level)
-	initLogger(zapcore.WarnLevel)
+// NewDefaultLogger creates a new DefaultLogger with the specified log level
+func NewDefaultLogger(level string) Logger {
+	logLevel := stringToLogLevel(level)
+	return &DefaultLogger{
+		logger: log.New(os.Stderr, "", log.LstdFlags),
+		level:  logLevel,
+	}
 }
 
-// SetLogLevel sets the log level for the LLM package
-func SetLogLevel(level zapcore.Level) {
-	once.Do(func() {
-		initLogger(level)
-	})
-	isVerbose = level <= zapcore.InfoLevel
+func (l *DefaultLogger) log(level LogLevel, msg string, keysAndValues ...interface{}) {
+	if level >= l.level {
+		l.logger.Printf("%s: %s %v", level, msg, keysAndValues)
+	}
 }
 
-// LogLevelFromString converts a string log level to zapcore.Level
-func LogLevelFromString(level string) zapcore.Level {
+func (l *DefaultLogger) Debug(msg string, keysAndValues ...interface{}) {
+	l.log(DebugLevel, msg, keysAndValues...)
+}
+
+func (l *DefaultLogger) Info(msg string, keysAndValues ...interface{}) {
+	l.log(InfoLevel, msg, keysAndValues...)
+}
+
+func (l *DefaultLogger) Warn(msg string, keysAndValues ...interface{}) {
+	l.log(WarnLevel, msg, keysAndValues...)
+}
+
+func (l *DefaultLogger) Error(msg string, keysAndValues ...interface{}) {
+	l.log(ErrorLevel, msg, keysAndValues...)
+}
+
+func stringToLogLevel(level string) LogLevel {
 	switch level {
 	case "debug":
-		return zapcore.DebugLevel
+		return DebugLevel
 	case "info":
-		return zapcore.InfoLevel
+		return InfoLevel
 	case "warn":
-		return zapcore.WarnLevel
+		return WarnLevel
 	case "error":
-		return zapcore.ErrorLevel
+		return ErrorLevel
 	default:
-		return zapcore.WarnLevel // Default to WarnLevel if unknown
+		return WarnLevel
 	}
 }
 
-// InitLogging initializes the logger with the specified log level
-func InitLogging(logLevel string) {
-	level := LogLevelFromString(logLevel)
-	SetLogLevel(level)
-}
-
-// initLogger is a helper function to initialize the logger
-func initLogger(level zapcore.Level) {
-	config := zap.NewProductionConfig()
-	config.Level = zap.NewAtomicLevelAt(level)
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	var err error
-	Logger, err = config.Build()
-	if err != nil {
-		panic(err)
+func (l LogLevel) String() string {
+	switch l {
+	case DebugLevel:
+		return "DEBUG"
+	case InfoLevel:
+		return "INFO"
+	case WarnLevel:
+		return "WARN"
+	case ErrorLevel:
+		return "ERROR"
+	default:
+		return fmt.Sprintf("LogLevel(%d)", int(l))
 	}
-}
-
-// IsVerbose returns true if verbose logging is enabled (info or debug level)
-func IsVerbose() bool {
-	return isVerbose
 }

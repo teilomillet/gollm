@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-func init() {
-	RegisterProvider("openai", NewOpenAIProvider)
+func RegisterOpenAIProvider(registry *ProviderRegistry) {
+	registry.Register("openai", NewOpenAIProvider)
 }
 
 // OpenAIProvider implements the Provider interface for OpenAI
@@ -72,4 +72,3 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 
 	return response.Choices[0].Message.Content, nil
 }
-

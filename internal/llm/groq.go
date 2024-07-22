@@ -5,10 +5,6 @@ import (
 	"fmt"
 )
 
-func init() {
-	RegisterProvider("groq", NewGroqProvider)
-}
-
 // GroqProvider implements the Provider interface for Groq
 type GroqProvider struct {
 	apiKey string
@@ -72,4 +68,3 @@ func (p *GroqProvider) ParseResponse(body []byte) (string, error) {
 
 	return response.Choices[0].Message.Content, nil
 }
-

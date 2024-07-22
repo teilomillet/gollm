@@ -16,7 +16,7 @@ type ComparisonResult struct {
 	Error    error
 }
 
-func CompareProviders(ctx context.Context, prompt string, configs ...*Config) []ComparisonResult {
+func CompareProviders(ctx context.Context, prompt string, registry *ProviderRegistry, logger Logger, configs ...*Config) []ComparisonResult {
 	var results []ComparisonResult
 	var wg sync.WaitGroup
 	resultChan := make(chan ComparisonResult, len(configs))
@@ -26,17 +26,13 @@ func CompareProviders(ctx context.Context, prompt string, configs ...*Config) []
 		go func(cfg *Config) {
 			defer wg.Done()
 
-			provider, err := GetProvider(cfg.Provider, "", cfg.Model)
+			llm, err := NewLLM(cfg, logger, registry)
 			if err != nil {
 				resultChan <- ComparisonResult{Provider: cfg.Provider, Model: cfg.Model, Error: err}
 				return
 			}
 
-			llmClient := NewLLM(provider)
-			llmClient.SetOption("temperature", cfg.Temperature)
-			llmClient.SetOption("max_tokens", cfg.MaxTokens)
-
-			response, _, err := llmClient.Generate(ctx, prompt)
+			response, _, err := llm.Generate(ctx, prompt)
 			resultChan <- ComparisonResult{
 				Provider: cfg.Provider,
 				Model:    cfg.Model,

@@ -5,10 +5,6 @@ import (
 	"fmt"
 )
 
-func init() {
-	RegisterProvider("anthropic", NewAnthropicProvider)
-}
-
 // AnthropicProvider implements the Provider interface for Anthropic
 type AnthropicProvider struct {
 	apiKey string
@@ -71,4 +67,3 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 
 	return response.Content[0].Text, nil
 }
-

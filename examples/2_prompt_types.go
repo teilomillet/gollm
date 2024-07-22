@@ -16,7 +16,14 @@ func main() {
 		log.Println("Warning: Error loading .env file")
 	}
 
-	llm, err := goal.NewLLM("")
+	cfg := goal.NewConfigBuilder().
+		SetProvider("openai").
+		SetModel("gpt-3.5-turbo").
+		SetMaxTokens(150).
+		SetAPIKey("your-api-key-here"). // Replace with your actual API key
+		Build()
+
+	llm, err := goal.NewLLM(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
@@ -31,10 +38,11 @@ func main() {
 	}
 	fmt.Printf("Basic Prompt Response:\n%s\n\n", basicResponse)
 
-	// Example 2: Prompt with Directive and Output
-	directivePrompt := goal.NewPrompt("Explain the concept of recursion").
-		Directive("Use a simple example to illustrate").
-		Output("Explanation of recursion:")
+	// Example 2: Prompt with Directives and Output
+	directivePrompt := goal.NewPrompt("Explain the concept of recursion",
+		goal.WithDirectives("Use a simple example to illustrate", "Keep it concise"),
+		goal.WithOutput("Explanation of recursion:"),
+	)
 	directiveResponse, _, err := llm.Generate(ctx, directivePrompt.String())
 	if err != nil {
 		log.Fatalf("Failed to generate directive response: %v", err)
@@ -42,8 +50,9 @@ func main() {
 	fmt.Printf("Directive Prompt Response:\n%s\n\n", directiveResponse)
 
 	// Example 3: Prompt with Context
-	contextPrompt := goal.NewPrompt("Summarize the main points").
-		Context("The Internet of Things (IoT) is transforming how we live and work. It refers to the interconnected network of physical devices embedded with electronics, software, sensors, and network connectivity, which enables these objects to collect and exchange data.")
+	contextPrompt := goal.NewPrompt("Summarize the main points",
+		goal.WithContext("The Internet of Things (IoT) is transforming how we live and work. It refers to the interconnected network of physical devices embedded with electronics, software, sensors, and network connectivity, which enables these objects to collect and exchange data."),
+	)
 	contextResponse, _, err := llm.Generate(ctx, contextPrompt.String())
 	if err != nil {
 		log.Fatalf("Failed to generate context response: %v", err)
@@ -51,17 +60,19 @@ func main() {
 	fmt.Printf("Context Prompt Response:\n%s\n\n", contextResponse)
 
 	// Example 4: Prompt with Max Length
-	maxLengthPrompt := goal.NewPrompt("Describe the benefits of exercise").
-		MaxLength(50)
+	maxLengthPrompt := goal.NewPrompt("Describe the benefits of exercise",
+		goal.WithMaxLength(50),
+	)
 	maxLengthResponse, _, err := llm.Generate(ctx, maxLengthPrompt.String())
 	if err != nil {
 		log.Fatalf("Failed to generate max length response: %v", err)
 	}
 	fmt.Printf("Max Length Prompt Response:\n%s\n\n", maxLengthResponse)
 
-	// Example 5: Prompt with Examples (Note: This requires a file with examples)
-	examplesPrompt := goal.NewPrompt("Generate a creative name for a tech startup").
-		Examples("path/to/examples.txt", 3, "random")
+	// Example 5: Prompt with Examples
+	examplesPrompt := goal.NewPrompt("Generate a creative name for a tech startup",
+		goal.WithExamples("CloudNine: A cloud storage solution", "EcoTech: An eco-friendly smart home system"),
+	)
 	examplesResponse, _, err := llm.Generate(ctx, examplesPrompt.String())
 	if err != nil {
 		log.Fatalf("Failed to generate examples response: %v", err)

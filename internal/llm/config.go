@@ -3,94 +3,24 @@
 package llm
 
 import (
-	"os"
-	"path/filepath"
+	"time"
 
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"github.com/caarlos0/env/v11"
 )
 
 type Config struct {
-	Provider    string  `yaml:"provider"`
-	Model       string  `yaml:"model"`
-	Temperature float64 `yaml:"temperature"`
-	MaxTokens   int     `yaml:"max_tokens"`
+	Provider    string        `env:"LLM_PROVIDER" envDefault:"anthropic"`
+	Model       string        `env:"LLM_MODEL" envDefault:"claude-3-opus-20240229"`
+	Temperature float64       `env:"LLM_TEMPERATURE" envDefault:"0.7"`
+	MaxTokens   int           `env:"LLM_MAX_TOKENS" envDefault:"100"`
+	APIKey      string        `env:"LLM_API_KEY,required"`
+	Timeout     time.Duration `env:"LLM_TIMEOUT" envDefault:"30s"`
 }
 
-var DefaultConfig = Config{
-	Provider:    "anthropic",
-	Model:       "claude-3-opus-20240229",
-	Temperature: 0.7,
-	MaxTokens:   100,
-}
-
-// LoadConfig loads a single configuration file or returns the default config
-func LoadConfig(path string) (*Config, error) {
-	if path == "" {
-		if IsVerbose() {
-			Logger.Info("No config file specified, using default configuration")
-		}
-		return &DefaultConfig, nil
-	}
-
-	config, err := loadSingleConfig(path)
-	if err != nil {
-		Logger.Warn("Failed to load config, using default", zap.String("path", path), zap.Error(err))
-		return &DefaultConfig, nil
-	}
-
-	return config, nil
-}
-
-// LoadConfigs loads multiple configuration files
-func LoadConfigs(paths ...string) (map[string]*Config, error) {
-	configs := make(map[string]*Config)
-
-	if len(paths) == 0 {
-		configDir := filepath.Join(os.Getenv("HOME"), ".goal", "configs")
-		paths, _ = filepath.Glob(filepath.Join(configDir, "*.yaml"))
-	}
-
-	for _, path := range paths {
-		config, err := loadSingleConfig(path)
-		if err != nil {
-			Logger.Warn("Failed to load config", zap.String("path", path), zap.Error(err))
-			continue
-		}
-		configs[filepath.Base(path)] = config
-	}
-
-	if len(configs) == 0 {
-		Logger.Info("No valid configs found, using default")
-		configs["default"] = &DefaultConfig
-	}
-
-	return configs, nil
-}
-
-func loadSingleConfig(path string) (*Config, error) {
-	Logger.Debug("Loading config file", zap.String("path", path))
-
-	data, err := os.ReadFile(path)
-	if err != nil {
+func LoadConfig() (*Config, error) {
+	cfg := &Config{}
+	if err := env.Parse(cfg); err != nil {
 		return nil, err
 	}
-
-	var config Config
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, err
-	}
-
-	Logger.Info("Config loaded successfully", zap.String("path", path), zap.Any("config", config))
-	return &config, nil
-}
-
-func (c *Config) Save(path string) error {
-	data, err := yaml.Marshal(c)
-	if err != nil {
-		return err
-	}
-
-	Logger.Debug("Saving config file", zap.String("path", path))
-	return os.WriteFile(path, data, 0644)
+	return cfg, nil
 }

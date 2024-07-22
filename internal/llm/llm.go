@@ -5,21 +5,15 @@ package llm
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
-	"os"
-	"strings"
 )
 
-// LLM defines the common interface for all LLM providers
 type LLM interface {
 	Generate(ctx context.Context, prompt string) (response string, fullPrompt string, err error)
 	SetOption(key string, value interface{})
 }
 
-// Provider defines the interface for different LLM providers
 type Provider interface {
 	Name() string
 	Endpoint() string
@@ -28,45 +22,48 @@ type Provider interface {
 	ParseResponse(body []byte) (string, error)
 }
 
-// LLMImpl represents a generic language model instance
 type LLMImpl struct {
 	Provider Provider
 	Options  map[string]interface{}
 	client   *http.Client
+	logger   Logger
 }
 
-// NewLLM creates a new LLM instance
-func NewLLM(provider Provider) LLM {
-	return &LLMImpl{
+func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, error) {
+	provider, err := registry.Get(config.Provider, config.APIKey, config.Model)
+	if err != nil {
+		return nil, err
+	}
+
+	llmClient := &LLMImpl{
 		Provider: provider,
 		Options:  make(map[string]interface{}),
-		client:   &http.Client{},
+		client:   &http.Client{Timeout: config.Timeout},
+		logger:   logger,
 	}
+	llmClient.SetOption("temperature", config.Temperature)
+	llmClient.SetOption("max_tokens", config.MaxTokens)
+
+	return llmClient, nil
 }
 
-// SetOption sets an option for the LLM
 func (l *LLMImpl) SetOption(key string, value interface{}) {
 	l.Options[key] = value
-	if IsVerbose() {
-		Logger.Info("Option set", zap.String("key", key), zap.Any("value", value))
-	}
+	l.logger.Debug("Option set", key, value)
 }
 
-// Generate generates text based on the given prompt
 func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, string, error) {
-	if IsVerbose() {
-		Logger.Info("Generating text", zap.String("provider", l.Provider.Name()), zap.String("prompt", prompt))
-	}
+	l.logger.Info("Generating text", "provider", l.Provider.Name(), "prompt", prompt)
 
 	reqBody, err := l.Provider.PrepareRequest(prompt, l.Options)
 	if err != nil {
-		Logger.Error("Failed to prepare request", zap.Error(err))
+		l.logger.Error("Failed to prepare request", "error", err)
 		return "", prompt, NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {
-		Logger.Error("Failed to create request", zap.Error(err))
+		l.logger.Error("Failed to create request", "error", err)
 		return "", prompt, NewLLMError(ErrorTypeRequest, "failed to create request", err)
 	}
 
@@ -76,50 +73,28 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, string, 
 
 	resp, err := l.client.Do(req)
 	if err != nil {
-		Logger.Error("Failed to send request", zap.Error(err))
+		l.logger.Error("Failed to send request", "error", err)
 		return "", prompt, NewLLMError(ErrorTypeRequest, "failed to send request", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		Logger.Error("API error", zap.Int("status_code", resp.StatusCode))
+		l.logger.Error("API error", "status_code", resp.StatusCode)
 		return "", prompt, NewLLMError(ErrorTypeAPI, "API error", nil)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		Logger.Error("Failed to read response body", zap.Error(err))
+		l.logger.Error("Failed to read response body", "error", err)
 		return "", prompt, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
 	}
 
 	result, err := l.Provider.ParseResponse(body)
 	if err != nil {
-		Logger.Error("Failed to parse response", zap.Error(err))
+		l.logger.Error("Failed to parse response", "error", err)
 		return "", prompt, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
 	}
 
-	if IsVerbose() {
-		Logger.Info("Text generated successfully", zap.String("result", result))
-	}
+	l.logger.Info("Text generated successfully", "result", result)
 	return result, prompt, nil
-}
-
-// NewLLMFromConfig creates a new LLM instance from a Config
-func NewLLMFromConfig(config *Config) (LLM, error) {
-	apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(config.Provider))
-	apiKey := os.Getenv(apiKeyEnv)
-	if apiKey == "" {
-		return nil, fmt.Errorf("API key for %s not set. Please set the %s environment variable", config.Provider, apiKeyEnv)
-	}
-
-	provider, err := GetProvider(config.Provider, apiKey, config.Model)
-	if err != nil {
-		return nil, err
-	}
-
-	llmClient := NewLLM(provider)
-	llmClient.SetOption("temperature", config.Temperature)
-	llmClient.SetOption("max_tokens", config.MaxTokens)
-
-	return llmClient, nil
 }

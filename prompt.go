@@ -3,90 +3,114 @@ package goal
 import (
 	"fmt"
 	"strings"
-
-	"github.com/teilomillet/goal/internal/llm"
 )
 
 // Prompt represents a structured prompt for an LLM
 type Prompt struct {
-	*llm.Prompt
-	examples  []string
-	maxLength *int
-	context   string
+	Input      string
+	Output     string
+	Directives []string
+	Context    string
+	MaxLength  int
+	Examples   []string
 }
 
-// NewPrompt creates a new Prompt
-func NewPrompt(input string) *Prompt {
-	return &Prompt{Prompt: llm.NewPrompt(input)}
-}
+// PromptOption is a function type that modifies a Prompt
+type PromptOption func(*Prompt)
 
-// Directive adds a directive to the Prompt
-func (p *Prompt) Directive(directive string) *Prompt {
-	p.Prompt.WithDirective(directive)
-	return p
-}
-
-// Output adds an output specification to the Prompt
-func (p *Prompt) Output(output string) *Prompt {
-	p.Prompt.WithOutput(output)
-	return p
-}
-
-// Input adds or updates the input of the Prompt
-func (p *Prompt) Input(input string) *Prompt {
-	p.Prompt.Input = input
-	return p
-}
-
-// Examples adds examples to the Prompt
-func (p *Prompt) Examples(filePath string, n int, order string) *Prompt {
-	examples, err := readExamplesFromFile(filePath)
-	if err != nil {
-		// Log the error and return the prompt without examples
-		// You might want to use your logging system here
-		return p
+// NewPrompt creates a new Prompt with the given input and applies any provided options
+func NewPrompt(input string, opts ...PromptOption) *Prompt {
+	p := &Prompt{
+		Input: input,
 	}
-
-	p.examples = selectExamples(examples, n, order)
+	for _, opt := range opts {
+		opt(p)
+	}
 	return p
 }
 
-// MaxLength sets the maximum length for the output
-func (p *Prompt) MaxLength(length int) *Prompt {
-	p.maxLength = &length
-	return p
+// WithDirectives adds directives to the Prompt
+func WithDirectives(directives ...string) PromptOption {
+	return func(p *Prompt) {
+		p.Directives = append(p.Directives, directives...)
+	}
 }
 
-// Context adds context to the Prompt
-func (p *Prompt) Context(context string) *Prompt {
-	p.context = context
-	return p
+// WithOutput adds an output specification to the Prompt
+func WithOutput(output string) PromptOption {
+	return func(p *Prompt) {
+		p.Output = output
+	}
+}
+
+// WithContext adds context to the Prompt
+func WithContext(context string) PromptOption {
+	return func(p *Prompt) {
+		p.Context = context
+	}
+}
+
+// WithMaxLength sets the maximum length for the output
+func WithMaxLength(length int) PromptOption {
+	return func(p *Prompt) {
+		p.MaxLength = length
+	}
+}
+
+// WithExamples adds examples to the Prompt
+func WithExamples(examples ...string) PromptOption {
+	return func(p *Prompt) {
+		p.Examples = append(p.Examples, examples...)
+	}
+}
+
+// Apply applies the given options to the Prompt
+func (p *Prompt) Apply(opts ...PromptOption) {
+	for _, opt := range opts {
+		opt(p)
+	}
 }
 
 // String returns the formatted prompt as a string
 func (p *Prompt) String() string {
 	var builder strings.Builder
 
-	if p.context != "" {
+	if p.Context != "" {
 		builder.WriteString("Context: ")
-		builder.WriteString(p.context)
+		builder.WriteString(p.Context)
 		builder.WriteString("\n\n")
 	}
 
-	builder.WriteString(p.Prompt.String())
-
-	if p.maxLength != nil {
-		builder.WriteString(fmt.Sprintf("\nPlease limit your response to approximately %d words.", *p.maxLength))
+	if len(p.Directives) > 0 {
+		builder.WriteString("Directives:\n")
+		for _, d := range p.Directives {
+			builder.WriteString("- ")
+			builder.WriteString(d)
+			builder.WriteString("\n")
+		}
+		builder.WriteString("\n")
 	}
 
-	if len(p.examples) > 0 {
-		builder.WriteString("\nExamples:\n")
-		for _, example := range p.examples {
+	builder.WriteString(p.Input)
+
+	if p.Output != "" {
+		builder.WriteString("\n\nExpected Output Format:\n")
+		builder.WriteString(p.Output)
+	}
+
+	if len(p.Examples) > 0 {
+		builder.WriteString("\n\nExamples:\n")
+		for _, example := range p.Examples {
 			builder.WriteString("- ")
 			builder.WriteString(example)
 			builder.WriteString("\n")
 		}
 	}
 
+	if p.MaxLength > 0 {
+		builder.WriteString(fmt.Sprintf("\n\nPlease limit your response to approximately %d words.", p.MaxLength))
+	}
+
 	return builder.String()
 }
+
