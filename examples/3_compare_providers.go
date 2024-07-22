@@ -7,26 +7,16 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/joho/godotenv"
 	"github.com/teilomillet/goal"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: Error loading .env file")
-	}
 
 	providers := []string{"openai", "anthropic"}
 	llms := make(map[string]goal.LLM)
 
 	for _, provider := range providers {
-		cfg := goal.NewConfigBuilder().
-			SetProvider(provider).
-			SetMaxTokens(100).
-			SetAPIKey("your-api-key-here"). // Replace with your actual API key
-			Build()
-
-		llm, err := goal.NewLLM(cfg)
+		llm, err := goal.NewLLM()
 		if err != nil {
 			log.Fatalf("Failed to create LLM client for %s: %v", provider, err)
 		}

@@ -9,15 +9,7 @@ import (
 )
 
 func main() {
-	cfg := goal.NewConfigBuilder().
-		SetProvider("openai").
-		SetModel("gpt-3.5-turbo").
-		SetMaxTokens(150).
-		SetTemperature(0.7).
-		SetAPIKey("your-api-key-here"). // Replace with your actual API key
-		Build()
-
-	llmClient, err := goal.NewLLM(cfg)
+	llmClient, err := goal.NewLLM()
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}

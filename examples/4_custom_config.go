@@ -7,16 +7,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/joho/godotenv"
 	"github.com/teilomillet/goal"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: Error loading .env file")
-	}
-
-	llm, err := goal.NewLLM("")
+	llm, err := goal.NewLLM()
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
@@ -24,11 +19,19 @@ func main() {
 	ctx := context.Background()
 
 	// Custom prompt template
-	analysisPrompt := goal.NewPrompt("Analyze the following topic:").
-		Directive("Consider technological, economic, and social implications").
-		Directive("Provide at least one potential positive and one potential negative outcome").
-		Directive("Conclude with a balanced summary").
-		Output("Analysis:")
+	analysisPrompt := goal.NewPromptTemplate(
+		"CustomAnalysis",
+		"Analyze a given topic",
+		"Analyze the following topic: {{.Topic}}",
+		goal.WithPromptOptions(
+			goal.WithDirectives(
+				"Consider technological, economic, and social implications",
+				"Provide at least one potential positive and one potential negative outcome",
+				"Conclude with a balanced summary",
+			),
+			goal.WithOutput("Analysis:"),
+		),
+	)
 
 	topics := []string{
 		"The widespread adoption of artificial intelligence",
@@ -37,8 +40,15 @@ func main() {
 	}
 
 	for _, topic := range topics {
-		fullPrompt := analysisPrompt.Input(topic)
-		analysis, _, err := llm.Generate(ctx, fullPrompt.String())
+		prompt, err := analysisPrompt.Execute(map[string]interface{}{
+			"Topic": topic,
+		})
+		if err != nil {
+			log.Printf("Failed to execute prompt template for topic '%s': %v\n", topic, err)
+			continue
+		}
+
+		analysis, _, err := llm.Generate(ctx, prompt.String())
 		if err != nil {
 			log.Printf("Failed to generate analysis for topic '%s': %v\n", topic, err)
 			continue

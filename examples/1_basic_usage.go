@@ -5,23 +5,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/joho/godotenv"
 	"github.com/teilomillet/goal"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: Error loading .env file")
-	}
-
-	cfg := goal.NewConfigBuilder().
-		SetProvider("openai").
-		SetModel("gpt-3.5-turbo").
-		SetMaxTokens(100).
-		SetAPIKey("your-api-key-here"). // Replace with your actual API key
-		Build()
-
-	llm, err := goal.NewLLM(cfg)
+	llm, err := goal.NewLLM(
+		goal.SetMaxTokens(200),
+	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}

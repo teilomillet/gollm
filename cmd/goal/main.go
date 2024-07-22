@@ -11,26 +11,45 @@ import (
 )
 
 func main() {
-	configPath := flag.String("config", "", "Path to config file")
+	// Command-line flags for all configuration options
 	promptType := flag.String("type", "raw", "Prompt type (raw, qa, cot, summarize)")
 	verbose := flag.Bool("verbose", false, "Display verbose output including full prompt")
-	showConfig := flag.Bool("show-config", false, "Display the loaded configuration")
-	logLevel := flag.String("log-level", "", "Log level (debug, info, warn, error)")
+	provider := flag.String("provider", "", "LLM provider (anthropic, openai, groq)")
+	model := flag.String("model", "", "LLM model")
+	temperature := flag.Float64("temperature", -1, "LLM temperature")
+	maxTokens := flag.Int("max-tokens", 0, "LLM max tokens")
+	timeout := flag.Duration("timeout", 0, "LLM timeout")
+	apiKey := flag.String("api-key", "", "API key for the specified provider")
 
 	flag.Parse()
 
-	var llmClient goal.LLM
-	var err error
+	// Prepare configuration options
+	var configOpts []goal.ConfigOption
 
-	if *logLevel != "" {
-		llmClient, err = goal.NewLLM(*configPath, *logLevel)
-	} else {
-		llmClient, err = goal.NewLLM(*configPath)
+	if *provider != "" {
+		configOpts = append(configOpts, goal.SetProvider(*provider))
 	}
-	handleError(err, true)
+	if *model != "" {
+		configOpts = append(configOpts, goal.SetModel(*model))
+	}
+	if *temperature != -1 {
+		configOpts = append(configOpts, goal.SetTemperature(*temperature))
+	}
+	if *maxTokens != 0 {
+		configOpts = append(configOpts, goal.SetMaxTokens(*maxTokens))
+	}
+	if *timeout != 0 {
+		configOpts = append(configOpts, goal.SetTimeout(*timeout))
+	}
+	if *apiKey != "" {
+		configOpts = append(configOpts, goal.SetAPIKey(*apiKey))
+	}
 
-	if *showConfig {
-		fmt.Printf("Loaded configuration:\n%+v\n\n", llmClient)
+	// Create LLM client with the specified options
+	llmClient, err := goal.NewLLM(configOpts...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating LLM client: %v\n", err)
+		os.Exit(1)
 	}
 
 	if len(flag.Args()) < 1 {
@@ -40,9 +59,10 @@ func main() {
 	}
 
 	rawPrompt := strings.Join(flag.Args(), " ")
-
 	ctx := context.Background()
+
 	var response string
+	var fullPrompt string
 
 	switch *promptType {
 	case "qa":
@@ -50,25 +70,21 @@ func main() {
 	case "cot":
 		response, err = goal.ChainOfThought(ctx, llmClient, rawPrompt)
 	case "summarize":
-		response, err = goal.Summarize(ctx, llmClient, rawPrompt, 100) // Default to 100 words summary
+		response, err = goal.Summarize(ctx, llmClient, rawPrompt)
 	default:
-		prompt := goal.NewPrompt(rawPrompt)
-		response, _, err = llmClient.Generate(ctx, prompt.String())
+		response, fullPrompt, err = llmClient.Generate(ctx, rawPrompt)
 	}
 
-	handleError(err, true)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error generating response: %v\n", err)
+		os.Exit(1)
+	}
 
 	if *verbose {
-		fmt.Printf("Prompt Type: %s\nRaw Prompt: %s\n\nResponse:\n---------\n", *promptType, rawPrompt)
+		if fullPrompt == "" {
+			fullPrompt = rawPrompt // For qa, cot, and summarize, we don't have access to the full prompt
+		}
+		fmt.Printf("Prompt Type: %s\nFull Prompt:\n%s\n\nResponse:\n---------\n", *promptType, fullPrompt)
 	}
 	fmt.Println(response)
-}
-
-func handleError(err error, fatal bool) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		if fatal {
-			os.Exit(1)
-		}
-	}
 }

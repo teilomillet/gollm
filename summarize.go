@@ -5,18 +5,18 @@ import (
 	"fmt"
 )
 
-var summarizeTemplate = &PromptTemplate{
-	Name:        "Summarize",
-	Description: "Summarize the given text",
-	Template:    "Summarize the following text:\n\n{{.Text}}",
-	Options: []PromptOption{
+var summarizeTemplate = NewPromptTemplate(
+	"Summarize",
+	"Summarize the given text",
+	"Summarize the following text:\n\n{{.Text}}",
+	WithPromptOptions(
 		WithDirectives(
 			"Provide a concise summary",
 			"Capture the main points and key details",
 		),
 		WithOutput("Summary:"),
-	},
-}
+	),
+)
 
 // Summarize performs text summarization
 func Summarize(ctx context.Context, l LLM, text string, opts ...PromptOption) (string, error) {

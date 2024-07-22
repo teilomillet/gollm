@@ -1,3 +1,5 @@
+// File: prompt.go
+
 package goal
 
 import (

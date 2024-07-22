@@ -1,15 +1,15 @@
-// File: goal/goal.go
+// File: goal.go
 
 package goal
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/teilomillet/goal/internal/llm"
 )
 
-// LLM represents the main interface for interacting with language models
 type LLM interface {
 	Generate(ctx context.Context, prompt string) (response string, fullPrompt string, err error)
 	SetOption(key string, value interface{})
@@ -19,108 +19,87 @@ type llmImpl struct {
 	llm.LLM
 }
 
-// Config represents the configuration for creating a new LLM instance
-type Config struct {
-	Providers   []string
-	Provider    string
-	Model       string
-	Temperature float64
-	MaxTokens   int
-	APIKey      string
-	Timeout     time.Duration
-	LogLevel    string
-}
+// ConfigOption is a function type that modifies a Config
+type ConfigOption func(*llm.Config)
 
-// ConfigBuilder helps in building the Config with default values
-type ConfigBuilder struct {
-	config Config
-}
-
-// NewConfigBuilder creates a new ConfigBuilder with default values
-func NewConfigBuilder() *ConfigBuilder {
-	return &ConfigBuilder{
-		config: Config{
-			Provider:    "anthropic",
-			Model:       "claude-3-opus-20240229",
-			Temperature: 0.7,
-			MaxTokens:   100,
-			Timeout:     30 * time.Second,
-			LogLevel:    "warn",
-		},
+// SetProvider sets the provider in the Config
+func SetProvider(provider string) ConfigOption {
+	return func(c *llm.Config) {
+		c.Provider = provider
 	}
 }
 
-// SetProviders sets the list of providers
-func (cb *ConfigBuilder) SetProviders(providers ...string) *ConfigBuilder {
-	cb.config.Providers = providers
-	return cb
+// SetModel sets the model in the Config
+func SetModel(model string) ConfigOption {
+	return func(c *llm.Config) {
+		c.Model = model
+	}
 }
 
-// SetProvider sets the primary provider
-func (cb *ConfigBuilder) SetProvider(provider string) *ConfigBuilder {
-	cb.config.Provider = provider
-	return cb
+// SetTemperature sets the temperature in the Config
+func SetTemperature(temperature float64) ConfigOption {
+	return func(c *llm.Config) {
+		c.Temperature = temperature
+	}
 }
 
-// SetModel sets the model
-func (cb *ConfigBuilder) SetModel(model string) *ConfigBuilder {
-	cb.config.Model = model
-	return cb
+// SetMaxTokens sets the max tokens in the Config
+func SetMaxTokens(maxTokens int) ConfigOption {
+	return func(c *llm.Config) {
+		c.MaxTokens = maxTokens
+	}
 }
 
-// SetTemperature sets the temperature
-func (cb *ConfigBuilder) SetTemperature(temperature float64) *ConfigBuilder {
-	cb.config.Temperature = temperature
-	return cb
+// SetTimeout sets the timeout in the Config
+func SetTimeout(timeout time.Duration) ConfigOption {
+	return func(c *llm.Config) {
+		c.Timeout = timeout
+	}
 }
 
-// SetMaxTokens sets the max tokens
-func (cb *ConfigBuilder) SetMaxTokens(maxTokens int) *ConfigBuilder {
-	cb.config.MaxTokens = maxTokens
-	return cb
+// SetAPIKey sets the API key for the current provider in the Config
+func SetAPIKey(key string) ConfigOption {
+	return func(c *llm.Config) {
+		c.APIKeys[c.Provider] = key
+	}
 }
 
-// SetAPIKey sets the API key
-func (cb *ConfigBuilder) SetAPIKey(apiKey string) *ConfigBuilder {
-	cb.config.APIKey = apiKey
-	return cb
-}
-
-// SetTimeout sets the timeout
-func (cb *ConfigBuilder) SetTimeout(timeout time.Duration) *ConfigBuilder {
-	cb.config.Timeout = timeout
-	return cb
-}
-
-// SetLogLevel sets the log level
-func (cb *ConfigBuilder) SetLogLevel(logLevel string) *ConfigBuilder {
-	cb.config.LogLevel = logLevel
-	return cb
-}
-
-// Build creates the final Config
-func (cb *ConfigBuilder) Build() Config {
-	return cb.config
-}
-
-// NewLLM creates a new LLM instance from a Config
-func NewLLM(cfg Config) (LLM, error) {
-	registry := llm.NewProviderRegistry(cfg.Providers...)
-
-	logger := llm.NewDefaultLogger(cfg.LogLevel)
-
-	internalConfig := &llm.Config{
-		Provider:    cfg.Provider,
-		Model:       cfg.Model,
-		Temperature: cfg.Temperature,
-		MaxTokens:   cfg.MaxTokens,
-		APIKey:      cfg.APIKey,
-		Timeout:     cfg.Timeout,
+// NewLLM creates a new LLM instance with the provided config options
+func NewLLM(opts ...ConfigOption) (LLM, error) {
+	config, err := llm.LoadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	l, err := llm.NewLLM(internalConfig, logger, registry)
+	// log.Printf("Loaded config: Provider=%s, Model=%s, MaxTokens=%d", config.Provider, config.Model, config.MaxTokens)
+	// log.Printf("API Keys loaded for providers: %v", getKeysWithoutValues(config.APIKeys))
+
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	// log.Printf("Config after applying options: Provider=%s, Model=%s, MaxTokens=%d", config.Provider, config.Model, config.MaxTokens)
+	// log.Printf("Final API Keys loaded for providers: %v", getKeysWithoutValues(config.APIKeys))
+
+	if len(config.APIKeys) == 0 {
+		return nil, fmt.Errorf("at least one API key is required")
+	}
+
+	logger := llm.NewDefaultLogger("warn")
+	registry := llm.NewProviderRegistry()
+
+	l, err := llm.NewLLM(config, logger, registry)
 	if err != nil {
 		return nil, err
 	}
+
 	return &llmImpl{l}, nil
+}
+
+func getKeysWithoutValues(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

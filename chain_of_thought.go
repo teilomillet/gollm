@@ -5,18 +5,18 @@ import (
 	"fmt"
 )
 
-var chainOfThoughtTemplate = &PromptTemplate{
-	Name:        "ChainOfThought",
-	Description: "Perform a chain of thought reasoning",
-	Template:    "Perform a chain of thought reasoning for the following question:\n\n{{.Question}}",
-	Options: []PromptOption{
+var chainOfThoughtTemplate = NewPromptTemplate(
+	"ChainOfThought",
+	"Perform a chain of thought reasoning",
+	"Perform a chain of thought reasoning for the following question:\n\n{{.Question}}",
+	WithPromptOptions(
 		WithDirectives(
 			"Break down the problem into steps",
 			"Show your reasoning for each step",
 		),
 		WithOutput("Chain of Thought:"),
-	},
-}
+	),
+)
 
 // ChainOfThought performs a chain of thought reasoning
 func ChainOfThought(ctx context.Context, l LLM, question string, opts ...PromptOption) (string, error) {

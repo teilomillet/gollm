@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	llmClient, err := goal.NewLLM("")
+	llmClient, err := goal.NewLLM(goal.NewConfigBuilder().Build())
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
@@ -29,17 +29,22 @@ func main() {
 	fmt.Printf("Easy Answer:\n%s\n\n", easyAnswer)
 
 	// Advanced: Creating a custom, reusable prompt template
-	// Save a reusable directive
-	balancedAnalysisDirective := goal.NewPrompt("").
-		Directive("Consider technological, economic, social, and ethical implications").
-		Directive("Provide at least one potential positive and one potential negative outcome for each perspective").
-		Directive("Conclude with a balanced summary of no more than 3 sentences")
+	balancedAnalysisDirectives := []string{
+		"Consider technological, economic, social, and ethical implications",
+		"Provide at least one potential positive and one potential negative outcome for each perspective",
+		"Conclude with a balanced summary of no more than 3 sentences",
+	}
 
-	advancedPromptTemplate := goal.NewPrompt("Analyze the following topic from multiple perspectives:").
-		Directive(balancedAnalysisDirective.String()). // Reuse the saved directive
-		Output("Multi-perspective Analysis:").
-		Examples("path/to/examples.txt", 2, "random").
-		MaxLength(300)
+	advancedPromptTemplate := goal.NewPromptTemplate(
+		"AdvancedAnalysis",
+		"Analyze a topic from multiple perspectives",
+		"Analyze the following topic from multiple perspectives: {{.Topic}}",
+		goal.WithPromptOptions(
+			goal.WithDirectives(balancedAnalysisDirectives...),
+			goal.WithOutput("Multi-perspective Analysis:"),
+			goal.WithMaxLength(300),
+		),
+	)
 
 	// Using the custom prompt template for different topics
 	topics := []string{
@@ -49,8 +54,14 @@ func main() {
 	}
 
 	for _, topic := range topics {
-		fullPrompt := advancedPromptTemplate.Input(topic)
-		analysis, _, err := llmClient.Generate(ctx, fullPrompt.String())
+		prompt, err := advancedPromptTemplate.Execute(map[string]interface{}{
+			"Topic": topic,
+		})
+		if err != nil {
+			log.Fatalf("Failed to execute prompt template for topic '%s': %v", topic, err)
+		}
+
+		analysis, _, err := llmClient.Generate(ctx, prompt.String())
 		if err != nil {
 			log.Fatalf("Failed to generate analysis for topic '%s': %v", topic, err)
 		}
@@ -61,16 +72,31 @@ func main() {
 
 	// Expert: Combining custom prompts with other goal package features
 	expertTopic := "The impact of social media on democratic processes"
-	expertPrompt := advancedPromptTemplate.Input(expertTopic).
-		Context("Recent studies have shown increasing polarization in online political discussions.").
-		Directive("Focus particularly on the spread of misinformation and its effects on voter behavior")
+	expertPromptTemplate := goal.NewPromptTemplate(
+		"ExpertAnalysis",
+		"Expert analysis of a topic",
+		"Analyze the following topic: {{.Topic}}",
+		goal.WithPromptOptions(
+			goal.WithDirectives(balancedAnalysisDirectives...),
+			goal.WithContext("Recent studies have shown increasing polarization in online political discussions."),
+			goal.WithDirectives("Focus particularly on the spread of misinformation and its effects on voter behavior"),
+			goal.WithOutput("Expert Analysis:"),
+		),
+	)
+
+	expertPrompt, err := expertPromptTemplate.Execute(map[string]interface{}{
+		"Topic": expertTopic,
+	})
+	if err != nil {
+		log.Fatalf("Failed to execute expert prompt template: %v", err)
+	}
 
 	expertAnalysis, _, err := llmClient.Generate(ctx, expertPrompt.String())
 	if err != nil {
 		log.Fatalf("Failed to generate expert analysis: %v", err)
 	}
 
-	summary, err := goal.Summarize(ctx, llmClient, expertAnalysis, 50)
+	summary, err := goal.Summarize(ctx, llmClient, expertAnalysis, goal.WithMaxLength(50))
 	if err != nil {
 		log.Fatalf("Failed to generate summary: %v", err)
 	}

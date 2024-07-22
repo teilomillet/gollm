@@ -1,10 +1,11 @@
-// File: llm/llm.go
+// File: internal/llm/llm.go
 
 package llm
 
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -27,10 +28,11 @@ type LLMImpl struct {
 	Options  map[string]interface{}
 	client   *http.Client
 	logger   Logger
+	config   *Config
 }
 
 func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, error) {
-	provider, err := registry.Get(config.Provider, config.APIKey, config.Model)
+	provider, err := registry.Get(config.Provider, config.APIKeys[config.Provider], config.Model)
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +42,7 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 		Options:  make(map[string]interface{}),
 		client:   &http.Client{Timeout: config.Timeout},
 		logger:   logger,
+		config:   config,
 	}
 	llmClient.SetOption("temperature", config.Temperature)
 	llmClient.SetOption("max_tokens", config.MaxTokens)
@@ -80,7 +83,7 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, string, 
 
 	if resp.StatusCode != http.StatusOK {
 		l.logger.Error("API error", "status_code", resp.StatusCode)
-		return "", prompt, NewLLMError(ErrorTypeAPI, "API error", nil)
+		return "", prompt, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
 	}
 
 	body, err := io.ReadAll(resp.Body)

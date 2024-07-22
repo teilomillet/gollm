@@ -5,15 +5,17 @@ import (
 	"fmt"
 )
 
-var QuestionAnswerTemplate = &PromptTemplate{
-	Name:        "QuestionAnswer",
-	Description: "Answer the given question",
-	Template:    "Answer the following question:\n\n{{.Question}}",
-	Directives:  []string{"Provide a clear and concise answer"},
-	Output:      "Answer:",
-}
+var QuestionAnswerTemplate = NewPromptTemplate(
+	"QuestionAnswer",
+	"Answer the given question",
+	"Answer the following question:\n\n{{.Question}}",
+	WithPromptOptions(
+		WithDirectives("Provide a clear and concise answer"),
+		WithOutput("Answer:"),
+	),
+)
 
-// QuestionAnswer performs question answering with optional configurations
+// QuestionAnswer performs question answering
 func QuestionAnswer(ctx context.Context, l LLM, question string, opts ...PromptOption) (string, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -26,10 +28,7 @@ func QuestionAnswer(ctx context.Context, l LLM, question string, opts ...PromptO
 		return "", fmt.Errorf("failed to execute question answer template: %w", err)
 	}
 
-	// Apply all the provided options
-	for _, opt := range opts {
-		opt(prompt)
-	}
+	prompt.Apply(opts...)
 
 	response, _, err := l.Generate(ctx, prompt.String())
 	if err != nil {

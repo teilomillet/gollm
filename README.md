@@ -1,18 +1,20 @@
 # goal - Go Abstract Language Model Interface
 
-`goal` is a Go package that provides a simple, unified interface for interacting with various Language Model (LLM) providers. It abstracts away the differences between different LLM APIs, allowing you to easily switch between providers or use multiple providers in your application.
+`goal` is a Go package designed to simplify and streamline interactions with various Language Model (LLM) providers. It's built for AI engineers and developers who want a unified, flexible, and powerful interface to work with multiple LLM APIs.
 
-## Features
+## Key Features
 
-- Unified interface for multiple LLM providers (Anthropic, OpenAI, etc.)
-- Flexible and powerful prompt creation and management
-- High-level functions for common tasks (QuestionAnswer, Summarize, etc.)
-- Easy configuration management
-- Support for advanced prompt engineering techniques
+- **Unified API**: Work with multiple LLM providers (OpenAI, Anthropic, Groq) through a single, consistent interface.
+- **Easy Provider Switching**: Seamlessly switch between different LLM providers or models with minimal code changes.
+- **Flexible Configuration**: Configure your LLM interactions via environment variables, code, or command-line flags.
+- **High-Level AI Functions**: Utilize pre-built functions for common AI tasks like question-answering, summarization, and chain-of-thought reasoning.
+- **Advanced Prompt Engineering**: Create sophisticated prompts with directives, context, and examples.
+- **Provider Comparison**: Easily compare responses from multiple LLM providers for the same prompt.
+- **Extensible Architecture**: Add new LLM providers with minimal effort.
+- **CLI Tool**: Use `goal` directly from the command line for quick experiments and workflows.
+- **Robust Error Handling**: Detailed error types for better error management and debugging.
 
 ## Installation
-
-To install the `goal` package, use `go get`:
 
 ```bash
 go get github.com/teilomillet/goal
@@ -20,7 +22,7 @@ go get github.com/teilomillet/goal
 
 ## Quick Start
 
-Here's a simple example to get you started:
+### Basic Usage
 
 ```go
 package main
@@ -34,127 +36,166 @@ import (
 )
 
 func main() {
-	// Create a new LLM client
-	llm, err := goal.NewLLM("")
+	cfg := goal.NewConfigBuilder().
+		SetProvider("openai").
+		SetModel("gpt-3.5-turbo").
+		SetMaxTokens(100).
+		SetAPIKey("your-api-key-here").
+		Build()
+
+	llm, err := goal.NewLLM(cfg)
 	if err != nil {
-		log.Fatalf("Failed to create LLM client: %v", err)
+		log.Fatalf("Failed to create LLM: %v", err)
 	}
 
-	// Create a prompt
-	prompt := goal.NewPrompt("Explain the concept of recursion").
-		Directive("Use a simple example").
-		Output("Explanation:")
-
-	// Generate a response
 	ctx := context.Background()
+
+	prompt := goal.NewPrompt("Tell me a short joke about programming.",
+		goal.WithMaxLength(50),
+	)
 	response, _, err := llm.Generate(ctx, prompt.String())
 	if err != nil {
-		log.Fatalf("Failed to generate response: %v", err)
+		log.Fatalf("Failed to generate text: %v", err)
 	}
-
 	fmt.Printf("Response: %s\n", response)
 }
 ```
 
-## Advanced Prompt Usage
+## Advanced Usage
 
-The `Prompt` struct in `goal` provides a powerful way to create sophisticated prompts. Here are some of the key features:
+### Prompt Types
 
-### Adding Directives
+`goal` supports various prompt types to cater to different use cases:
 
-Directives guide the LLM on how to approach the task:
+1. **Basic Prompt**: Simple text input.
+2. **Prompt with Directives**: Guide the LLM's response.
+3. **Prompt with Context**: Provide background information.
+4. **Prompt with Max Length**: Limit response length.
+5. **Prompt with Examples**: Provide example inputs/outputs.
 
-```go
-prompt := goal.NewPrompt("Analyze the impact of AI on healthcare").
-	Directive("Consider both positive and negative impacts").
-	Directive("Provide specific examples where possible")
-```
-
-### Specifying Output Format
-
-You can specify the desired output format:
+Example:
 
 ```go
-prompt := goal.NewPrompt("List the top 5 programming languages of 2023").
-	Output("Numbered list:")
+directivePrompt := goal.NewPrompt("Explain the concept of recursion",
+	goal.WithDirectives("Use a simple example to illustrate", "Keep it concise"),
+	goal.WithOutput("Explanation of recursion:"),
+)
 ```
 
-### Adding Context
+### Comparing Providers
 
-Provide additional context to inform the LLM's response:
+Easily compare responses from different LLM providers:
 
 ```go
-prompt := goal.NewPrompt("Summarize the main points").
-	Context("The following text is from a research paper on climate change:").
-	Input("...") // Your input text here
+providers := []string{"openai", "anthropic"}
+llms := make(map[string]goal.LLM)
+
+for _, provider := range providers {
+	cfg := goal.NewConfigBuilder().
+		SetProvider(provider).
+		SetMaxTokens(100).
+		SetAPIKey("your-api-key-here").
+		Build()
+
+	llm, _ := goal.NewLLM(cfg)
+	llms[provider] = llm
+}
+
+question := "What is the capital of France?"
+for provider, llm := range llms {
+	answer, _ := goal.QuestionAnswer(ctx, llm, question)
+	fmt.Printf("%s answer: %s\n", provider, answer)
+}
 ```
 
-### Setting Maximum Length
+### Advanced Prompt Templates
 
-Limit the length of the LLM's response:
+Create reusable prompt templates for complex tasks:
 
 ```go
-prompt := goal.NewPrompt("Describe the process of photosynthesis").
-	MaxLength(100) // Limit to approximately 100 words
+advancedPromptTemplate := goal.NewPromptTemplate(
+	"AdvancedAnalysis",
+	"Analyze a topic from multiple perspectives",
+	"Analyze the following topic from multiple perspectives: {{.Topic}}",
+	goal.WithPromptOptions(
+		goal.WithDirectives(
+			"Consider technological, economic, social, and ethical implications",
+			"Provide at least one potential positive and one potential negative outcome for each perspective",
+			"Conclude with a balanced summary of no more than 3 sentences",
+		),
+		goal.WithOutput("Multi-perspective Analysis:"),
+		goal.WithMaxLength(300),
+	),
+)
+
+prompt, _ := advancedPromptTemplate.Execute(map[string]interface{}{
+	"Topic": "The widespread adoption of artificial intelligence in healthcare",
+})
+
+analysis, _, _ := llmClient.Generate(ctx, prompt.String())
+fmt.Printf("Analysis:\n%s\n", analysis)
 ```
 
-### Including Examples
+## Error Handling
 
-You can include examples to guide the LLM's output format or style:
+`goal` provides detailed error types to help you handle different failure scenarios:
 
-```go
-prompt := goal.NewPrompt("Generate a creative name for a tech startup").
-	Examples("path/to/examples.txt", 3, "random")
-```
+- `ErrorTypeProvider`: Issues with the LLM provider
+- `ErrorTypeRequest`: Problems preparing or sending the request
+- `ErrorTypeResponse`: Issues parsing or processing the API response
+- `ErrorTypeAPI`: Errors returned by the LLM provider's API
+- `ErrorTypeRateLimit`: Rate limiting errors
+- `ErrorTypeAuthentication`: Authentication-related errors
+- `ErrorTypeInvalidInput`: Invalid input errors
 
-Note: The `Examples` method reads examples from a file. Make sure to prepare this file beforehand.
-
-### Combining Features
-
-You can combine these features to create highly specific prompts:
-
-```go
-prompt := goal.NewPrompt("Analyze the future of electric vehicles").
-	Directive("Consider technological, economic, and environmental factors").
-	Directive("Provide both optimistic and pessimistic scenarios").
-	Context("Recent advancements in battery technology have led to increased range and decreased charging times for electric vehicles.").
-	Output("Analysis:").
-	MaxLength(200)
-```
-
-## Using Prompts with LLM
-
-Once you've created a prompt, you can use it with the LLM client:
+Example error handling:
 
 ```go
 response, _, err := llm.Generate(ctx, prompt.String())
 if err != nil {
-	log.Fatalf("Failed to generate response: %v", err)
+	if llmErr, ok := err.(*goal.LLMError); ok {
+		switch llmErr.Type {
+		case goal.ErrorTypeRateLimit:
+			// Handle rate limiting
+		case goal.ErrorTypeAuthentication:
+			// Handle authentication issues
+		default:
+			log.Printf("An error occurred: %v", llmErr)
+		}
+	} else {
+		log.Printf("An unexpected error occurred: %v", err)
+	}
+	return
 }
-fmt.Printf("Response: %s\n", response)
 ```
 
-## Configuration
+## Performance Considerations
 
-Create a YAML configuration file in `~/.goal/configs/`:
+While `goal` adds a thin abstraction layer, its impact on performance is minimal. The main performance factors will be the responsiveness of the chosen LLM provider and the complexity of your prompts.
 
-```yaml
-provider: anthropic
-model: claude-3-opus-20240229
-temperature: 0.7
-max_tokens: 100
-```
+## Streaming Support
 
-Then, use it when creating an LLM client:
+Currently, `goal` does not support streaming responses. This feature is on our roadmap for future development.
 
-```go
-llm, err := goal.NewLLM("path/to/config.yaml")
-```
+## Project Status
+
+`goal` is actively maintained and under continuous development. We welcome contributions and feedback from the community.
+
+## Examples and Tutorials
+
+Check out our [examples directory](https://github.com/teilomillet/goal/tree/main/examples) for more usage examples, including:
+
+- Basic usage
+- Different prompt types
+- Comparing providers
+- Advanced prompt templates
+- Combining multiple `goal` features
+
 
 ## Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for more information.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for more information on how to get started.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
