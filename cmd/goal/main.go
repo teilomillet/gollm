@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/teilomillet/goal"
 )
@@ -20,6 +22,10 @@ func main() {
 	maxTokens := flag.Int("max-tokens", 0, "LLM max tokens")
 	timeout := flag.Duration("timeout", 0, "LLM timeout")
 	apiKey := flag.String("api-key", "", "API key for the specified provider")
+	maxRetries := flag.Int("max-retries", 3, "Maximum number of retries for API calls")
+	retryDelay := flag.Duration("retry-delay", time.Second*2, "Delay between retries")
+	debugLevel := flag.String("debug-level", "warn", "Debug level (debug, info, warn, error)")
+	outputFormat := flag.String("output-format", "", "Output format for structured responses (json)")
 
 	flag.Parse()
 
@@ -44,6 +50,9 @@ func main() {
 	if *apiKey != "" {
 		configOpts = append(configOpts, goal.SetAPIKey(*apiKey))
 	}
+	configOpts = append(configOpts, goal.SetMaxRetries(*maxRetries))
+	configOpts = append(configOpts, goal.SetRetryDelay(*retryDelay))
+	configOpts = append(configOpts, goal.SetDebugLevel(goal.LogLevel(getLogLevel(*debugLevel))))
 
 	// Create LLM client with the specified options
 	llmClient, err := goal.NewLLM(configOpts...)
@@ -72,7 +81,12 @@ func main() {
 	case "summarize":
 		response, err = goal.Summarize(ctx, llmClient, rawPrompt)
 	default:
-		response, fullPrompt, err = llmClient.Generate(ctx, rawPrompt)
+		prompt := goal.NewPrompt(rawPrompt)
+		if *outputFormat == "json" {
+			prompt.Apply(goal.WithOutput("Please provide your response in JSON format."))
+		}
+		response, err = llmClient.Generate(ctx, prompt, goal.WithJSONSchemaValidation())
+		fullPrompt = prompt.String()
 	}
 
 	if err != nil {
@@ -86,5 +100,32 @@ func main() {
 		}
 		fmt.Printf("Prompt Type: %s\nFull Prompt:\n%s\n\nResponse:\n---------\n", *promptType, fullPrompt)
 	}
-	fmt.Println(response)
+
+	if *outputFormat == "json" {
+		var jsonResponse interface{}
+		err := json.Unmarshal([]byte(response), &jsonResponse)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing JSON response: %v\n", err)
+			fmt.Println(response) // Print raw response if JSON parsing fails
+		} else {
+			jsonPretty, _ := json.MarshalIndent(jsonResponse, "", "  ")
+			fmt.Println(string(jsonPretty))
+		}
+	} else {
+		fmt.Println(response)
+	}
 }
+
+func getLogLevel(level string) goal.LogLevel {
+	switch strings.ToLower(level) {
+	case "debug":
+		return goal.LogLevelDebug
+	case "info":
+		return goal.LogLevelInfo
+	case "error":
+		return goal.LogLevelError
+	default:
+		return goal.LogLevelWarn
+	}
+}
+
