@@ -30,9 +30,9 @@ func QuestionAnswer(ctx context.Context, l LLM, question string, opts ...PromptO
 
 	prompt.Apply(opts...)
 
-	response, _, err := l.Generate(ctx, prompt.String())
+	response, err := l.Generate(ctx, prompt)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate answer: %w", err)
+		return "", fmt.Errorf("failed to generate ...: %w", err)
 	}
 
 	return response, nil

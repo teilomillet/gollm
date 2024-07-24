@@ -29,6 +29,10 @@ func main() {
 		goal.WithContext(contextInfo),
 		goal.WithExamples("Challenge: Decoherence, Solution: Error correction techniques"),
 		goal.WithMaxLength(200),
+		goal.WithDirectives(
+			"Provide a concise answer",
+			"Address the main challenges mentioned in the question",
+		),
 	)
 	if err != nil {
 		log.Fatalf("QuestionAnswer failed: %v", err)

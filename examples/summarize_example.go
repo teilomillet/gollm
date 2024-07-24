@@ -24,7 +24,11 @@ func main() {
 
 	summary, err := goal.Summarize(ctx, llmClient, text,
 		goal.WithMaxLength(50),
-		goal.WithDirectives("Focus on the main impacts and challenges"),
+		goal.WithDirectives(
+			"Provide a concise summary",
+			"Capture the main points and key details",
+			"Focus on the main impacts and challenges",
+		),
 	)
 	if err != nil {
 		log.Fatalf("Summarize failed: %v", err)

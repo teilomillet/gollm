@@ -5,101 +5,152 @@ package goal
 import (
 	"context"
 	"fmt"
-	"time"
+	"strings"
+
+	"github.com/go-playground/validator/v10"
 
 	"github.com/teilomillet/goal/internal/llm"
 )
 
+var validate *validator.Validate
+
+func init() {
+	validate = validator.New()
+}
+
+// Validate checks if the given struct is valid according to its validation rules
+func Validate(s interface{}) error {
+	return validate.Struct(s)
+}
+
 type LLM interface {
-	Generate(ctx context.Context, prompt string) (response string, fullPrompt string, err error)
+	Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error)
 	SetOption(key string, value interface{})
+	GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error)
+	GetProvider() string
+	GetModel() string
 }
 
 type llmImpl struct {
 	llm.LLM
+	logger   llm.Logger
+	provider string
+	model    string
 }
 
-// ConfigOption is a function type that modifies a Config
-type ConfigOption func(*llm.Config)
+type GenerateOption func(*generateConfig)
 
-// SetProvider sets the provider in the Config
-func SetProvider(provider string) ConfigOption {
-	return func(c *llm.Config) {
-		c.Provider = provider
+type generateConfig struct {
+	useJSONSchema bool
+}
+
+func WithJSONSchemaValidation() GenerateOption {
+	return func(c *generateConfig) {
+		c.useJSONSchema = true
 	}
 }
 
-// SetModel sets the model in the Config
-func SetModel(model string) ConfigOption {
-	return func(c *llm.Config) {
-		c.Model = model
-	}
+func (l *llmImpl) GetProvider() string {
+	return l.provider
 }
 
-// SetTemperature sets the temperature in the Config
-func SetTemperature(temperature float64) ConfigOption {
-	return func(c *llm.Config) {
-		c.Temperature = temperature
-	}
+func (l *llmImpl) GetModel() string {
+	return l.model
 }
 
-// SetMaxTokens sets the max tokens in the Config
-func SetMaxTokens(maxTokens int) ConfigOption {
-	return func(c *llm.Config) {
-		c.MaxTokens = maxTokens
+// CleanResponse removes markdown code block syntax and trims the JSON response
+func CleanResponse(response string) string {
+	// Remove markdown code block syntax if present
+	response = strings.TrimPrefix(response, "```json")
+	response = strings.TrimSuffix(response, "```")
+
+	// Remove any text before the first '{' and after the last '}'
+	start := strings.Index(response, "{")
+	end := strings.LastIndex(response, "}")
+	if start != -1 && end != -1 && end > start {
+		response = response[start : end+1]
 	}
+
+	return strings.TrimSpace(response)
 }
 
-// SetTimeout sets the timeout in the Config
-func SetTimeout(timeout time.Duration) ConfigOption {
-	return func(c *llm.Config) {
-		c.Timeout = timeout
+func (l *llmImpl) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error) {
+	if l == nil {
+		return "", fmt.Errorf("llmImpl is nil")
 	}
+	if l.LLM == nil {
+		return "", fmt.Errorf("internal LLM is nil")
+	}
+	if l.logger == nil {
+		l.logger = llm.NewLogger(llm.LogLevel(LogLevelWarn)) // Default to warn level if logger is not set
+	}
+
+	config := &generateConfig{}
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	if config.useJSONSchema {
+		if err := prompt.Validate(); err != nil {
+			return "", fmt.Errorf("invalid prompt: %w", err)
+		}
+	}
+
+	l.logger.Debug("Sending prompt to LLM", "prompt", prompt.String())
+	response, _, err := l.LLM.Generate(ctx, prompt.String())
+	if err != nil {
+		l.logger.Error("Error from LLM.Generate", "error", err)
+		return "", err
+	}
+
+	// Clean the response
+	cleanedResponse := CleanResponse(response)
+	l.logger.Debug("Cleaned response", "response", cleanedResponse)
+
+	return cleanedResponse, nil
 }
 
-// SetAPIKey sets the API key for the current provider in the Config
-func SetAPIKey(key string) ConfigOption {
-	return func(c *llm.Config) {
-		c.APIKeys[c.Provider] = key
-	}
+func (l *llmImpl) SetOption(key string, value interface{}) {
+	l.LLM.SetOption(key, value)
 }
 
-// NewLLM creates a new LLM instance with the provided config options
+func (l *llmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
+	p := &Prompt{}
+	return p.GenerateJSONSchema(opts...)
+}
+
 func NewLLM(opts ...ConfigOption) (LLM, error) {
-	config, err := llm.LoadConfig()
+	config, err := LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
-
-	// log.Printf("Loaded config: Provider=%s, Model=%s, MaxTokens=%d", config.Provider, config.Model, config.MaxTokens)
-	// log.Printf("API Keys loaded for providers: %v", getKeysWithoutValues(config.APIKeys))
 
 	for _, opt := range opts {
 		opt(config)
 	}
 
-	// log.Printf("Config after applying options: Provider=%s, Model=%s, MaxTokens=%d", config.Provider, config.Model, config.MaxTokens)
-	// log.Printf("Final API Keys loaded for providers: %v", getKeysWithoutValues(config.APIKeys))
-
-	if len(config.APIKeys) == 0 {
-		return nil, fmt.Errorf("at least one API key is required")
+	if config.APIKey == "" {
+		return nil, fmt.Errorf("API key is required")
 	}
 
-	logger := llm.NewDefaultLogger("warn")
-	registry := llm.NewProviderRegistry()
+	logger := llm.NewLogger(llm.LogLevel(config.DebugLevel))
+	logger.Debug("Creating LLM", "config", fmt.Sprintf("%+v", config))
 
-	l, err := llm.NewLLM(config, logger, registry)
+	internalConfig := config.toInternalConfig()
+
+	l, err := llm.NewLLM(internalConfig, logger, llm.NewProviderRegistry())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create internal LLM: %w", err)
 	}
 
-	return &llmImpl{l}, nil
-}
-
-func getKeysWithoutValues(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
+	if l == nil {
+		return nil, fmt.Errorf("internal LLM is nil after creation")
 	}
-	return keys
+
+	return &llmImpl{
+		LLM:      l,
+		logger:   logger,
+		provider: config.Provider,
+		model:    config.Model,
+	}, nil
 }

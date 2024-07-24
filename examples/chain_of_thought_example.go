@@ -24,6 +24,10 @@ func main() {
 		goal.WithMaxLength(300),
 		goal.WithContext("Climate change is causing global temperature increases and changing precipitation patterns."),
 		goal.WithExamples("Effect: Shifting growing seasons, Adaptation: Developing heat-resistant crops"),
+		goal.WithDirectives(
+			"Break down the problem into steps",
+			"Show your reasoning for each step",
+		),
 	)
 	if err != nil {
 		log.Fatalf("ChainOfThought failed: %v", err)

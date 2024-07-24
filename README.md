@@ -10,6 +10,7 @@
 - **High-Level AI Functions**: Utilize pre-built functions for common AI tasks like question-answering, summarization, and chain-of-thought reasoning.
 - **Advanced Prompt Engineering**: Create sophisticated prompts with directives, context, and examples.
 - **Provider Comparison**: Easily compare responses from multiple LLM providers for the same prompt.
+- **JSON Output Validation**: Validate and ensure the structure of JSON outputs from LLMs.
 - **Extensible Architecture**: Add new LLM providers with minimal effort.
 - **CLI Tool**: Use `goal` directly from the command line for quick experiments and workflows.
 
@@ -37,7 +38,7 @@ import (
 func main() {
 	llm, err := goal.NewLLM(
 		goal.SetProvider("openai"),
-		goal.SetModel("gpt-3.5-turbo"),
+		goal.SetModel("gpt-4o-mini"),
 		goal.SetMaxTokens(100),
 		goal.SetAPIKey("your-api-key-here"),
 	)
@@ -47,10 +48,8 @@ func main() {
 
 	ctx := context.Background()
 
-	prompt := goal.NewPrompt("Tell me a short joke about programming.",
-		goal.WithMaxLength(50),
-	)
-	response, _, err := llm.Generate(ctx, prompt.String())
+	prompt := goal.NewPrompt("Tell me a short joke about programming.")
+	response, err := llm.Generate(ctx, prompt)
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
@@ -58,78 +57,85 @@ func main() {
 }
 ```
 
+For more advanced usage, including research and content refinement, check out the examples directory.
+
 ## Advanced Usage
 
-### Prompt Types
+### Comparing Models
 
-`goal` supports various prompt types to cater to different use cases:
-
-1. **Basic Prompt**: Simple text input.
-2. **Prompt with Directives**: Guide the LLM's response.
-3. **Prompt with Context**: Provide background information.
-4. **Prompt with Max Length**: Limit response length.
-5. **Prompt with Examples**: Provide example inputs/outputs.
-
-Example:
+The `CompareModels` function allows you to easily compare responses from different LLM providers or models:
 
 ```go
-directivePrompt := goal.NewPrompt("Explain the concept of recursion",
-	goal.WithDirectives("Use a simple example to illustrate", "Keep it concise"),
-	goal.WithOutput("Explanation of recursion:"),
-)
-```
-
-### Comparing Providers
-
-Easily compare responses from different LLM providers:
-
-```go
-providers := []string{"openai", "anthropic"}
-llms := make(map[string]goal.LLM)
-
-for _, provider := range providers {
-	llm, _ := goal.NewLLM(
-		goal.SetProvider(provider),
-		goal.SetMaxTokens(100),
-		goal.SetAPIKey("your-api-key-here"),
-	)
-	llms[provider] = llm
+type JokeResponse struct {
+	Setup    string `json:"setup"`
+	Punchline string `json:"punchline"`
 }
 
-question := "What is the capital of France?"
-for provider, llm := range llms {
-	answer, _ := goal.QuestionAnswer(ctx, llm, question)
-	fmt.Printf("%s answer: %s\n", provider, answer)
+func validateJoke(joke JokeResponse) error {
+	if joke.Setup == "" || joke.Punchline == "" {
+		return fmt.Errorf("invalid joke structure")
+	}
+	return nil
 }
+
+configs := []*goal.Config{
+	{Provider: "openai", Model: "gpt-4o-mini", APIKey: "your-openai-api-key"},
+	{Provider: "anthropic", Model: "claude-3-5-sonnet-20240620	", APIKey: "your-anthropic-api-key"},
+}
+
+prompt := "Tell me a joke about programming. Respond in JSON format with 'setup' and 'punchline' fields."
+
+results, err := goal.CompareModels(context.Background(), prompt, validateJoke, configs...)
+if err != nil {
+	log.Fatalf("Error comparing models: %v", err)
+}
+
+fmt.Println(goal.AnalyzeComparisonResults(results))
 ```
 
-### Advanced Prompt Templates
+This example compares responses from OpenAI and Anthropic models, ensuring that each response is a valid joke with a setup and punchline.
 
-Create reusable prompt templates for complex tasks:
+### JSON Output Validation
+
+`goal` now supports automatic validation of JSON outputs from LLMs. This is particularly useful when you expect a specific structure in the LLM's response:
 
 ```go
-advancedPromptTemplate := goal.NewPromptTemplate(
-	"AdvancedAnalysis",
-	"Analyze a topic from multiple perspectives",
-	"Analyze the following topic from multiple perspectives: {{.Topic}}",
-	goal.WithPromptOptions(
-		goal.WithDirectives(
-			"Consider technological, economic, social, and ethical implications",
-			"Provide at least one potential positive and one potential negative outcome for each perspective",
-			"Conclude with a balanced summary of no more than 3 sentences",
-		),
-		goal.WithOutput("Multi-perspective Analysis:"),
-		goal.WithMaxLength(300),
-	),
+type AnalysisResult struct {
+	Topic       string   `json:"topic"`
+	Pros        []string `json:"pros"`
+	Cons        []string `json:"cons"`
+	Conclusion  string   `json:"conclusion"`
+}
+
+func validateAnalysis(analysis AnalysisResult) error {
+	if analysis.Topic == "" || len(analysis.Pros) == 0 || len(analysis.Cons) == 0 || analysis.Conclusion == "" {
+		return fmt.Errorf("invalid analysis structure")
+	}
+	return nil
+}
+
+prompt := goal.NewPrompt("Analyze the pros and cons of remote work.",
+	goal.WithOutput("Respond in JSON format with 'topic', 'pros', 'cons', and 'conclusion' fields."),
 )
 
-prompt, _ := advancedPromptTemplate.Execute(map[string]interface{}{
-	"Topic": "The widespread adoption of artificial intelligence in healthcare",
-})
+response, err := llm.Generate(ctx, prompt, goal.WithJSONSchemaValidation())
+if err != nil {
+	log.Fatalf("Failed to generate valid analysis: %v", err)
+}
 
-analysis, _, _ := llmClient.Generate(ctx, prompt.String())
-fmt.Printf("Analysis:\n%s\n", analysis)
+var result AnalysisResult
+if err := json.Unmarshal([]byte(response), &result); err != nil {
+	log.Fatalf("Failed to parse response: %v", err)
+}
+
+if err := validateAnalysis(result); err != nil {
+	log.Fatalf("Invalid analysis: %v", err)
+}
+
+fmt.Printf("Analysis: %+v\n", result)
 ```
+
+This example demonstrates how to use JSON schema validation to ensure that the LLM's response matches the expected structure.
 
 ## Performance Considerations
 
@@ -152,10 +158,8 @@ Check out our [examples directory](https://github.com/teilomillet/goal/tree/main
 - Comparing providers
 - Advanced prompt templates
 - Combining multiple `goal` features
+- JSON output validation
 
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for more information on how to get started.
 
 ## License
 

@@ -25,6 +25,14 @@ type LLMError struct {
 	Err     error
 }
 
+func (e *LLMError) LoggableFields() []interface{} {
+	return []interface{}{
+		"error_type", e.TypeString(),
+		"message", e.Message,
+		"error", e.Err,
+	}
+}
+
 func (e *LLMError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s (%s): %v", e.TypeString(), e.Message, e.Err)

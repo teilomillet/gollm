@@ -33,9 +33,9 @@ func Summarize(ctx context.Context, l LLM, text string, opts ...PromptOption) (s
 
 	prompt.Apply(opts...)
 
-	response, _, err := l.Generate(ctx, prompt.String())
+	response, err := l.Generate(ctx, prompt)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate summary: %w", err)
+		return "", fmt.Errorf("failed to generate ...: %w", err)
 	}
 
 	return response, nil

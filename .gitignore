@@ -24,3 +24,5 @@ go.work.sum
 
 .DS_Store
 goal
+
+testexamples/

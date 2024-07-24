@@ -16,7 +16,10 @@ type Config struct {
 	Temperature float64       `env:"LLM_TEMPERATURE" envDefault:"0.7"`
 	MaxTokens   int           `env:"LLM_MAX_TOKENS" envDefault:"100"`
 	Timeout     time.Duration `env:"LLM_TIMEOUT" envDefault:"30s"`
+	MaxRetries  int           `env:"LLM_MAX_RETRIES" envDefault:"3"`
+	RetryDelay  time.Duration `env:"LLM_RETRY_DELAY" envDefault:"2s"`
 	APIKeys     map[string]string
+	LogLevel    LogLevel `env:"LLM_LOG_LEVEL" envDefault:"WARN"`
 }
 
 func LoadConfig() (*Config, error) {

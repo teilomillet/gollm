@@ -4,63 +4,105 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"github.com/teilomillet/goal"
 )
 
 func main() {
+	fmt.Println("Starting the LLM basic usage example...")
+
+	// Load API key from environment variable
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		log.Fatalf("OPENAI_API_KEY environment variable is not set")
+	}
+
+	// Create a new LLM instance with custom configuration
 	llm, err := goal.NewLLM(
+		goal.SetProvider("openai"),
+		goal.SetModel("gpt-3.5-turbo"),
+		goal.SetAPIKey(apiKey),
 		goal.SetMaxTokens(200),
+		goal.SetMaxRetries(3),
+		goal.SetRetryDelay(time.Second*2),
+		goal.SetDebugLevel(goal.LogLevelInfo),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}
+	fmt.Println("LLM created successfully with retry mechanism and custom configuration.")
 
 	ctx := context.Background()
 
-	// Example 1: Using a basic prompt with functional options
-	basicPrompt := goal.NewPrompt("Tell me a short joke about programming.",
-		goal.WithMaxLength(50),
+	// Example 1: Basic Prompt
+	fmt.Println("\nExample 1: Basic Prompt")
+	basicPrompt := goal.NewPrompt("Explain the concept of 'recursion' in programming.")
+	fmt.Printf("Basic prompt created: %+v\n", basicPrompt)
+
+	response, err := llm.Generate(ctx, basicPrompt)
+	if err != nil {
+		log.Fatalf("Failed to generate text: %v", err)
+	}
+	fmt.Printf("Basic prompt response:\n%s\n", response)
+
+	// Example 2: Advanced Prompt with Directives and Output
+	fmt.Println("\nExample 2: Advanced Prompt with Directives and Output")
+	advancedPrompt := goal.NewPrompt("Compare and contrast functional and object-oriented programming paradigms",
+		goal.WithDirectives(
+			"Provide at least three key differences",
+			"Include examples for each paradigm",
+			"Discuss strengths and weaknesses",
+		),
+		goal.WithOutput("Comparison of Programming Paradigms:"),
+		goal.WithMaxLength(300),
 	)
-	response, _, err := llm.Generate(ctx, basicPrompt.String())
+	fmt.Printf("Advanced prompt created: %+v\n", advancedPrompt)
+
+	response, err = llm.Generate(ctx, advancedPrompt)
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
-	fmt.Printf("Basic prompt response: %s\n\n", response)
+	fmt.Printf("Advanced prompt response:\n%s\n", response)
 
-	// Example 2: Using a prompt with directives and output specification
-	advancedPrompt := goal.NewPrompt("Describe the benefits of using Go for web development",
-		goal.WithDirectives("List at least three key advantages"),
-		goal.WithOutput("Benefits of Go for web development:"),
+	// Example 3: Prompt with Context
+	fmt.Println("\nExample 3: Prompt with Context")
+	contextPrompt := goal.NewPrompt("Summarize the main points",
+		goal.WithContext("The Internet of Things (IoT) refers to the interconnected network of physical devices embedded with electronics, software, sensors, and network connectivity, which enables these objects to collect and exchange data."),
+		goal.WithMaxLength(100),
 	)
+	fmt.Printf("Context prompt created: %+v\n", contextPrompt)
 
-	response, _, err = llm.Generate(ctx, advancedPrompt.String())
+	response, err = llm.Generate(ctx, contextPrompt)
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
-	fmt.Printf("Advanced prompt response:\n%s\n\n", response)
+	fmt.Printf("Context prompt response:\n%s\n", response)
 
-	// Example 3: Using a PromptTemplate
-	haikuTemplate := &goal.PromptTemplate{
-		Name:        "HaikuTemplate",
-		Description: "Generate a haiku about a given topic",
-		Template:    "Write a haiku about {{.Topic}}",
-		Options: []goal.PromptOption{
-			goal.WithDirectives("Follow the 5-7-5 syllable pattern"),
-			goal.WithOutput("Haiku:"),
-		},
-	}
-
-	haikuPrompt, err := haikuTemplate.Execute(map[string]interface{}{
-		"Topic": "Go programming",
-	})
+	// Example 4: JSON Schema Generation and Validation
+	fmt.Println("\nExample 4: JSON Schema Generation and Validation")
+	schemaBytes, err := advancedPrompt.GenerateJSONSchema()
 	if err != nil {
-		log.Fatalf("Failed to execute haiku template: %v", err)
+		log.Fatalf("Failed to generate JSON schema: %v", err)
+	}
+	fmt.Printf("JSON Schema for Advanced Prompt:\n%s\n", string(schemaBytes))
+
+	invalidPrompt := goal.NewPrompt("") // Invalid because Input is required
+	fmt.Printf("Invalid prompt created: %+v\n", invalidPrompt)
+	err = invalidPrompt.Validate()
+	if err != nil {
+		fmt.Printf("Validation error (expected): %v\n", err)
 	}
 
-	response, _, err = llm.Generate(ctx, haikuPrompt.String())
+	// Example 5: Using Chain of Thought
+	fmt.Println("\nExample 5: Using Chain of Thought")
+	cotPrompt := "Explain the process of photosynthesis step by step."
+	cotResponse, err := goal.ChainOfThought(ctx, llm, cotPrompt)
 	if err != nil {
-		log.Fatalf("Failed to generate text: %v", err)
+		log.Fatalf("Failed to generate Chain of Thought response: %v", err)
 	}
-	fmt.Printf("Haiku response:\n%s\n", response)
+	fmt.Printf("Chain of Thought response:\n%s\n", cotResponse)
+
+	fmt.Println("\nBasic usage example completed.")
 }

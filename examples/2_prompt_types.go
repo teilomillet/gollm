@@ -1,69 +1,193 @@
-// File: examples/2_prompt_types.go
-
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/teilomillet/goal"
 )
 
 func main() {
-	llm, err := goal.NewLLM()
+	fmt.Println("Starting the enhanced prompt types example...")
+
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		log.Fatalf("OPENAI_API_KEY environment variable is not set")
+	}
+
+	llm, err := goal.NewLLM(
+		goal.SetProvider("openai"),
+		goal.SetModel("gpt-3.5-turbo"),
+		goal.SetAPIKey(apiKey),
+		goal.SetMaxTokens(300),
+		goal.SetMaxRetries(3),
+		goal.SetDebugLevel(goal.LogLevelInfo),
+	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
 
 	ctx := context.Background()
 
-	// Example 1: Basic Prompt
-	basicPrompt := goal.NewPrompt("What is the capital of France?")
-	basicResponse, _, err := llm.Generate(ctx, basicPrompt.String())
-	if err != nil {
-		log.Fatalf("Failed to generate basic response: %v", err)
-	}
-	fmt.Printf("Basic Prompt Response:\n%s\n\n", basicResponse)
-
-	// Example 2: Prompt with Directives and Output
-	directivePrompt := goal.NewPrompt("Explain the concept of recursion",
-		goal.WithDirectives("Use a simple example to illustrate", "Keep it concise"),
-		goal.WithOutput("Explanation of recursion:"),
+	// Example 1: Basic Prompt with Structured Output
+	fmt.Println("\nExample 1: Basic Prompt with Structured Output")
+	basicPrompt := goal.NewPrompt("List the top 3 benefits of exercise",
+		goal.WithOutput("JSON array of benefits, each with a 'title' and 'description'"),
 	)
-	directiveResponse, _, err := llm.Generate(ctx, directivePrompt.String())
+	basicResponse, err := llm.Generate(ctx, basicPrompt)
+	if err != nil {
+		log.Printf("Failed to generate basic response: %v", err)
+	} else {
+		fmt.Printf("Basic Prompt Response:\n%s\n", basicResponse)
+	}
+
+	// Example 2: Prompt with Directives, Output, and Context
+	fmt.Println("\nExample 2: Prompt with Directives, Output, and Context")
+	directivePrompt := goal.NewPrompt("Propose a solution to reduce urban traffic congestion",
+		goal.WithDirectives(
+			"Consider both technological and policy-based approaches",
+			"Address environmental concerns",
+			"Consider cost-effectiveness",
+		),
+		goal.WithOutput("Solution proposal in markdown format with headings"),
+		goal.WithContext("The city has a population of 2 million and limited public transportation."),
+	)
+	directiveResponse, err := llm.Generate(ctx, directivePrompt)
 	if err != nil {
 		log.Fatalf("Failed to generate directive response: %v", err)
 	}
-	fmt.Printf("Directive Prompt Response:\n%s\n\n", directiveResponse)
+	fmt.Printf("Directive Prompt Response:\n%s\n", directiveResponse)
 
-	// Example 3: Prompt with Context
-	contextPrompt := goal.NewPrompt("Summarize the main points",
-		goal.WithContext("The Internet of Things (IoT) is transforming how we live and work. It refers to the interconnected network of physical devices embedded with electronics, software, sensors, and network connectivity, which enables these objects to collect and exchange data."),
+	// Example 3: Prompt with Examples and Max Length
+	fmt.Println("\nExample 3: Prompt with Examples and Max Length")
+	examplesPrompt := goal.NewPrompt("Write a short, engaging tweet about climate change",
+		goal.WithExamples(
+			"🌍 Small actions, big impact! Reduce, reuse, recycle to fight climate change. #ClimateAction",
+			"🌡️ Climate change is real, and it's happening now. Let's act before it's too late! #ClimateEmergency",
+		),
+		goal.WithMaxLength(30),
 	)
-	contextResponse, _, err := llm.Generate(ctx, contextPrompt.String())
-	if err != nil {
-		log.Fatalf("Failed to generate context response: %v", err)
-	}
-	fmt.Printf("Context Prompt Response:\n%s\n\n", contextResponse)
-
-	// Example 4: Prompt with Max Length
-	maxLengthPrompt := goal.NewPrompt("Describe the benefits of exercise",
-		goal.WithMaxLength(50),
-	)
-	maxLengthResponse, _, err := llm.Generate(ctx, maxLengthPrompt.String())
-	if err != nil {
-		log.Fatalf("Failed to generate max length response: %v", err)
-	}
-	fmt.Printf("Max Length Prompt Response:\n%s\n\n", maxLengthResponse)
-
-	// Example 5: Prompt with Examples
-	examplesPrompt := goal.NewPrompt("Generate a creative name for a tech startup",
-		goal.WithExamples("CloudNine: A cloud storage solution", "EcoTech: An eco-friendly smart home system"),
-	)
-	examplesResponse, _, err := llm.Generate(ctx, examplesPrompt.String())
+	examplesResponse, err := llm.Generate(ctx, examplesPrompt)
 	if err != nil {
 		log.Fatalf("Failed to generate examples response: %v", err)
 	}
 	fmt.Printf("Examples Prompt Response:\n%s\n", examplesResponse)
+
+	// Example 4: Prompt Template with Dynamic Content
+	fmt.Println("\nExample 4: Prompt Template with Dynamic Content")
+	templatePrompt := goal.NewPromptTemplate(
+		"ProductDescription",
+		"Generate a product description",
+		"Create an engaging product description for a {{.ProductType}} named '{{.ProductName}}'. "+
+			"Target audience: {{.TargetAudience}}. Highlight {{.NumFeatures}} key features.",
+		goal.WithPromptOptions(
+			goal.WithDirectives(
+				"Use persuasive language",
+				"Include a call-to-action",
+			),
+			goal.WithOutput("Product description in HTML format"),
+		),
+	)
+
+	prompt, err := templatePrompt.Execute(map[string]interface{}{
+		"ProductType":    "smartwatch",
+		"ProductName":    "TimeWise X1",
+		"TargetAudience": "fitness enthusiasts",
+		"NumFeatures":    3,
+	})
+	if err != nil {
+		log.Fatalf("Failed to execute prompt template: %v", err)
+	}
+
+	templateResponse, err := llm.Generate(ctx, prompt)
+	if err != nil {
+		log.Fatalf("Failed to generate template response: %v", err)
+	}
+	fmt.Printf("Template Prompt Response:\n%s\n", templateResponse)
+
+	// Example 5: JSON Schema Generation and Validation
+	fmt.Println("\nExample 5: JSON Schema Generation and Validation")
+	schemaPrompt := goal.NewPrompt("Generate a user profile",
+		goal.WithOutput(`JSON object with name, age, and interests`),
+		goal.WithDirectives(
+			"Name should be a string",
+			"Age should be an integer",
+			"Interests should be an array of strings",
+		),
+	)
+	schemaBytes, err := schemaPrompt.GenerateJSONSchema()
+	if err != nil {
+		log.Fatalf("Failed to generate JSON schema: %v", err)
+	}
+	fmt.Printf("JSON Schema for User Profile Prompt:\n%s\n", string(schemaBytes))
+
+	// Demonstrate validation
+	validPrompt := goal.NewPrompt("Valid prompt", goal.WithMaxLength(100))
+	err = validPrompt.Validate()
+	if err != nil {
+		fmt.Printf("Unexpected validation error: %v\n", err)
+	} else {
+		fmt.Println("Valid prompt passed validation.")
+	}
+
+	invalidPrompt := goal.NewPrompt("", goal.WithMaxLength(-1))
+	err = invalidPrompt.Validate()
+	if err != nil {
+		fmt.Printf("Validation error (expected): %v\n", err)
+	}
+
+	// Example 6: Chained Prompts
+	fmt.Println("\nExample 6: Chained Prompts")
+	ideaPrompt := goal.NewPrompt("Generate a unique business idea in the sustainability sector")
+	ideaResponse, err := llm.Generate(ctx, ideaPrompt)
+	if err != nil {
+		log.Fatalf("Failed to generate idea: %v", err)
+	}
+
+	analysisPrompt := goal.NewPrompt(fmt.Sprintf("Analyze the following business idea: %s", ideaResponse),
+		goal.WithDirectives(
+			"Identify potential challenges",
+			"Suggest target market",
+			"Propose a monetization strategy",
+		),
+		goal.WithOutput("Analysis in JSON format with 'challenges', 'targetMarket', and 'monetization' keys"),
+	)
+	analysisResponse, err := llm.Generate(ctx, analysisPrompt)
+	if err != nil {
+		log.Fatalf("Failed to generate analysis: %v", err)
+	}
+
+	fmt.Printf("Chained Prompts Response:\nIdea: %s\nAnalysis: %s\n", ideaResponse, analysisResponse)
+
+	// Example 7: Prompt with JSON Schema Validation
+	fmt.Println("\nExample 7: Prompt with JSON Schema Validation")
+	jsonSchemaPrompt := goal.NewPrompt("Generate a user profile",
+		goal.WithOutput(`JSON object with the following schema:
+		{
+			"type": "object",
+			"properties": {
+				"name": {"type": "string"},
+				"age": {"type": "integer", "minimum": 18},
+				"interests": {"type": "array", "items": {"type": "string"}}
+			},
+			"required": ["name", "age", "interests"]
+		}`),
+	)
+	jsonSchemaResponse, err := llm.Generate(ctx, jsonSchemaPrompt, goal.WithJSONSchemaValidation())
+	if err != nil {
+		log.Fatalf("Failed to generate JSON schema validated response: %v", err)
+	}
+
+	var userProfile map[string]interface{}
+	err = json.Unmarshal([]byte(jsonSchemaResponse), &userProfile)
+	if err != nil {
+		log.Fatalf("Failed to parse JSON response: %v", err)
+	}
+	fmt.Printf("JSON Schema Validated Response:\n%+v\n", userProfile)
+
+	fmt.Println("\nExample completed.")
 }
+
