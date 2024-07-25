@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"strings"
+	"sync"
 
 	"github.com/teilomillet/goal"
 )
@@ -30,9 +32,25 @@ type MovieReviewValidated struct {
 	Summary  string   `json:"summary" validate:"required,min=10,max=1000"`
 }
 
-// Where the magic happen
+// extractReview is a generic function to extract a review
+func extractReview[T any](ctx context.Context, llm goal.LLM, text string, withValidation bool) (*T, error) {
+	var validationMsg string
+	if withValidation {
+		validationMsg = "with"
+	} else {
+		validationMsg = "without"
+	}
+
+	fmt.Printf("Extracting movie review %s validation...\n", validationMsg)
+	review, err := goal.ExtractStructuredData[T](ctx, llm, text)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract movie review %s validation: %v", validationMsg, err)
+	}
+	return review, nil
+}
+
 func main() {
-	fmt.Println("Starting application...") // Direct console output
+	fmt.Println("Starting application...")
 
 	apiKey := os.Getenv("GROQ_API_KEY")
 	if apiKey == "" {
@@ -45,7 +63,7 @@ func main() {
 		goal.SetAPIKey(apiKey),
 		goal.SetMaxRetries(3),
 		goal.SetMaxTokens(2048),
-		goal.SetDebugLevel(goal.LogLevelWarn), // Put LogLevelDebug for debug informations
+		goal.SetDebugLevel(goal.LogLevelWarn),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
@@ -56,27 +74,81 @@ func main() {
 	         It seamlessly blends elements of science fiction, action, and psychological drama. The movie explores the concept 
 	         of dream infiltration and leaves you questioning reality long after the credits roll.`
 
-	// Example without validation
-	fmt.Println("Extracting movie review without validation...")
-	review, err := goal.ExtractStructuredData[MovieReview](context.Background(), llm, text)
-	if err != nil {
-		fmt.Printf("Failed to extract movie review without validation: %v\n", err)
-	} else {
-		fmt.Println("Extraction successful.")
-		fmt.Println("\nExtracted Movie Review (without validation):")
-		printReview(review)
+	ctx := context.Background()
+	var wg sync.WaitGroup
+
+	// Channels to collect results
+	reviewChan := make(chan *MovieReview)
+	reviewValidatedChan := make(chan *MovieReviewValidated)
+	errorChan := make(chan error, 2) // Buffer for potential errors from both goroutines
+
+	// Extract without validation
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		review, err := extractReview[MovieReview](ctx, llm, text, false)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+		reviewChan <- review
+	}()
+
+	// Extract with validation
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reviewValidated, err := extractReview[MovieReviewValidated](ctx, llm, text, true)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+		reviewValidatedChan <- reviewValidated
+	}()
+
+	// Wait for both goroutines to complete
+	go func() {
+		wg.Wait()
+		close(reviewChan)
+		close(reviewValidatedChan)
+		close(errorChan)
+	}()
+
+	// Collect and print results
+	for {
+		select {
+		case review, ok := <-reviewChan:
+			if !ok {
+				reviewChan = nil
+			} else {
+				fmt.Printf("\n%s\n", strings.Repeat("=", 50))
+				fmt.Println("\nExtracted Movie Review (without validation):")
+				printReview(review)
+				fmt.Printf("\n%s\n", strings.Repeat("=", 50))
+			}
+		case reviewValidated, ok := <-reviewValidatedChan:
+			if !ok {
+				reviewValidatedChan = nil
+			} else {
+				fmt.Printf("\n%s\n", strings.Repeat("=", 50))
+				fmt.Println("\nExtracted Movie Review (with validation):")
+				printReview(reviewValidated)
+				fmt.Printf("\n%s\n", strings.Repeat("=", 50))
+			}
+		case err, ok := <-errorChan:
+			if !ok {
+				errorChan = nil
+			} else {
+				fmt.Printf("Error occurred: %v\n", err)
+			}
+		}
+
+		if reviewChan == nil && reviewValidatedChan == nil && errorChan == nil {
+			break
+		}
 	}
 
-	// Example with validation
-	fmt.Println("\nExtracting movie review with validation...")
-	reviewValidated, err := goal.ExtractStructuredData[MovieReviewValidated](context.Background(), llm, text)
-	if err != nil {
-		fmt.Printf("Failed to extract movie review with validation: %v\n", err)
-	} else {
-		fmt.Println("Extraction successful.")
-		fmt.Println("\nExtracted Movie Review (with validation):")
-		printReview(reviewValidated)
-	}
+	fmt.Println("Application completed.")
 }
 
 // printReview is a helper function to print the review in a more readable format
