@@ -11,9 +11,11 @@ import (
 	"time"
 )
 
+// LLM interface defines the methods that our internal language model should implement
 type LLM interface {
 	Generate(ctx context.Context, prompt string) (response string, fullPrompt string, err error)
 	SetOption(key string, value interface{})
+	SetDebugLevel(level LogLevel) // New method to set debug level
 }
 
 type Provider interface {
@@ -24,6 +26,7 @@ type Provider interface {
 	ParseResponse(body []byte) (string, error)
 }
 
+// LLMImpl is our implementation of the internal LLM interface
 type LLMImpl struct {
 	Provider   Provider
 	Options    map[string]interface{}
@@ -65,6 +68,12 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 func (l *LLMImpl) SetOption(key string, value interface{}) {
 	l.Options[key] = value
 	l.logger.Debug("Option set", key, value)
+}
+
+// SetDebugLevel updates the debug level for the internal LLM
+func (l *LLMImpl) SetDebugLevel(level LogLevel) {
+	l.logger.Debug("Setting internal LLM debug level", "new_level", level)
+	l.logger.SetLevel(level)
 }
 
 func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, string, error) {

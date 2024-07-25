@@ -12,12 +12,14 @@ import (
 type LogLevel int
 
 const (
-	LogLevelDebug LogLevel = iota
-	LogLevelInfo
-	LogLevelWarn
+	LogLevelOff LogLevel = iota
 	LogLevelError
+	LogLevelWarn
+	LogLevelInfo
+	LogLevelDebug
 )
 
+// Config holds the configuration for the LLM
 type Config struct {
 	Provider    string
 	Model       string
@@ -30,7 +32,9 @@ type Config struct {
 	DebugLevel  LogLevel
 }
 
+// toInternalConfig converts Config to internal llm.Config
 func (c *Config) toInternalConfig() *llm.Config {
+	internalLevel := llm.LogLevel(c.DebugLevel)
 	return &llm.Config{
 		Provider:    c.Provider,
 		Model:       c.Model,
@@ -40,7 +44,7 @@ func (c *Config) toInternalConfig() *llm.Config {
 		MaxRetries:  c.MaxRetries,
 		RetryDelay:  c.RetryDelay,
 		APIKeys:     map[string]string{c.Provider: c.APIKey},
-		LogLevel:    llm.LogLevel(c.DebugLevel),
+		LogLevel:    internalLevel,
 	}
 }
 
@@ -60,6 +64,7 @@ func convertLogLevel(level llm.LogLevel) LogLevel {
 	}
 }
 
+// ConfigOption is a function type for modifying Config
 type ConfigOption func(*Config)
 
 // LoadConfig loads the configuration from environment variables
@@ -147,6 +152,7 @@ func SetRetryDelay(retryDelay time.Duration) ConfigOption {
 	}
 }
 
+// SetDebugLevel sets the debug level in the Config
 func SetDebugLevel(level LogLevel) ConfigOption {
 	return func(c *Config) {
 		c.DebugLevel = level

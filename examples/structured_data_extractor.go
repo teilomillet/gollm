@@ -32,6 +32,8 @@ type MovieReviewValidated struct {
 
 // Where the magic happen
 func main() {
+	fmt.Println("Starting application...") // Direct console output
+
 	apiKey := os.Getenv("GROQ_API_KEY")
 	if apiKey == "" {
 		log.Fatalf("GROQ_API_KEY environment variable is not set")
@@ -43,7 +45,7 @@ func main() {
 		goal.SetAPIKey(apiKey),
 		goal.SetMaxRetries(3),
 		goal.SetMaxTokens(2048),
-		goal.SetDebugLevel(goal.LogLevelDebug),
+		goal.SetDebugLevel(goal.LogLevelWarn), // Put LogLevelDebug for debug informations
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
