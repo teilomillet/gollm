@@ -2,7 +2,7 @@
 
 
 
-![Gophers building a robot by Renee French](img/gopherrobots4s.jpg)
+![Gophers building a robot by Renee French](img/gopherrobot4s.jpg)
 
 <!-- ![The Gollm Golem](img/robot_golem.jpeg "Build your own AI golem with gollm") -->
 
