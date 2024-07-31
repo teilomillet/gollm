@@ -46,9 +46,14 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 	// Set the log level for the logger
 	logger.SetLevel(config.LogLevel)
 
-	apiKey := config.APIKeys[config.Provider]
-	obscuredKey := apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
-	logger.Debug("Creating LLM", "provider", config.Provider, "model", config.Model, "apiKey", obscuredKey)
+	// For Ollama, we don't need an API key, so we'll use a different log message
+	if config.Provider == "ollama" {
+		logger.Debug("Creating LLM", "provider", config.Provider, "model", config.Model)
+	} else {
+		apiKey := config.APIKeys[config.Provider]
+		obscuredKey := apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
+		logger.Debug("Creating LLM", "provider", config.Provider, "model", config.Model, "apiKey", obscuredKey)
+	}
 
 	llmClient := &LLMImpl{
 		Provider:   provider,

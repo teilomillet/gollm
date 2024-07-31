@@ -231,8 +231,9 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		opt(config)
 	}
 
-	if config.APIKey == "" {
-		return nil, fmt.Errorf("API key is required")
+	// Check if the provider is Ollama, which doesn't require an API key
+	if config.Provider != "ollama" && config.APIKey == "" {
+		return nil, fmt.Errorf("API key is required for non-Ollama providers")
 	}
 
 	logger := llm.NewLogger(llm.LogLevel(config.DebugLevel))

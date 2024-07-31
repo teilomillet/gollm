@@ -21,30 +21,32 @@ const (
 
 // Config holds the configuration for the LLM
 type Config struct {
-	Provider    string
-	Model       string
-	Temperature float64
-	MaxTokens   int
-	Timeout     time.Duration
-	MaxRetries  int
-	RetryDelay  time.Duration
-	APIKey      string
-	DebugLevel  LogLevel
+	Provider       string
+	Model          string
+	OllamaEndpoint string
+	Temperature    float64
+	MaxTokens      int
+	Timeout        time.Duration
+	MaxRetries     int
+	RetryDelay     time.Duration
+	APIKey         string
+	DebugLevel     LogLevel
 }
 
 // toInternalConfig converts Config to internal llm.Config
 func (c *Config) toInternalConfig() *llm.Config {
 	internalLevel := llm.LogLevel(c.DebugLevel)
 	return &llm.Config{
-		Provider:    c.Provider,
-		Model:       c.Model,
-		Temperature: c.Temperature,
-		MaxTokens:   c.MaxTokens,
-		Timeout:     c.Timeout,
-		MaxRetries:  c.MaxRetries,
-		RetryDelay:  c.RetryDelay,
-		APIKeys:     map[string]string{c.Provider: c.APIKey},
-		LogLevel:    internalLevel,
+		Provider:       c.Provider,
+		Model:          c.Model,
+		OllamaEndpoint: c.OllamaEndpoint,
+		Temperature:    c.Temperature,
+		MaxTokens:      c.MaxTokens,
+		Timeout:        c.Timeout,
+		MaxRetries:     c.MaxRetries,
+		RetryDelay:     c.RetryDelay,
+		APIKeys:        map[string]string{c.Provider: c.APIKey},
+		LogLevel:       internalLevel,
 	}
 }
 
@@ -104,6 +106,13 @@ func SetProvider(provider string) ConfigOption {
 func SetModel(model string) ConfigOption {
 	return func(c *Config) {
 		c.Model = model
+	}
+}
+
+// SetOllamaEndpoint sets the Ollama endpoint in the Config
+func SetOllamaEndpoint(endpoint string) ConfigOption {
+	return func(c *Config) {
+		c.OllamaEndpoint = endpoint
 	}
 }
 

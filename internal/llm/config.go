@@ -11,15 +11,16 @@ import (
 )
 
 type Config struct {
-	Provider    string        `env:"LLM_PROVIDER" envDefault:"anthropic"`
-	Model       string        `env:"LLM_MODEL" envDefault:"claude-3-opus-20240229"`
-	Temperature float64       `env:"LLM_TEMPERATURE" envDefault:"0.7"`
-	MaxTokens   int           `env:"LLM_MAX_TOKENS" envDefault:"100"`
-	Timeout     time.Duration `env:"LLM_TIMEOUT" envDefault:"30s"`
-	MaxRetries  int           `env:"LLM_MAX_RETRIES" envDefault:"3"`
-	RetryDelay  time.Duration `env:"LLM_RETRY_DELAY" envDefault:"2s"`
-	APIKeys     map[string]string
-	LogLevel    LogLevel `env:"LLM_LOG_LEVEL" envDefault:"WARN"`
+	Provider       string        `env:"LLM_PROVIDER" envDefault:"anthropic"`
+	Model          string        `env:"LLM_MODEL" envDefault:"claude-3-opus-20240229"`
+	OllamaEndpoint string        `env:"OLLAMA_ENDPOINT" envDefault:"http://localhost:11434"`
+	Temperature    float64       `env:"LLM_TEMPERATURE" envDefault:"0.7"`
+	MaxTokens      int           `env:"LLM_MAX_TOKENS" envDefault:"100"`
+	Timeout        time.Duration `env:"LLM_TIMEOUT" envDefault:"30s"`
+	MaxRetries     int           `env:"LLM_MAX_RETRIES" envDefault:"3"`
+	RetryDelay     time.Duration `env:"LLM_RETRY_DELAY" envDefault:"2s"`
+	APIKeys        map[string]string
+	LogLevel       LogLevel `env:"LLM_LOG_LEVEL" envDefault:"WARN"`
 }
 
 func LoadConfig() (*Config, error) {
