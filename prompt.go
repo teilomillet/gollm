@@ -1,6 +1,6 @@
 // File: prompt.go
 
-package goal
+package gollm
 
 import (
 	"encoding/json"

@@ -1,6 +1,6 @@
 // File: structured_data_extractor.go
 
-package goal
+package gollm
 
 import (
 	"context"

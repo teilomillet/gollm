@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 func main() {
-	llmClient, err := goal.NewLLM(
-		goal.SetMaxTokens(300),
+	llmClient, err := gollm.NewLLM(
+		gollm.SetMaxTokens(300),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
@@ -20,11 +20,11 @@ func main() {
 
 	question := "How might climate change affect global agriculture?"
 
-	response, err := goal.ChainOfThought(ctx, llmClient, question,
-		goal.WithMaxLength(300),
-		goal.WithContext("Climate change is causing global temperature increases and changing precipitation patterns."),
-		goal.WithExamples("Effect: Shifting growing seasons, Adaptation: Developing heat-resistant crops"),
-		goal.WithDirectives(
+	response, err := gollm.ChainOfThought(ctx, llmClient, question,
+		gollm.WithMaxLength(300),
+		gollm.WithContext("Climate change is causing global temperature increases and changing precipitation patterns."),
+		gollm.WithExamples("Effect: Shifting growing seasons, Adaptation: Developing heat-resistant crops"),
+		gollm.WithDirectives(
 			"Break down the problem into steps",
 			"Show your reasoning for each step",
 		),

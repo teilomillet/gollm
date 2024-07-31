@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 func main() {
@@ -18,13 +18,13 @@ func main() {
 		log.Fatalf("OPENAI_API_KEY environment variable is not set")
 	}
 
-	llm, err := goal.NewLLM(
-		goal.SetProvider("openai"),
-		goal.SetModel("gpt-3.5-turbo"),
-		goal.SetAPIKey(apiKey),
-		goal.SetMaxTokens(300),
-		goal.SetMaxRetries(3),
-		goal.SetDebugLevel(goal.LogLevelInfo),
+	llm, err := gollm.NewLLM(
+		gollm.SetProvider("openai"),
+		gollm.SetModel("gpt-3.5-turbo"),
+		gollm.SetAPIKey(apiKey),
+		gollm.SetMaxTokens(300),
+		gollm.SetMaxRetries(3),
+		gollm.SetDebugLevel(gollm.LogLevelInfo),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
@@ -34,8 +34,8 @@ func main() {
 
 	// Example 1: Basic Prompt with Structured Output
 	fmt.Println("\nExample 1: Basic Prompt with Structured Output")
-	basicPrompt := goal.NewPrompt("List the top 3 benefits of exercise",
-		goal.WithOutput("JSON array of benefits, each with a 'title' and 'description'"),
+	basicPrompt := gollm.NewPrompt("List the top 3 benefits of exercise",
+		gollm.WithOutput("JSON array of benefits, each with a 'title' and 'description'"),
 	)
 	basicResponse, err := llm.Generate(ctx, basicPrompt)
 	if err != nil {
@@ -46,14 +46,14 @@ func main() {
 
 	// Example 2: Prompt with Directives, Output, and Context
 	fmt.Println("\nExample 2: Prompt with Directives, Output, and Context")
-	directivePrompt := goal.NewPrompt("Propose a solution to reduce urban traffic congestion",
-		goal.WithDirectives(
+	directivePrompt := gollm.NewPrompt("Propose a solution to reduce urban traffic congestion",
+		gollm.WithDirectives(
 			"Consider both technological and policy-based approaches",
 			"Address environmental concerns",
 			"Consider cost-effectiveness",
 		),
-		goal.WithOutput("Solution proposal in markdown format with headings"),
-		goal.WithContext("The city has a population of 2 million and limited public transportation."),
+		gollm.WithOutput("Solution proposal in markdown format with headings"),
+		gollm.WithContext("The city has a population of 2 million and limited public transportation."),
 	)
 	directiveResponse, err := llm.Generate(ctx, directivePrompt)
 	if err != nil {
@@ -63,12 +63,12 @@ func main() {
 
 	// Example 3: Prompt with Examples and Max Length
 	fmt.Println("\nExample 3: Prompt with Examples and Max Length")
-	examplesPrompt := goal.NewPrompt("Write a short, engaging tweet about climate change",
-		goal.WithExamples(
+	examplesPrompt := gollm.NewPrompt("Write a short, engaging tweet about climate change",
+		gollm.WithExamples(
 			"🌍 Small actions, big impact! Reduce, reuse, recycle to fight climate change. #ClimateAction",
 			"🌡️ Climate change is real, and it's happening now. Let's act before it's too late! #ClimateEmergency",
 		),
-		goal.WithMaxLength(30),
+		gollm.WithMaxLength(30),
 	)
 	examplesResponse, err := llm.Generate(ctx, examplesPrompt)
 	if err != nil {
@@ -78,17 +78,17 @@ func main() {
 
 	// Example 4: Prompt Template with Dynamic Content
 	fmt.Println("\nExample 4: Prompt Template with Dynamic Content")
-	templatePrompt := goal.NewPromptTemplate(
+	templatePrompt := gollm.NewPromptTemplate(
 		"ProductDescription",
 		"Generate a product description",
 		"Create an engaging product description for a {{.ProductType}} named '{{.ProductName}}'. "+
 			"Target audience: {{.TargetAudience}}. Highlight {{.NumFeatures}} key features.",
-		goal.WithPromptOptions(
-			goal.WithDirectives(
+		gollm.WithPromptOptions(
+			gollm.WithDirectives(
 				"Use persuasive language",
 				"Include a call-to-action",
 			),
-			goal.WithOutput("Product description in HTML format"),
+			gollm.WithOutput("Product description in HTML format"),
 		),
 	)
 
@@ -110,9 +110,9 @@ func main() {
 
 	// Example 5: JSON Schema Generation and Validation
 	fmt.Println("\nExample 5: JSON Schema Generation and Validation")
-	schemaPrompt := goal.NewPrompt("Generate a user profile",
-		goal.WithOutput(`JSON object with name, age, and interests`),
-		goal.WithDirectives(
+	schemaPrompt := gollm.NewPrompt("Generate a user profile",
+		gollm.WithOutput(`JSON object with name, age, and interests`),
+		gollm.WithDirectives(
 			"Name should be a string",
 			"Age should be an integer",
 			"Interests should be an array of strings",
@@ -125,7 +125,7 @@ func main() {
 	fmt.Printf("JSON Schema for User Profile Prompt:\n%s\n", string(schemaBytes))
 
 	// Demonstrate validation
-	validPrompt := goal.NewPrompt("Valid prompt", goal.WithMaxLength(100))
+	validPrompt := gollm.NewPrompt("Valid prompt", gollm.WithMaxLength(100))
 	err = validPrompt.Validate()
 	if err != nil {
 		fmt.Printf("Unexpected validation error: %v\n", err)
@@ -133,7 +133,7 @@ func main() {
 		fmt.Println("Valid prompt passed validation.")
 	}
 
-	invalidPrompt := goal.NewPrompt("", goal.WithMaxLength(-1))
+	invalidPrompt := gollm.NewPrompt("", gollm.WithMaxLength(-1))
 	err = invalidPrompt.Validate()
 	if err != nil {
 		fmt.Printf("Validation error (expected): %v\n", err)
@@ -141,19 +141,19 @@ func main() {
 
 	// Example 6: Chained Prompts
 	fmt.Println("\nExample 6: Chained Prompts")
-	ideaPrompt := goal.NewPrompt("Generate a unique business idea in the sustainability sector")
+	ideaPrompt := gollm.NewPrompt("Generate a unique business idea in the sustainability sector")
 	ideaResponse, err := llm.Generate(ctx, ideaPrompt)
 	if err != nil {
 		log.Fatalf("Failed to generate idea: %v", err)
 	}
 
-	analysisPrompt := goal.NewPrompt(fmt.Sprintf("Analyze the following business idea: %s", ideaResponse),
-		goal.WithDirectives(
+	analysisPrompt := gollm.NewPrompt(fmt.Sprintf("Analyze the following business idea: %s", ideaResponse),
+		gollm.WithDirectives(
 			"Identify potential challenges",
 			"Suggest target market",
 			"Propose a monetization strategy",
 		),
-		goal.WithOutput("Analysis in JSON format with 'challenges', 'targetMarket', and 'monetization' keys"),
+		gollm.WithOutput("Analysis in JSON format with 'challenges', 'targetMarket', and 'monetization' keys"),
 	)
 	analysisResponse, err := llm.Generate(ctx, analysisPrompt)
 	if err != nil {
@@ -164,8 +164,8 @@ func main() {
 
 	// Example 7: Prompt with JSON Schema Validation
 	fmt.Println("\nExample 7: Prompt with JSON Schema Validation")
-	jsonSchemaPrompt := goal.NewPrompt("Generate a user profile",
-		goal.WithOutput(`JSON object with the following schema:
+	jsonSchemaPrompt := gollm.NewPrompt("Generate a user profile",
+		gollm.WithOutput(`JSON object with the following schema:
 		{
 			"type": "object",
 			"properties": {
@@ -176,7 +176,7 @@ func main() {
 			"required": ["name", "age", "interests"]
 		}`),
 	)
-	jsonSchemaResponse, err := llm.Generate(ctx, jsonSchemaPrompt, goal.WithJSONSchemaValidation())
+	jsonSchemaResponse, err := llm.Generate(ctx, jsonSchemaPrompt, gollm.WithJSONSchemaValidation())
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema validated response: %v", err)
 	}

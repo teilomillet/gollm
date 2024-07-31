@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 type PersonInfo struct {
@@ -24,37 +24,37 @@ func main() {
 		log.Fatalf("OPENAI_API_KEY environment variable is not set")
 	}
 
-	llm, err := goal.NewLLM(
-		goal.SetProvider("openai"),
-		goal.SetModel("gpt-3.5-turbo"),
-		goal.SetAPIKey(apiKey),
-		goal.SetMaxTokens(300),
-		goal.SetMaxRetries(3),
-		goal.SetRetryDelay(time.Second*2),
-		goal.SetDebugLevel(goal.LogLevelWarn),
+	llm, err := gollm.NewLLM(
+		gollm.SetProvider("openai"),
+		gollm.SetModel("gpt-3.5-turbo"),
+		gollm.SetAPIKey(apiKey),
+		gollm.SetMaxTokens(300),
+		gollm.SetMaxRetries(3),
+		gollm.SetRetryDelay(time.Second*2),
+		gollm.SetDebugLevel(gollm.LogLevelWarn),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}
 
-	schemaJSON, err := goal.GenerateJSONSchema(&PersonInfo{}, goal.WithExpandedStruct(true))
+	schemaJSON, err := gollm.GenerateJSONSchema(&PersonInfo{}, gollm.WithExpandedStruct(true))
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema: %v", err)
 	}
 
-	prompt := goal.NewPrompt(
+	prompt := gollm.NewPrompt(
 		"Generate information about a fictional person",
-		goal.WithDirectives(
+		gollm.WithDirectives(
 			"Create a fictional person with a name, age, occupation, and hobbies",
 			"Ensure the age is realistic for the occupation",
 			"Include 1 to 5 hobbies",
 			"Return ONLY the JSON data for the person, not the schema",
 		),
-		goal.WithOutput(fmt.Sprintf("Generate a JSON object that adheres to this schema:\n%s\nDo not include the schema in your response, only the generated data.", string(schemaJSON))),
+		gollm.WithOutput(fmt.Sprintf("Generate a JSON object that adheres to this schema:\n%s\nDo not include the schema in your response, only the generated data.", string(schemaJSON))),
 	)
 
 	ctx := context.Background()
-	response, err := llm.Generate(ctx, prompt, goal.WithJSONSchemaValidation())
+	response, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
@@ -67,7 +67,7 @@ func main() {
 		log.Fatalf("Failed to parse response as JSON: %v", err)
 	}
 
-	if err := goal.Validate(&person); err != nil {
+	if err := gollm.Validate(&person); err != nil {
 		log.Fatalf("Generated data does not match schema: %v", err)
 	}
 

@@ -1,6 +1,6 @@
 // File: comparison.go
 
-package goal
+package gollm
 
 import (
 	"context"

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 // MovieReview without validation tags
@@ -33,7 +33,7 @@ type MovieReviewValidated struct {
 }
 
 // extractReview is a generic function to extract a review
-func extractReview[T any](ctx context.Context, llm goal.LLM, text string, withValidation bool) (*T, error) {
+func extractReview[T any](ctx context.Context, llm gollm.LLM, text string, withValidation bool) (*T, error) {
 	var validationMsg string
 	if withValidation {
 		validationMsg = "with"
@@ -42,7 +42,7 @@ func extractReview[T any](ctx context.Context, llm goal.LLM, text string, withVa
 	}
 
 	fmt.Printf("Extracting movie review %s validation...\n", validationMsg)
-	review, err := goal.ExtractStructuredData[T](ctx, llm, text)
+	review, err := gollm.ExtractStructuredData[T](ctx, llm, text)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract movie review %s validation: %v", validationMsg, err)
 	}
@@ -57,13 +57,13 @@ func main() {
 		log.Fatalf("GROQ_API_KEY environment variable is not set")
 	}
 
-	llm, err := goal.NewLLM(
-		goal.SetProvider("groq"),
-		goal.SetModel("llama-3.1-70b-versatile"),
-		goal.SetAPIKey(apiKey),
-		goal.SetMaxRetries(3),
-		goal.SetMaxTokens(2048),
-		goal.SetDebugLevel(goal.LogLevelWarn),
+	llm, err := gollm.NewLLM(
+		gollm.SetProvider("groq"),
+		gollm.SetModel("llama-3.1-70b-versatile"),
+		gollm.SetAPIKey(apiKey),
+		gollm.SetMaxRetries(3),
+		gollm.SetMaxTokens(2048),
+		gollm.SetDebugLevel(gollm.LogLevelWarn),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)

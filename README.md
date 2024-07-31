@@ -1,6 +1,6 @@
-# goal - Go Abstract Language Model Interface
+# gollm - Go Abstract Language Model Interface
 
-`goal` is a Go package designed to simplify and streamline interactions with various Language Model (LLM) providers. It's built for AI engineers and developers who want a unified, flexible, and powerful interface to work with multiple LLM APIs.
+`gollm` is a Go package designed to simplify and streamline interactions with various Language Model (LLM) providers. It's built for AI engineers and developers who want a unified, flexible, and powerful interface to work with multiple LLM APIs.
 
 ## Key Features
 
@@ -12,12 +12,12 @@
 - **Provider Comparison**: Easily compare responses from multiple LLM providers for the same prompt.
 - **JSON Output Validation**: Validate and ensure the structure of JSON outputs from LLMs.
 - **Extensible Architecture**: Add new LLM providers with minimal effort.
-- **CLI Tool**: Use `goal` directly from the command line for quick experiments and workflows.
+- **CLI Tool**: Use `gollm` directly from the command line for quick experiments and workflows.
 
 ## Installation
 
 ```bash
-go get github.com/teilomillet/goal
+go get github.com/teilomillet/gollm
 ```
 
 ## Quick Start
@@ -32,15 +32,15 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 func main() {
-	llm, err := goal.NewLLM(
-		goal.SetProvider("openai"),
-		goal.SetModel("gpt-4o-mini"),
-		goal.SetMaxTokens(100),
-		goal.SetAPIKey("your-api-key-here"),
+	llm, err := gollm.NewLLM(
+		gollm.SetProvider("openai"),
+		gollm.SetModel("gpt-4o-mini"),
+		gollm.SetMaxTokens(100),
+		gollm.SetAPIKey("your-api-key-here"),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
@@ -48,7 +48,7 @@ func main() {
 
 	ctx := context.Background()
 
-	prompt := goal.NewPrompt("Tell me a short joke about programming.")
+	prompt := gollm.NewPrompt("Tell me a short joke about programming.")
 	response, err := llm.Generate(ctx, prompt)
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
@@ -78,26 +78,26 @@ func validateJoke(joke JokeResponse) error {
 	return nil
 }
 
-configs := []*goal.Config{
+configs := []*gollm.Config{
 	{Provider: "openai", Model: "gpt-4o-mini", APIKey: "your-openai-api-key"},
 	{Provider: "anthropic", Model: "claude-3-5-sonnet-20240620	", APIKey: "your-anthropic-api-key"},
 }
 
 prompt := "Tell me a joke about programming. Respond in JSON format with 'setup' and 'punchline' fields."
 
-results, err := goal.CompareModels(context.Background(), prompt, validateJoke, configs...)
+results, err := gollm.CompareModels(context.Background(), prompt, validateJoke, configs...)
 if err != nil {
 	log.Fatalf("Error comparing models: %v", err)
 }
 
-fmt.Println(goal.AnalyzeComparisonResults(results))
+fmt.Println(gollm.AnalyzeComparisonResults(results))
 ```
 
 This example compares responses from OpenAI and Anthropic models, ensuring that each response is a valid joke with a setup and punchline.
 
 ### JSON Output Validation
 
-`goal` now supports automatic validation of JSON outputs from LLMs. This is particularly useful when you expect a specific structure in the LLM's response:
+`gollm` now supports automatic validation of JSON outputs from LLMs. This is particularly useful when you expect a specific structure in the LLM's response:
 
 ```go
 type AnalysisResult struct {
@@ -114,11 +114,11 @@ func validateAnalysis(analysis AnalysisResult) error {
 	return nil
 }
 
-prompt := goal.NewPrompt("Analyze the pros and cons of remote work.",
-	goal.WithOutput("Respond in JSON format with 'topic', 'pros', 'cons', and 'conclusion' fields."),
+prompt := gollm.NewPrompt("Analyze the pros and cons of remote work.",
+	gollm.WithOutput("Respond in JSON format with 'topic', 'pros', 'cons', and 'conclusion' fields."),
 )
 
-response, err := llm.Generate(ctx, prompt, goal.WithJSONSchemaValidation())
+response, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
 if err != nil {
 	log.Fatalf("Failed to generate valid analysis: %v", err)
 }
@@ -139,25 +139,25 @@ This example demonstrates how to use JSON schema validation to ensure that the L
 
 ## Performance Considerations
 
-While `goal` adds a thin abstraction layer, its impact on performance is minimal. The main performance factors will be the responsiveness of the chosen LLM provider and the complexity of your prompts.
+While `gollm` adds a thin abstraction layer, its impact on performance is minimal. The main performance factors will be the responsiveness of the chosen LLM provider and the complexity of your prompts.
 
 ## Streaming Support
 
-Currently, `goal` does not support streaming responses. This feature is on our roadmap for future development.
+Currently, `gollm` does not support streaming responses. This feature is on our roadmap for future development.
 
 ## Project Status
 
-`goal` is actively maintained and under continuous development. We welcome contributions and feedback from the community.
+`gollm` is actively maintained and under continuous development. We welcome contributions and feedback from the community.
 
 ## Examples and Tutorials
 
-Check out our [examples directory](https://github.com/teilomillet/goal/tree/main/examples) for more usage examples, including:
+Check out our [examples directory](https://github.com/teilomillet/gollm/tree/main/examples) for more usage examples, including:
 
 - Basic usage
 - Different prompt types
 - Comparing providers
 - Advanced prompt templates
-- Combining multiple `goal` features
+- Combining multiple `gollm` features
 - JSON output validation
 
 

@@ -1,6 +1,6 @@
 # internal/llm Package
 
-This package provides the core functionality for the `goal` Language Model (LLM) interface. It's designed to be flexible, extensible, and provider-agnostic.
+This package provides the core functionality for the `gollm` Language Model (LLM) interface. It's designed to be flexible, extensible, and provider-agnostic.
 
 ## Package Structure
 

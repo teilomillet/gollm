@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 func main() {
@@ -20,14 +20,14 @@ func main() {
 	}
 
 	// Create a new LLM instance with custom configuration
-	llm, err := goal.NewLLM(
-		goal.SetProvider("openai"),
-		goal.SetModel("gpt-3.5-turbo"),
-		goal.SetAPIKey(apiKey),
-		goal.SetMaxTokens(200),
-		goal.SetMaxRetries(3),
-		goal.SetRetryDelay(time.Second*2),
-		goal.SetDebugLevel(goal.LogLevelInfo),
+	llm, err := gollm.NewLLM(
+		gollm.SetProvider("openai"),
+		gollm.SetModel("gpt-3.5-turbo"),
+		gollm.SetAPIKey(apiKey),
+		gollm.SetMaxTokens(200),
+		gollm.SetMaxRetries(3),
+		gollm.SetRetryDelay(time.Second*2),
+		gollm.SetDebugLevel(gollm.LogLevelInfo),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
@@ -38,7 +38,7 @@ func main() {
 
 	// Example 1: Basic Prompt
 	fmt.Println("\nExample 1: Basic Prompt")
-	basicPrompt := goal.NewPrompt("Explain the concept of 'recursion' in programming.")
+	basicPrompt := gollm.NewPrompt("Explain the concept of 'recursion' in programming.")
 	fmt.Printf("Basic prompt created: %+v\n", basicPrompt)
 
 	response, err := llm.Generate(ctx, basicPrompt)
@@ -49,14 +49,14 @@ func main() {
 
 	// Example 2: Advanced Prompt with Directives and Output
 	fmt.Println("\nExample 2: Advanced Prompt with Directives and Output")
-	advancedPrompt := goal.NewPrompt("Compare and contrast functional and object-oriented programming paradigms",
-		goal.WithDirectives(
+	advancedPrompt := gollm.NewPrompt("Compare and contrast functional and object-oriented programming paradigms",
+		gollm.WithDirectives(
 			"Provide at least three key differences",
 			"Include examples for each paradigm",
 			"Discuss strengths and weaknesses",
 		),
-		goal.WithOutput("Comparison of Programming Paradigms:"),
-		goal.WithMaxLength(300),
+		gollm.WithOutput("Comparison of Programming Paradigms:"),
+		gollm.WithMaxLength(300),
 	)
 	fmt.Printf("Advanced prompt created: %+v\n", advancedPrompt)
 
@@ -68,9 +68,9 @@ func main() {
 
 	// Example 3: Prompt with Context
 	fmt.Println("\nExample 3: Prompt with Context")
-	contextPrompt := goal.NewPrompt("Summarize the main points",
-		goal.WithContext("The Internet of Things (IoT) refers to the interconnected network of physical devices embedded with electronics, software, sensors, and network connectivity, which enables these objects to collect and exchange data."),
-		goal.WithMaxLength(100),
+	contextPrompt := gollm.NewPrompt("Summarize the main points",
+		gollm.WithContext("The Internet of Things (IoT) refers to the interconnected network of physical devices embedded with electronics, software, sensors, and network connectivity, which enables these objects to collect and exchange data."),
+		gollm.WithMaxLength(100),
 	)
 	fmt.Printf("Context prompt created: %+v\n", contextPrompt)
 
@@ -88,7 +88,7 @@ func main() {
 	}
 	fmt.Printf("JSON Schema for Advanced Prompt:\n%s\n", string(schemaBytes))
 
-	invalidPrompt := goal.NewPrompt("") // Invalid because Input is required
+	invalidPrompt := gollm.NewPrompt("") // Invalid because Input is required
 	fmt.Printf("Invalid prompt created: %+v\n", invalidPrompt)
 	err = invalidPrompt.Validate()
 	if err != nil {
@@ -98,7 +98,7 @@ func main() {
 	// Example 5: Using Chain of Thought
 	fmt.Println("\nExample 5: Using Chain of Thought")
 	cotPrompt := "Explain the process of photosynthesis step by step."
-	cotResponse, err := goal.ChainOfThought(ctx, llm, cotPrompt)
+	cotResponse, err := gollm.ChainOfThought(ctx, llm, cotPrompt)
 	if err != nil {
 		log.Fatalf("Failed to generate Chain of Thought response: %v", err)
 	}

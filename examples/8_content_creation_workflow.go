@@ -6,16 +6,16 @@ import (
 	"log"
 	"os"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 func main() {
 	// Initialize LLM client
-	llm, err := goal.NewLLM(
-		goal.SetProvider("openai"),                  // Set the LLM provider
-		goal.SetModel("gpt-4o-mini"),                // Set the model (ensure it's compatible with the provider)
-		goal.SetAPIKey(os.Getenv("OPENAI_API_KEY")), // Set the API Key
-		goal.SetMaxTokens(500))                      // Limit the response length
+	llm, err := gollm.NewLLM(
+		gollm.SetProvider("openai"),                  // Set the LLM provider
+		gollm.SetModel("gpt-4o-mini"),                // Set the model (ensure it's compatible with the provider)
+		gollm.SetAPIKey(os.Getenv("OPENAI_API_KEY")), // Set the API Key
+		gollm.SetMaxTokens(500))                      // Limit the response length
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}
@@ -24,9 +24,9 @@ func main() {
 
 	// Step 1: Research phase
 	// Generate a brief overview of the topic to use as context for later steps
-	researchPrompt := goal.NewPrompt(
+	researchPrompt := gollm.NewPrompt(
 		"Provide a brief overview of quantum computing",
-		goal.WithMaxLength(200), // Limit the research to 200 words
+		gollm.WithMaxLength(200), // Limit the research to 200 words
 	)
 	research, err := llm.Generate(ctx, researchPrompt)
 	if err != nil {
@@ -36,9 +36,9 @@ func main() {
 
 	// Step 2: Ideation phase
 	// Generate article ideas based on the research
-	ideaPrompt := goal.NewPrompt(
+	ideaPrompt := gollm.NewPrompt(
 		"Generate 3 article ideas about quantum computing for a general audience",
-		goal.WithContext(research), // Use the research as context for generating ideas
+		gollm.WithContext(research), // Use the research as context for generating ideas
 	)
 	ideas, err := llm.Generate(ctx, ideaPrompt)
 	if err != nil {
@@ -48,10 +48,10 @@ func main() {
 
 	// Step 3: Writing refinement
 	// Improve a paragraph using specific directives
-	refinementPrompt := goal.NewPrompt(
+	refinementPrompt := gollm.NewPrompt(
 		"Improve the following paragraph about quantum computing:",
-		goal.WithContext(research), // Use the research as the paragraph to improve
-		goal.WithDirectives( // Provide specific instructions for improvement
+		gollm.WithContext(research), // Use the research as the paragraph to improve
+		gollm.WithDirectives( // Provide specific instructions for improvement
 			"Use simpler language for a general audience",
 			"Add an engaging opening sentence",
 			"Conclude with a thought-provoking question",

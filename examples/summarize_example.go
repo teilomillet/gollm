@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 func main() {
-	llmClient, err := goal.NewLLM()
+	llmClient, err := gollm.NewLLM()
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
@@ -22,9 +22,9 @@ func main() {
 	As AI continues to advance, it's crucial to address these challenges and ensure responsible development 
 	and deployment of AI technologies.`
 
-	summary, err := goal.Summarize(ctx, llmClient, text,
-		goal.WithMaxLength(50),
-		goal.WithDirectives(
+	summary, err := gollm.Summarize(ctx, llmClient, text,
+		gollm.WithMaxLength(50),
+		gollm.WithDirectives(
 			"Provide a concise summary",
 			"Capture the main points and key details",
 			"Focus on the main impacts and challenges",

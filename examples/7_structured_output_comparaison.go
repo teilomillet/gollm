@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 	"log"
 	"os"
 	"strings"
@@ -24,8 +24,8 @@ type ComplexPerson struct {
 	LuckyNumber   int      `json:"luckyNumber" validate:"required,gte=1,lte=100"`
 }
 
-func debugLog(level goal.LogLevel, format string, args ...interface{}) {
-	if level == goal.LogLevelDebug {
+func debugLog(level gollm.LogLevel, format string, args ...interface{}) {
+	if level == gollm.LogLevelDebug {
 		fmt.Printf("[DEBUG] "+format+"\n", args...)
 	}
 }
@@ -33,7 +33,7 @@ func debugLog(level goal.LogLevel, format string, args ...interface{}) {
 func main() {
 	ctx := context.Background()
 
-	debugLevel := goal.LogLevelWarn // Set to LogLevelDebug for verbose output
+	debugLevel := gollm.LogLevelWarn // Set to LogLevelDebug for verbose output
 
 	fmt.Println("Starting structured output comparison...")
 
@@ -49,7 +49,7 @@ func main() {
 	}
 
 	// Create configs for each model
-	configs := make([]*goal.Config, 0, len(models))
+	configs := make([]*gollm.Config, 0, len(models))
 	for _, m := range models {
 		apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(m.provider))
 		apiKey := os.Getenv(apiKeyEnv)
@@ -58,14 +58,14 @@ func main() {
 			continue
 		}
 
-		config := &goal.Config{}
-		goal.SetProvider(m.provider)(config)
-		goal.SetModel(m.model)(config)
-		goal.SetAPIKey(apiKey)(config)
-		goal.SetMaxTokens(500)(config)
-		goal.SetMaxRetries(3)(config)
-		goal.SetRetryDelay(time.Second * 2)(config)
-		goal.SetDebugLevel(debugLevel)(config)
+		config := &gollm.Config{}
+		gollm.SetProvider(m.provider)(config)
+		gollm.SetModel(m.model)(config)
+		gollm.SetAPIKey(apiKey)(config)
+		gollm.SetMaxTokens(500)(config)
+		gollm.SetMaxRetries(3)(config)
+		gollm.SetRetryDelay(time.Second * 2)(config)
+		gollm.SetDebugLevel(debugLevel)(config)
 
 		configs = append(configs, config)
 		debugLog(debugLevel, "Created configuration for %s %s", m.provider, m.model)
@@ -78,7 +78,7 @@ func main() {
 	debugLog(debugLevel, "Created %d valid configurations", len(configs))
 
 	// Generate JSON schema for ComplexPerson
-	schema, err := goal.GenerateJSONSchema(&ComplexPerson{})
+	schema, err := gollm.GenerateJSONSchema(&ComplexPerson{})
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema: %v", err)
 	}
@@ -111,7 +111,7 @@ Return the data as a JSON object that adheres to this schema:
 
 	// Compare model outputs
 	fmt.Println("Starting model comparison...")
-	results, err := goal.CompareModels(ctx, promptText, validateComplexPerson, configs...)
+	results, err := gollm.CompareModels(ctx, promptText, validateComplexPerson, configs...)
 	if err != nil {
 		log.Fatalf("Error comparing models: %v", err)
 	}
@@ -144,7 +144,7 @@ Return the data as a JSON object that adheres to this schema:
 
 	// Print the final analysis
 	fmt.Println("\nFinal Analysis of Results:")
-	analysis := goal.AnalyzeComparisonResults(results)
+	analysis := gollm.AnalyzeComparisonResults(results)
 	fmt.Println(analysis)
 
 	debugLog(debugLevel, "Structured output comparison completed")

@@ -1,11 +1,11 @@
 // File: config.go
 
-package goal
+package gollm
 
 import (
 	"time"
 
-	"github.com/teilomillet/goal/internal/llm"
+	"github.com/teilomillet/gollm/internal/llm"
 )
 
 // LogLevel represents the level of logging
@@ -48,7 +48,7 @@ func (c *Config) toInternalConfig() *llm.Config {
 	}
 }
 
-// Convert llm.LogLevel to goal.LogLevel
+// Convert llm.LogLevel to gollm.LogLevel
 func convertLogLevel(level llm.LogLevel) LogLevel {
 	switch level {
 	case llm.LogLevelDebug:

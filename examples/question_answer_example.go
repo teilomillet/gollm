@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 func main() {
-	llmClient, err := goal.NewLLM(
-		goal.SetMaxTokens(500),
+	llmClient, err := gollm.NewLLM(
+		gollm.SetMaxTokens(500),
 	)
 
 	if err != nil {
@@ -25,11 +25,11 @@ func main() {
 	much faster than classical computers, particularly in areas like cryptography, optimization, and 
 	simulation of quantum systems.`
 
-	response, err := goal.QuestionAnswer(ctx, llmClient, question,
-		goal.WithContext(contextInfo),
-		goal.WithExamples("Challenge: Decoherence, Solution: Error correction techniques"),
-		goal.WithMaxLength(200),
-		goal.WithDirectives(
+	response, err := gollm.QuestionAnswer(ctx, llmClient, question,
+		gollm.WithContext(contextInfo),
+		gollm.WithExamples("Challenge: Decoherence, Solution: Error correction techniques"),
+		gollm.WithMaxLength(200),
+		gollm.WithDirectives(
 			"Provide a concise answer",
 			"Address the main challenges mentioned in the question",
 		),

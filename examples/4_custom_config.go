@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 func main() {
@@ -20,20 +20,20 @@ func main() {
 	}
 
 	// Create a custom configuration
-	customConfig := []goal.ConfigOption{
-		goal.SetProvider("openai"),
-		goal.SetModel("gpt-4o-mini"),
-		goal.SetTemperature(0.7),
-		goal.SetMaxTokens(150),
-		goal.SetTimeout(30 * time.Second),
-		goal.SetMaxRetries(3),
-		goal.SetRetryDelay(2 * time.Second),
-		goal.SetDebugLevel(goal.LogLevelInfo),
-		goal.SetAPIKey(apiKey),
+	customConfig := []gollm.ConfigOption{
+		gollm.SetProvider("openai"),
+		gollm.SetModel("gpt-4o-mini"),
+		gollm.SetTemperature(0.7),
+		gollm.SetMaxTokens(150),
+		gollm.SetTimeout(30 * time.Second),
+		gollm.SetMaxRetries(3),
+		gollm.SetRetryDelay(2 * time.Second),
+		gollm.SetDebugLevel(gollm.LogLevelInfo),
+		gollm.SetAPIKey(apiKey),
 	}
 
 	// Create a new LLM instance with custom configuration
-	llm, err := goal.NewLLM(customConfig...)
+	llm, err := gollm.NewLLM(customConfig...)
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
@@ -41,17 +41,17 @@ func main() {
 	ctx := context.Background()
 
 	// Custom prompt template with formatting options
-	analysisPrompt := goal.NewPromptTemplate(
+	analysisPrompt := gollm.NewPromptTemplate(
 		"CustomAnalysis",
 		"Analyze a given topic",
 		"Analyze the following topic: {{.Topic}}",
-		goal.WithPromptOptions(
-			goal.WithDirectives(
+		gollm.WithPromptOptions(
+			gollm.WithDirectives(
 				"Consider technological, economic, and social implications",
 				"Provide at least one potential positive and one potential negative outcome",
 				"Conclude with a balanced summary",
 			),
-			goal.WithOutput("Analysis:"),
+			gollm.WithOutput("Analysis:"),
 		),
 	)
 
@@ -71,7 +71,7 @@ func main() {
 		}
 
 		// Use JSON schema validation for the prompt
-		analysis, err := llm.Generate(ctx, prompt, goal.WithJSONSchemaValidation())
+		analysis, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
 		if err != nil {
 			log.Printf("Failed to generate analysis for topic '%s': %v\n", topic, err)
 			continue

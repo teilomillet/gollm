@@ -1,6 +1,6 @@
-# goal Package Examples
+# gollm Package Examples
 
-This directory contains example scripts demonstrating various features of the `goal` package. These examples are designed to help you understand and utilize the capabilities of the package in your projects.
+This directory contains example scripts demonstrating various features of the `gollm` package. These examples are designed to help you understand and utilize the capabilities of the package in your projects.
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ go run 1_basic_usage.go
 
 ## List of Examples
 
-1. `1_basic_usage.go`: Demonstrates basic usage of the `goal` package, including creating an LLM client, generating responses, and using various prompt types.
+1. `1_basic_usage.go`: Demonstrates basic usage of the `gollm` package, including creating an LLM client, generating responses, and using various prompt types.
 2. `2_prompt_types.go`: Shows different prompt types and how to use them (basic, with directives, with context, with output, with examples, and prompt templates).
 3. `3_compare_providers.go`: Illustrates how to compare responses from different LLM providers and models.
 4. `4_custom_config.go`: Demonstrates how to use custom configurations for LLM clients.
@@ -46,16 +46,16 @@ go run 1_basic_usage.go
 
 ## Configuration
 
-Some examples use the default configuration, while others may require specific config files. To set up custom configurations, create YAML files in the `~/.goal/configs/` directory. For example:
+Some examples use the default configuration, while others may require specific config files. To set up custom configurations, create YAML files in the `~/.gollm/configs/` directory. For example:
 
 ```yaml
-# ~/.goal/configs/openai.yaml
+# ~/.gollm/configs/openai.yaml
 provider: openai
 model: gpt-4o-mini
 temperature: 0.7
 max_tokens: 100
 
-# ~/.goal/configs/anthropic.yaml
+# ~/.gollm/configs/anthropic.yaml
 provider: anthropic
 model: claude-3-opus-20240229
 temperature: 0.7
@@ -70,4 +70,4 @@ Adjust these configurations as needed for your use case.
 - For "provider not supported" errors, check that you're using a supported LLM provider and that the provider name is correctly specified in your configuration.
 - If you're having issues with a specific example, try running the `1_basic_usage.go` example first to ensure your setup is correct.
 
-For more detailed information on using the `goal` package, refer to the main README.md file in the project root directory. package, refer to the main README.md file in the project root directory.
+For more detailed information on using the `gollm` package, refer to the main README.md file in the project root directory. package, refer to the main README.md file in the project root directory.

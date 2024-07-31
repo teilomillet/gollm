@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 func main() {
@@ -30,32 +30,32 @@ func main() {
 	flag.Parse()
 
 	// Prepare configuration options
-	var configOpts []goal.ConfigOption
+	var configOpts []gollm.ConfigOption
 
 	if *provider != "" {
-		configOpts = append(configOpts, goal.SetProvider(*provider))
+		configOpts = append(configOpts, gollm.SetProvider(*provider))
 	}
 	if *model != "" {
-		configOpts = append(configOpts, goal.SetModel(*model))
+		configOpts = append(configOpts, gollm.SetModel(*model))
 	}
 	if *temperature != -1 {
-		configOpts = append(configOpts, goal.SetTemperature(*temperature))
+		configOpts = append(configOpts, gollm.SetTemperature(*temperature))
 	}
 	if *maxTokens != 0 {
-		configOpts = append(configOpts, goal.SetMaxTokens(*maxTokens))
+		configOpts = append(configOpts, gollm.SetMaxTokens(*maxTokens))
 	}
 	if *timeout != 0 {
-		configOpts = append(configOpts, goal.SetTimeout(*timeout))
+		configOpts = append(configOpts, gollm.SetTimeout(*timeout))
 	}
 	if *apiKey != "" {
-		configOpts = append(configOpts, goal.SetAPIKey(*apiKey))
+		configOpts = append(configOpts, gollm.SetAPIKey(*apiKey))
 	}
-	configOpts = append(configOpts, goal.SetMaxRetries(*maxRetries))
-	configOpts = append(configOpts, goal.SetRetryDelay(*retryDelay))
-	configOpts = append(configOpts, goal.SetDebugLevel(goal.LogLevel(getLogLevel(*debugLevel))))
+	configOpts = append(configOpts, gollm.SetMaxRetries(*maxRetries))
+	configOpts = append(configOpts, gollm.SetRetryDelay(*retryDelay))
+	configOpts = append(configOpts, gollm.SetDebugLevel(gollm.LogLevel(getLogLevel(*debugLevel))))
 
 	// Create LLM client with the specified options
-	llmClient, err := goal.NewLLM(configOpts...)
+	llmClient, err := gollm.NewLLM(configOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating LLM client: %v\n", err)
 		os.Exit(1)
@@ -75,17 +75,17 @@ func main() {
 
 	switch *promptType {
 	case "qa":
-		response, err = goal.QuestionAnswer(ctx, llmClient, rawPrompt)
+		response, err = gollm.QuestionAnswer(ctx, llmClient, rawPrompt)
 	case "cot":
-		response, err = goal.ChainOfThought(ctx, llmClient, rawPrompt)
+		response, err = gollm.ChainOfThought(ctx, llmClient, rawPrompt)
 	case "summarize":
-		response, err = goal.Summarize(ctx, llmClient, rawPrompt)
+		response, err = gollm.Summarize(ctx, llmClient, rawPrompt)
 	default:
-		prompt := goal.NewPrompt(rawPrompt)
+		prompt := gollm.NewPrompt(rawPrompt)
 		if *outputFormat == "json" {
-			prompt.Apply(goal.WithOutput("Please provide your response in JSON format."))
+			prompt.Apply(gollm.WithOutput("Please provide your response in JSON format."))
 		}
-		response, err = llmClient.Generate(ctx, prompt, goal.WithJSONSchemaValidation())
+		response, err = llmClient.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
 		fullPrompt = prompt.String()
 	}
 
@@ -116,16 +116,16 @@ func main() {
 	}
 }
 
-func getLogLevel(level string) goal.LogLevel {
+func getLogLevel(level string) gollm.LogLevel {
 	switch strings.ToLower(level) {
 	case "debug":
-		return goal.LogLevelDebug
+		return gollm.LogLevelDebug
 	case "info":
-		return goal.LogLevelInfo
+		return gollm.LogLevelInfo
 	case "error":
-		return goal.LogLevelError
+		return gollm.LogLevelError
 	default:
-		return goal.LogLevelWarn
+		return gollm.LogLevelWarn
 	}
 }
 

@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 func main() {
@@ -34,34 +34,34 @@ func main() {
 
 	// Example 1: Basic Prompt with Comparison
 	fmt.Println("\nExample 1: Basic Prompt with Comparison")
-	basicPrompt := goal.NewPrompt("Explain the concept of machine learning in simple terms.")
+	basicPrompt := gollm.NewPrompt("Explain the concept of machine learning in simple terms.")
 	compareBasicPrompt(ctx, basicPrompt, llmGPT3, llmGPT4)
 
 	// Example 2: Prompt with Directives and Output
 	fmt.Println("\nExample 2: Prompt with Directives and Output")
-	directivePrompt := goal.NewPrompt("Explain the concept of blockchain technology",
-		goal.WithDirectives(
+	directivePrompt := gollm.NewPrompt("Explain the concept of blockchain technology",
+		gollm.WithDirectives(
 			"Use a simple analogy to illustrate",
 			"Highlight key features",
 			"Mention potential applications",
 		),
-		goal.WithOutput("Explanation of blockchain:"),
+		gollm.WithOutput("Explanation of blockchain:"),
 	)
 	compareDirectivePrompt(ctx, directivePrompt, llmGPT3, llmGPT4)
 
 	// Example 3: Prompt Template and JSON Schema
 	fmt.Println("\nExample 3: Prompt Template and JSON Schema")
-	templatePrompt := goal.NewPromptTemplate(
+	templatePrompt := gollm.NewPromptTemplate(
 		"CustomAnalysis",
 		"Analyze a given topic",
 		"Analyze the following topic from multiple perspectives: {{.Topic}}",
-		goal.WithPromptOptions(
-			goal.WithDirectives(
+		gollm.WithPromptOptions(
+			gollm.WithDirectives(
 				"Consider economic, social, and environmental impacts",
 				"Provide pros and cons",
 				"Conclude with a balanced summary",
 			),
-			goal.WithOutput("Analysis:"),
+			gollm.WithOutput("Analysis:"),
 		),
 	)
 
@@ -85,18 +85,18 @@ func main() {
 	fmt.Println("\nExample completed.")
 }
 
-func createLLM(provider, model, apiKey string) (goal.LLM, error) {
-	return goal.NewLLM(
-		goal.SetProvider(provider),
-		goal.SetModel(model),
-		goal.SetAPIKey(apiKey),
-		goal.SetMaxTokens(300),
-		goal.SetMaxRetries(3),
-		goal.SetDebugLevel(goal.LogLevelInfo),
+func createLLM(provider, model, apiKey string) (gollm.LLM, error) {
+	return gollm.NewLLM(
+		gollm.SetProvider(provider),
+		gollm.SetModel(model),
+		gollm.SetAPIKey(apiKey),
+		gollm.SetMaxTokens(300),
+		gollm.SetMaxRetries(3),
+		gollm.SetDebugLevel(gollm.LogLevelInfo),
 	)
 }
 
-func compareBasicPrompt(ctx context.Context, prompt *goal.Prompt, llm1, llm2 goal.LLM) {
+func compareBasicPrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2 gollm.LLM) {
 	response1, err := llm1.Generate(ctx, prompt)
 	if err != nil {
 		log.Printf("Failed to generate response from %s %s: %v", llm1.GetProvider(), llm1.GetModel(), err)
@@ -111,7 +111,7 @@ func compareBasicPrompt(ctx context.Context, prompt *goal.Prompt, llm1, llm2 goa
 	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2)
 }
 
-func compareDirectivePrompt(ctx context.Context, prompt *goal.Prompt, llm1, llm2 goal.LLM) {
+func compareDirectivePrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2 gollm.LLM) {
 	response1, err := llm1.Generate(ctx, prompt)
 	if err != nil {
 		log.Printf("Failed to generate response from %s %s: %v", llm1.GetProvider(), llm1.GetModel(), err)
@@ -126,7 +126,7 @@ func compareDirectivePrompt(ctx context.Context, prompt *goal.Prompt, llm1, llm2
 	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2)
 }
 
-func compareTemplatePrompt(ctx context.Context, prompt *goal.Prompt, llm1, llm2 goal.LLM) {
+func compareTemplatePrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2 gollm.LLM) {
 	response1, err := llm1.Generate(ctx, prompt)
 	if err != nil {
 		log.Printf("Failed to generate response from %s %s: %v", llm1.GetProvider(), llm1.GetModel(), err)

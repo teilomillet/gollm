@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/teilomillet/goal"
+	"github.com/teilomillet/gollm"
 )
 
 // AnalysisResult represents the structured output of our analysis
@@ -33,16 +33,16 @@ func main() {
 	}
 
 	// Create a new LLM instance with configuration options
-	llmClient, err := goal.NewLLM(
-		goal.SetProvider("openai"),
-		goal.SetModel("gpt-4o-mini"),
-		goal.SetTemperature(0.7),
-		goal.SetMaxTokens(1000),
-		goal.SetTimeout(30*time.Second),
-		goal.SetMaxRetries(3),
-		goal.SetRetryDelay(1*time.Second),
-		goal.SetDebugLevel(goal.LogLevelInfo),
-		goal.SetAPIKey(apiKey),
+	llmClient, err := gollm.NewLLM(
+		gollm.SetProvider("openai"),
+		gollm.SetModel("gpt-4o-mini"),
+		gollm.SetTemperature(0.7),
+		gollm.SetMaxTokens(1000),
+		gollm.SetTimeout(30*time.Second),
+		gollm.SetMaxRetries(3),
+		gollm.SetRetryDelay(1*time.Second),
+		gollm.SetDebugLevel(gollm.LogLevelInfo),
+		gollm.SetAPIKey(apiKey),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
@@ -58,7 +58,7 @@ func main() {
 	}
 
 	// Create a custom prompt template for balanced analysis
-	balancedAnalysisTemplate := goal.NewPromptTemplate(
+	balancedAnalysisTemplate := gollm.NewPromptTemplate(
 		"BalancedAnalysis",
 		"Analyze a topic from multiple perspectives",
 		`Analyze the following topic from multiple perspectives: {{.Topic}}
@@ -76,9 +76,9 @@ Please structure your response as a JSON object with the following format:
   ],
   "summary": "A brief, balanced summary of the analysis"
 }`,
-		goal.WithPromptOptions(
-			goal.WithDirectives(balancedAnalysisDirectives...),
-			goal.WithMaxLength(500),
+		gollm.WithPromptOptions(
+			gollm.WithDirectives(balancedAnalysisDirectives...),
+			gollm.WithMaxLength(500),
 		),
 	)
 
@@ -102,7 +102,7 @@ Please structure your response as a JSON object with the following format:
 		}
 
 		// Generate the analysis
-		analysisJSON, err := llmClient.Generate(ctx, prompt, goal.WithJSONSchemaValidation())
+		analysisJSON, err := llmClient.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
 		if err != nil {
 			log.Fatalf("Failed to generate analysis for topic '%s': %v", topic, err)
 		}
@@ -126,14 +126,14 @@ Please structure your response as a JSON object with the following format:
 		}
 		fmt.Printf("  Summary: %s\n\n", result.Summary)
 
-		// Demonstrate additional goal package features
-		summary, err := goal.Summarize(ctx, llmClient, analysisJSON, goal.WithMaxLength(50))
+		// Demonstrate additional gollm package features
+		summary, err := gollm.Summarize(ctx, llmClient, analysisJSON, gollm.WithMaxLength(50))
 		if err != nil {
 			log.Fatalf("Failed to generate summary: %v", err)
 		}
 		fmt.Printf("Brief summary (50 words): %s\n", summary)
 
-		keyPoints, err := goal.ChainOfThought(ctx, llmClient, fmt.Sprintf("Extract 3 key points from this analysis:\n%s", analysisJSON))
+		keyPoints, err := gollm.ChainOfThought(ctx, llmClient, fmt.Sprintf("Extract 3 key points from this analysis:\n%s", analysisJSON))
 		if err != nil {
 			log.Fatalf("Failed to extract key points: %v", err)
 		}
@@ -141,7 +141,7 @@ Please structure your response as a JSON object with the following format:
 	}
 
 	// Demonstrate error handling and retries
-	_, err = goal.QuestionAnswer(ctx, llmClient, "This is an intentionally long prompt that exceeds the token limit to demonstrate error handling.")
+	_, err = gollm.QuestionAnswer(ctx, llmClient, "This is an intentionally long prompt that exceeds the token limit to demonstrate error handling.")
 	if err != nil {
 		fmt.Printf("Expected error occurred: %v\n", err)
 		// Here you would typically implement appropriate error handling or fallback strategies

@@ -1,6 +1,6 @@
-// File: goal.go
+// File: gollm.go
 
-package goal
+package gollm
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 
-	"github.com/teilomillet/goal/internal/llm"
+	"github.com/teilomillet/gollm/internal/llm"
 )
 
 // validate is a global validator instance used for struct validation
@@ -119,7 +119,7 @@ func (l *llmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
 	return p.GenerateJSONSchema(opts...)
 }
 
-// UpdateDebugLevel updates the debug level for both the goal package and the internal llm package
+// UpdateDebugLevel updates the debug level for both the gollm package and the internal llm package
 func (l *llmImpl) UpdateDebugLevel(level LogLevel) {
 	l.logger.Debug("Updating debug level",
 		"current_level", l.config.DebugLevel,

@@ -1,19 +1,19 @@
-# Production Guide for the `goal` Package
+# Production Guide for the `gollm` Package
 
 ## Introduction
 
-This guide provides best practices and recommendations for using the `goal` package in a production environment. The `goal` package offers a unified interface for interacting with various Language Model (LLM) providers, making it easier to integrate LLMs into your Go applications.
+This guide provides best practices and recommendations for using the `gollm` package in a production environment. The `gollm` package offers a unified interface for interacting with various Language Model (LLM) providers, making it easier to integrate LLMs into your Go applications.
 
 ## Getting Started
 
 1. Install the package:
    ```
-   go get github.com/teilomillet/goal
+   go get github.com/teilomillet/gollm
    ```
 
 2. Import the package in your Go code:
    ```go
-   import "github.com/teilomillet/goal"
+   import "github.com/teilomillet/gollm"
    ```
 
 ## Configuration Management
@@ -27,7 +27,7 @@ This guide provides best practices and recommendations for using the `goal` pack
 - Don't hardcode configuration values in your application code.
 - Avoid committing configuration files with sensitive information to version control.
 
-Example configuration file (`~/.goal/configs/production.yaml`):
+Example configuration file (`~/.gollm/configs/production.yaml`):
 
 ```yaml
 provider: anthropic
@@ -49,7 +49,7 @@ log_level: info
 Example:
 
 ```go
-llm, err := goal.NewLLM("/path/to/production.yaml")
+llm, err := gollm.NewLLM("/path/to/production.yaml")
 if err != nil {
     log.Fatalf("Failed to initialize LLM: %v", err)
 }
@@ -71,7 +71,7 @@ if err != nil {
 Example:
 
 ```go
-prompt := goal.NewPrompt("Summarize the following text:").
+prompt := gollm.NewPrompt("Summarize the following text:").
     Directive("Focus on key points").
     Directive("Use simple language").
     MaxLength(150).
@@ -86,7 +86,7 @@ prompt := goal.NewPrompt("Summarize the following text:").
 - Use structured logging for easier parsing and analysis.
 
 ### Don'ts:
-- Don't ignore errors returned by the `goal` package.
+- Don't ignore errors returned by the `gollm` package.
 - Avoid logging sensitive information.
 
 Example:
@@ -121,7 +121,7 @@ for _, q := range questions {
     wg.Add(1)
     go func(question string) {
         defer wg.Done()
-        response, err := goal.QuestionAnswer(ctx, llm, question)
+        response, err := gollm.QuestionAnswer(ctx, llm, question)
         if err != nil {
             log.Printf("Error answering question: %v", err)
             return
@@ -139,7 +139,7 @@ close(responses)
 ### Do's:
 - Implement input validation and sanitization before sending data to the LLM.
 - Use HTTPS for all API communications.
-- Regularly update the `goal` package to get the latest security patches.
+- Regularly update the `gollm` package to get the latest security patches.
 
 ### Don'ts:
 - Don't expose the LLM directly to user input without proper safeguards.
@@ -158,4 +158,4 @@ close(responses)
 
 ## Conclusion
 
-By following these guidelines, you can effectively leverage the `goal` package in a production environment. Remember to continuously monitor, test, and optimize your LLM integration to ensure it meets your application's needs and performance requirements.
+By following these guidelines, you can effectively leverage the `gollm` package in a production environment. Remember to continuously monitor, test, and optimize your LLM integration to ensure it meets your application's needs and performance requirements.
