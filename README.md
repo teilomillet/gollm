@@ -1,24 +1,25 @@
-# gollm - Go Abstract Language Model Interface
+# gollm - Go Large Language Model
 
-`gollm` is a Go package designed to simplify and streamline interactions with various Language Model (LLM) providers. It's built for AI engineers and developers who want a unified, flexible, and powerful interface to work with multiple LLM APIs.
+![The Gollm Golem](img/robot_golem.jpeg "Build your own AI golem with gollm")
+
+`gollm` is a Go package designed to help you build your own AI golems. Just as the mystical golem of legend was brought to life with sacred words, gollm empowers you to breathe life into your AI creations using the power of Large Language Models (LLMs). This package simplifies and streamlines interactions with various LLM providers, offering a unified, flexible, and powerful interface for AI engineers and developers to craft their own digital servants.
 
 ## Key Features
 
-- **Unified API for Multiple LLM Providers:** gollm supports various providers, including OpenAI, Anthropic and Groq, allowing you to switch between models like GPT-4, GPT-4o-mini, and Claude and llama-3.1 seamlessly.
-- **Easy Provider and Model Switching:** Configure your preferred provider and model with simple function calls, making it effortless to experiment with different LLMs.
-- **Flexible Configuration Options:** Set up your LLM interactions using environment variables, code-based configuration, or configuration files to suit your project's needs.
-- **Advanced Prompt Engineering:** Create sophisticated prompts with context, directives, output specifications, and examples to guide the LLM's responses effectively.
-- **Structured Output and Validation:** Generate and validate JSON schemas for structured outputs, ensuring consistency and reliability in LLM responses.
-- **Provider Comparison Tools:** Easily compare responses from different LLM providers and models for the same prompt, helping you choose the best option for your use case.
-- **High-Level AI Functions:** Utilize pre-built functions like ChainOfThought for complex reasoning tasks.
-- **Robust Error Handling and Retries:** Built-in retry mechanisms with customizable delays to handle API rate limits and transient errors gracefully.
-- **Extensible Architecture:** Designed to be easily extended to support new LLM providers and features.
-Debug Logging: Configurable debug levels to help you troubleshoot and optimize your LLM interactions.
-
+- **Unified API for Multiple LLM Providers:** Shape your golem's mind using various providers, including OpenAI, Anthropic, and Groq. Seamlessly switch between models like GPT-4, GPT-4o-mini, Claude, and llama-3.1.
+- **Easy Provider and Model Switching:** Mold your golem's capabilities by configuring preferred providers and models with simple function calls.
+- **Flexible Configuration Options:** Customize your golem's essence using environment variables, code-based configuration, or configuration files to suit your project's needs.
+- **Advanced Prompt Engineering:** Craft sophisticated instructions to guide your golem's responses effectively.
+- **Structured Output and Validation:** Ensure your golem's outputs are consistent and reliable with JSON schema generation and validation.
+- **Provider Comparison Tools:** Test your golem's performance across different LLM providers and models for the same task.
+- **High-Level AI Functions:** Empower your golem with pre-built functions like ChainOfThought for complex reasoning tasks.
+- **Robust Error Handling and Retries:** Build resilience into your golem with built-in retry mechanisms to handle API rate limits and transient errors.
+- **Extensible Architecture:** Easily expand your golem's capabilities by extending support for new LLM providers and features.
+- **Debug Logging:** Fine-tune your golem's performance with configurable debug levels.
 
 ## Real-World Applications
 
-gollm is versatile enough to handle a wide range of AI-powered tasks, including:
+Your gollm-powered golems can handle a wide range of AI-powered tasks, including:
 
 - **Content Creation Workflows:** Generate research summaries, article ideas, and refined paragraphs for writing projects.
 - **Complex Reasoning Tasks:** Use the ChainOfThought function to break down and analyze complex problems step-by-step.
