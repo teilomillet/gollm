@@ -4,15 +4,26 @@
 
 ## Key Features
 
-- **Unified API**: Work with multiple LLM providers (OpenAI, Anthropic, Groq) through a single, consistent interface.
-- **Easy Provider Switching**: Seamlessly switch between different LLM providers or models with minimal code changes.
-- **Flexible Configuration**: Configure your LLM interactions via environment variables, code, or command-line flags.
-- **High-Level AI Functions**: Utilize pre-built functions for common AI tasks like question-answering, summarization, and chain-of-thought reasoning.
-- **Advanced Prompt Engineering**: Create sophisticated prompts with directives, context, and examples.
-- **Provider Comparison**: Easily compare responses from multiple LLM providers for the same prompt.
-- **JSON Output Validation**: Validate and ensure the structure of JSON outputs from LLMs.
-- **Extensible Architecture**: Add new LLM providers with minimal effort.
-- **CLI Tool**: Use `gollm` directly from the command line for quick experiments and workflows.
+- **Unified API for Multiple LLM Providers:** gollm supports various providers, including OpenAI, Anthropic and Groq, allowing you to switch between models like GPT-4, GPT-4o-mini, and Claude and llama-3.1 seamlessly.
+- **Easy Provider and Model Switching:** Configure your preferred provider and model with simple function calls, making it effortless to experiment with different LLMs.
+- **Flexible Configuration Options:** Set up your LLM interactions using environment variables, code-based configuration, or configuration files to suit your project's needs.
+- **Advanced Prompt Engineering:** Create sophisticated prompts with context, directives, output specifications, and examples to guide the LLM's responses effectively.
+- **Structured Output and Validation:** Generate and validate JSON schemas for structured outputs, ensuring consistency and reliability in LLM responses.
+- **Provider Comparison Tools:** Easily compare responses from different LLM providers and models for the same prompt, helping you choose the best option for your use case.
+- **High-Level AI Functions:** Utilize pre-built functions like ChainOfThought for complex reasoning tasks.
+- **Robust Error Handling and Retries:** Built-in retry mechanisms with customizable delays to handle API rate limits and transient errors gracefully.
+- **Extensible Architecture:** Designed to be easily extended to support new LLM providers and features.
+Debug Logging: Configurable debug levels to help you troubleshoot and optimize your LLM interactions.
+
+
+## Real-World Applications
+
+gollm is versatile enough to handle a wide range of AI-powered tasks, including:
+
+- **Content Creation Workflows:** Generate research summaries, article ideas, and refined paragraphs for writing projects.
+- **Complex Reasoning Tasks:** Use the ChainOfThought function to break down and analyze complex problems step-by-step.
+- **Structured Data Generation:** Create and validate complex data structures with customizable JSON schemas.
+- **Model Performance Analysis:** Compare different models' performance for specific tasks to optimize your AI pipeline.
 
 ## Installation
 
@@ -81,6 +92,8 @@ func validateJoke(joke JokeResponse) error {
 configs := []*gollm.Config{
 	{Provider: "openai", Model: "gpt-4o-mini", APIKey: "your-openai-api-key"},
 	{Provider: "anthropic", Model: "claude-3-5-sonnet-20240620	", APIKey: "your-anthropic-api-key"},
+	{Provider: "groq", Model: "llama-3.1-70b-versatile", APIKey: "your-anthropic-api-key"},
+
 }
 
 prompt := "Tell me a joke about programming. Respond in JSON format with 'setup' and 'punchline' fields."
@@ -135,11 +148,7 @@ if err := validateAnalysis(result); err != nil {
 fmt.Printf("Analysis: %+v\n", result)
 ```
 
-This example demonstrates how to use JSON schema validation to ensure that the LLM's response matches the expected structure.
-
-## Performance Considerations
-
-While `gollm` adds a thin abstraction layer, its impact on performance is minimal. The main performance factors will be the responsiveness of the chosen LLM provider and the complexity of your prompts.
+Find other examples that demonstrates how to use JSON schema validation to ensure that the LLM's response matches the expected structure in the examples/.
 
 ## Streaming Support
 
