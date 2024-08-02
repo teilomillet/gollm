@@ -16,6 +16,7 @@
 - **Easy Provider and Model Switching:** Mold your golem's capabilities by configuring preferred providers and models with simple function calls.
 - **Flexible Configuration Options:** Customize your golem's essence using environment variables, code-based configuration, or configuration files to suit your project's needs.
 - **Advanced Prompt Engineering:** Craft sophisticated instructions to guide your golem's responses effectively.
+- **Memory Retention:** Maintain context across multiple interactions for more coherent conversations.
 - **Structured Output and Validation:** Ensure your golem's outputs are consistent and reliable with JSON schema generation and validation.
 - **Provider Comparison Tools:** Test your golem's performance across different LLM providers and models for the same task.
 - **High-Level AI Functions:** Empower your golem with pre-built functions like ChainOfThought for complex reasoning tasks.
