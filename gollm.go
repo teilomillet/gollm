@@ -96,6 +96,40 @@ func (l *llmImpl) GetDebugLevel() LogLevel {
 	return l.config.DebugLevel
 }
 
+// PromptOptimizer is the public interface for the prompt optimization system
+type PromptOptimizer struct {
+	internal *llm.PromptOptimizer
+}
+
+// NewPromptOptimizer creates a new PromptOptimizer
+func NewPromptOptimizer(l LLM, initialPrompt, taskDesc string) *PromptOptimizer {
+	internalLLM, ok := l.(*llmImpl)
+	if !ok {
+		// Handle the case where l is not *llmImpl
+		return nil
+	}
+
+	debugOptions := llm.DebugOptions{
+		LogPrompts:   true,
+		LogResponses: true,
+	}
+	debugManager := llm.NewDebugManager(internalLLM.logger, debugOptions)
+
+	return &PromptOptimizer{
+		internal: llm.NewPromptOptimizer(internalLLM.LLM, debugManager, initialPrompt, taskDesc),
+	}
+}
+
+// OptimizePrompt runs the optimization process
+func (po *PromptOptimizer) OptimizePrompt(ctx context.Context, iterations int) (string, error) {
+	return po.internal.OptimizePrompt(ctx, iterations)
+}
+
+// GetOptimizationHistory returns the history of optimization attempts
+func (po *PromptOptimizer) GetOptimizationHistory() []llm.OptimizationEntry {
+	return po.internal.GetOptimizationHistory()
+}
+
 // SetOption sets an option for the LLM with the given key and value
 func (l *llmImpl) SetOption(key string, value interface{}) {
 	// Log the attempt to set an option
