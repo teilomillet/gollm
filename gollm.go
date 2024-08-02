@@ -108,6 +108,19 @@ func (l *llmImpl) SetOption(key string, value interface{}) {
 	l.logger.Debug("Option set successfully")
 }
 
+func (l *llmImpl) ClearMemory() {
+	if llmWithMemory, ok := l.LLM.(*llm.LLMWithMemory); ok {
+		llmWithMemory.ClearMemory()
+	}
+}
+
+func (l *llmImpl) GetMemory() []llm.Message {
+	if llmWithMemory, ok := l.LLM.(*llm.LLMWithMemory); ok {
+		return llmWithMemory.GetMemory()
+	}
+	return nil
+}
+
 // GetPromptJSONSchema generates and returns the JSON schema for the Prompt
 // It accepts optional SchemaOptions to customize the schema generation
 func (l *llmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
@@ -220,7 +233,7 @@ func (l *llmImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 	return cleanedResponse, nil
 }
 
-// NewLLM creates a new LLM instance
+// NewLLM creates a new LLM instance, potentially with memory if the option is set
 func NewLLM(opts ...ConfigOption) (LLM, error) {
 	config, err := LoadConfig()
 	if err != nil {
@@ -231,37 +244,32 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		opt(config)
 	}
 
-	// Check if the provider is Ollama, which doesn't require an API key
-	if config.Provider != "ollama" && config.APIKey == "" {
-		return nil, fmt.Errorf("API key is required for non-Ollama providers")
-	}
-
 	logger := llm.NewLogger(llm.LogLevel(config.DebugLevel))
-	logger.Debug("Creating new LLM",
-		"provider", config.Provider,
-		"model", config.Model,
-		"debug_level", config.DebugLevel)
-
 	internalConfig := config.toInternalConfig()
-	logger.Debug("Internal config created",
-		"max_tokens", internalConfig.MaxTokens,
-		"temperature", internalConfig.Temperature)
 
-	l, err := llm.NewLLM(internalConfig, logger, llm.NewProviderRegistry())
+	baseLLM, err := llm.NewLLM(internalConfig, logger, llm.NewProviderRegistry())
 	if err != nil {
 		logger.Error("Failed to create internal LLM", "error", err)
 		return nil, fmt.Errorf("failed to create internal LLM: %w", err)
 	}
 
-	if l == nil {
-		logger.Error("Internal LLM is nil after creation")
-		return nil, fmt.Errorf("internal LLM is nil after creation")
+	if config.MemoryOption != nil {
+		llmWithMemory, err := llm.NewLLMWithMemory(baseLLM, config.MemoryOption.MaxTokens, config.Model, logger)
+		if err != nil {
+			logger.Error("Failed to create LLM with memory", "error", err)
+			return nil, fmt.Errorf("failed to create LLM with memory: %w", err)
+		}
+		return &llmImpl{
+			LLM:      llmWithMemory,
+			logger:   logger,
+			provider: config.Provider,
+			model:    config.Model,
+			config:   config,
+		}, nil
 	}
 
-	logger.Debug("Internal LLM created successfully")
-
 	return &llmImpl{
-		LLM:      l,
+		LLM:      baseLLM,
 		logger:   logger,
 		provider: config.Provider,
 		model:    config.Model,

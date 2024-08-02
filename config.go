@@ -11,6 +11,10 @@ import (
 // LogLevel represents the level of logging
 type LogLevel int
 
+type MemoryOption struct {
+	MaxTokens int
+}
+
 const (
 	LogLevelOff LogLevel = iota
 	LogLevelError
@@ -31,6 +35,7 @@ type Config struct {
 	RetryDelay     time.Duration
 	APIKey         string
 	DebugLevel     LogLevel
+	MemoryOption   *MemoryOption
 }
 
 // toInternalConfig converts Config to internal llm.Config
@@ -165,5 +170,14 @@ func SetRetryDelay(retryDelay time.Duration) ConfigOption {
 func SetDebugLevel(level LogLevel) ConfigOption {
 	return func(c *Config) {
 		c.DebugLevel = level
+	}
+}
+
+// SetMemory sets the memory option for the LLM
+func SetMemory(maxTokens int) ConfigOption {
+	return func(c *Config) {
+		c.MemoryOption = &MemoryOption{
+			MaxTokens: maxTokens,
+		}
 	}
 }

@@ -79,6 +79,39 @@ For more advanced usage, including research and content refinement, check out th
 
 ## Advanced Usage
 
+## Using Memory with LLM
+
+gollm now supports adding memory to your LLM instances. This allows the LLM to maintain context across multiple interactions. To use this feature:
+
+1. When creating a new LLM instance, use the `SetMemory` option:
+
+```go
+llm, err := gollm.NewLLM(
+    gollm.SetProvider("openai"),
+    gollm.SetModel("gpt-3.5-turbo"),
+    gollm.SetAPIKey(os.Getenv("OPENAI_API_KEY")),
+    gollm.SetMemory(4096), // Enable memory with a 4096 token limit
+)
+```
+
+2. Use the LLM as usual. The memory will automatically be maintained:
+
+```go
+response, err := llm.Generate(context.Background(), gollm.NewPrompt("Hello, how are you?"))
+// The next generation will include the context of the previous interaction
+response, err = llm.Generate(context.Background(), gollm.NewPrompt("What did I just ask you?"))
+```
+
+3. If needed, you can clear the memory:
+
+```go
+if llmWithMemory, ok := llm.(*gollm.LLMWithMemory); ok {
+    llmWithMemory.ClearMemory()
+}
+```
+
+The memory feature uses tiktoken for accurate token counting and automatically manages the conversation history within the specified token limit.
+
 ### Comparing Models
 
 The `CompareModels` function allows you to easily compare responses from different LLM providers or models:
