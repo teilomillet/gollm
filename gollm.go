@@ -50,6 +50,8 @@ type LLM interface {
 
 	// GetDebugLevel returns the current debug level of the LLM
 	GetDebugLevel() LogLevel
+
+	SetOllamaEndpoint(endpoint string) error
 }
 
 // llmImpl is the concrete implementation of the LLM interface
@@ -140,6 +142,14 @@ func (l *llmImpl) SetOption(key string, value interface{}) {
 
 	// Log the successful setting of the option
 	l.logger.Debug("Option set successfully")
+}
+
+func (l *llmImpl) SetOllamaEndpoint(endpoint string) error {
+	if p, ok := l.LLM.(interface{ SetEndpoint(string) }); ok {
+		p.SetEndpoint(endpoint)
+		return nil
+	}
+	return fmt.Errorf("current provider does not support setting custom endpoint")
 }
 
 func (l *llmImpl) ClearMemory() {
@@ -279,7 +289,13 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 	}
 
 	logger := llm.NewLogger(llm.LogLevel(config.DebugLevel))
+
 	internalConfig := config.toInternalConfig()
+
+	// Pass the OllamaEndpoint to the internal config
+	if config.OllamaEndpoint != "" {
+		internalConfig.OllamaEndpoint = config.OllamaEndpoint
+	}
 
 	baseLLM, err := llm.NewLLM(internalConfig, logger, llm.NewProviderRegistry())
 	if err != nil {

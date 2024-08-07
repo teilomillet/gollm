@@ -15,7 +15,8 @@ import (
 type LLM interface {
 	Generate(ctx context.Context, prompt string) (response string, fullPrompt string, err error)
 	SetOption(key string, value interface{})
-	SetDebugLevel(level LogLevel) // New method to set debug level
+	SetDebugLevel(level LogLevel)
+	SetEndpoint(endpoint string)
 }
 
 type Provider interface {
@@ -43,16 +44,18 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 		return nil, err
 	}
 
-	// Set the log level for the logger
 	logger.SetLevel(config.LogLevel)
 
-	// For Ollama, we don't need an API key, so we'll use a different log message
+	// Special handling for Ollama provider
 	if config.Provider == "ollama" {
-		logger.Debug("Creating LLM", "provider", config.Provider, "model", config.Model)
-	} else {
-		apiKey := config.APIKeys[config.Provider]
-		obscuredKey := apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
-		logger.Debug("Creating LLM", "provider", config.Provider, "model", config.Model, "apiKey", obscuredKey)
+		ollamaProvider, ok := provider.(*OllamaProvider)
+		if !ok {
+			return nil, fmt.Errorf("unexpected provider type for Ollama")
+		}
+		if config.OllamaEndpoint != "" {
+			ollamaProvider.SetEndpoint(config.OllamaEndpoint)
+		}
+		return ollamaProvider, nil
 	}
 
 	llmClient := &LLMImpl{
@@ -73,6 +76,11 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 func (l *LLMImpl) SetOption(key string, value interface{}) {
 	l.Options[key] = value
 	l.logger.Debug("Option set", key, value)
+}
+
+func (l *LLMImpl) SetEndpoint(endpoint string) {
+	// This is a no-op for non-Ollama providers
+	l.logger.Debug("SetEndpoint called on non-Ollama provider", "endpoint", endpoint)
 }
 
 // SetDebugLevel updates the debug level for the internal LLM
