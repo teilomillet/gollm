@@ -6,24 +6,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	"github.com/go-playground/validator/v10"
+	"time"
 
 	"github.com/teilomillet/gollm/internal/llm"
 )
-
-// validate is a global validator instance used for struct validation
-var validate *validator.Validate
-
-// init initializes the global validator instance
-func init() {
-	validate = validator.New()
-}
-
-// Validate checks if the given struct is valid according to its validation rules
-func Validate(s interface{}) error {
-	return validate.Struct(s)
-}
 
 // LLM is the interface that wraps the basic LLM operations
 type LLM interface {
@@ -98,17 +84,53 @@ func (l *llmImpl) GetDebugLevel() LogLevel {
 	return l.config.DebugLevel
 }
 
-// PromptOptimizer is the public interface for the prompt optimization system
-type PromptOptimizer struct {
-	internal *llm.PromptOptimizer
-}
-
 // Type aliases to bridge public and internal types
 type Metric = llm.Metric
 type OptimizationEntry = llm.OptimizationEntry
 
 // OptimizerOption is a function type for configuring the PromptOptimizer
 type OptimizerOption func(*PromptOptimizer)
+
+// IterationCallback is a function type for the iteration callback
+type IterationCallback func(iteration int, entry OptimizationEntry)
+
+// PromptOptimizer is the public interface for the prompt optimization system
+type PromptOptimizer struct {
+	internal *llm.PromptOptimizer
+	callback IterationCallback
+}
+
+// WithIterationCallback sets the iteration callback for the PromptOptimizer
+func WithIterationCallback(callback IterationCallback) OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.internal.WithIterationCallback(func(iteration int, entry llm.OptimizationEntry) {
+			callback(iteration, OptimizationEntry(entry))
+		})
+	}
+}
+
+// WithMaxRetries sets the maximum number of retries for the PromptOptimizer
+func WithMaxRetries(maxRetries int) OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.internal.WithMaxRetries(maxRetries)
+	}
+}
+
+// WithRetryDelay sets the delay between retries for the PromptOptimizer
+func WithRetryDelay(delay time.Duration) OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.internal.WithRetryDelay(delay)
+	}
+}
+
+// OptimizePrompt runs the optimization process
+func (po *PromptOptimizer) OptimizePrompt(ctx context.Context, iterations int) (string, error) {
+	optimizedPrompt, err := po.internal.OptimizePrompt(ctx, iterations)
+	if err != nil {
+		return "", fmt.Errorf("optimization failed: %w", err)
+	}
+	return optimizedPrompt.Input, nil
+}
 
 // NewPromptOptimizer creates a new PromptOptimizer
 func NewPromptOptimizer(l LLM, initialPrompt string, taskDesc string, opts ...OptimizerOption) *PromptOptimizer {
@@ -139,16 +161,6 @@ func NewPromptOptimizer(l LLM, initialPrompt string, taskDesc string, opts ...Op
 	return po
 }
 
-// OptimizePrompt runs the optimization process
-func (po *PromptOptimizer) OptimizePrompt(ctx context.Context, iterations int) (string, error) {
-	optimizedPrompt, err := po.internal.OptimizePrompt(ctx, iterations)
-	if err != nil {
-		return "", err
-	}
-	// Convert the optimized Prompt object to a string
-	return optimizedPrompt.Input, nil
-}
-
 // GetOptimizationHistory returns the history of optimization attempts
 func (po *PromptOptimizer) GetOptimizationHistory() []OptimizationEntry {
 	return po.internal.GetOptimizationHistory()
@@ -172,6 +184,13 @@ func WithOptimizationGoal(goal string) OptimizerOption {
 func WithRatingSystem(system string) OptimizerOption {
 	return func(po *PromptOptimizer) {
 		po.internal.WithRatingSystem(system)
+	}
+}
+
+// WithThreshold sets the threshold for the PromptOptimizer
+func WithThreshold(threshold float64) OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.internal.WithThreshold(threshold)
 	}
 }
 
@@ -289,7 +308,7 @@ func (l *llmImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 	// Validate prompt with JSON schema if enabled
 	if config.useJSONSchema {
 		l.logger.Debug("Validating prompt with JSON schema")
-		if err := prompt.Validate(); err != nil {
+		if err := llm.Validate(prompt); err != nil {
 			l.logger.Error("Prompt validation failed", "error", err)
 			return "", fmt.Errorf("invalid prompt: %w", err)
 		}

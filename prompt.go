@@ -3,11 +3,11 @@
 package gollm
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/invopop/jsonschema"
+	"github.com/teilomillet/gollm/internal/llm"
 )
 
 // Prompt represents a structured prompt for an LLM
@@ -30,24 +30,19 @@ func WithExpandedStruct(expanded bool) SchemaOption {
 	}
 }
 
-// GenerateJSONSchema returns the JSON Schema for the given struct
-func GenerateJSONSchema(v interface{}, opts ...SchemaOption) ([]byte, error) {
-	reflector := &jsonschema.Reflector{}
-	for _, opt := range opts {
-		opt(reflector)
-	}
-	schema := reflector.Reflect(v)
-	return json.MarshalIndent(schema, "", "  ")
+// Validate checks if the Prompt is valid according to its validation rules
+func (p *Prompt) Validate() error {
+	return llm.Validate(p)
 }
 
 // GenerateJSONSchema returns the JSON Schema for the Prompt struct
 func (p *Prompt) GenerateJSONSchema(opts ...SchemaOption) ([]byte, error) {
-	return GenerateJSONSchema(p, append(opts, WithExpandedStruct(true))...)
-}
-
-// Validate checks if the Prompt is valid according to its validation rules
-func (p *Prompt) Validate() error {
-	return validate.Struct(p)
+	reflector := &jsonschema.Reflector{}
+	for _, opt := range opts {
+		opt(reflector)
+	}
+	schema := reflector.Reflect(p)
+	return schema.MarshalJSON()
 }
 
 // PromptOption is a function type that modifies a Prompt
@@ -148,3 +143,4 @@ func (p *Prompt) String() string {
 
 	return builder.String()
 }
+

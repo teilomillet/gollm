@@ -1,4 +1,4 @@
-// File: examples/memory_chatbot.go
+// File: examples/chatbot.go
 
 package main
 
