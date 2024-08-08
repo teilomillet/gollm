@@ -103,11 +103,17 @@ type PromptOptimizer struct {
 	internal *llm.PromptOptimizer
 }
 
+// Type aliases to bridge public and internal types
+type Metric = llm.Metric
+type OptimizationEntry = llm.OptimizationEntry
+
+// OptimizerOption is a function type for configuring the PromptOptimizer
+type OptimizerOption func(*PromptOptimizer)
+
 // NewPromptOptimizer creates a new PromptOptimizer
-func NewPromptOptimizer(l LLM, initialPrompt, taskDesc string) *PromptOptimizer {
+func NewPromptOptimizer(l LLM, initialPrompt string, taskDesc string, opts ...OptimizerOption) *PromptOptimizer {
 	internalLLM, ok := l.(*llmImpl)
 	if !ok {
-		// Handle the case where l is not *llmImpl
 		return nil
 	}
 
@@ -117,19 +123,56 @@ func NewPromptOptimizer(l LLM, initialPrompt, taskDesc string) *PromptOptimizer 
 	}
 	debugManager := llm.NewDebugManager(internalLLM.logger, debugOptions)
 
-	return &PromptOptimizer{
-		internal: llm.NewPromptOptimizer(internalLLM.LLM, debugManager, initialPrompt, taskDesc),
+	// Create an internal Prompt object from the input string
+	internalPrompt := &llm.Prompt{
+		Input: initialPrompt,
 	}
+
+	po := &PromptOptimizer{
+		internal: llm.NewPromptOptimizer(internalLLM.LLM, debugManager, internalPrompt, taskDesc),
+	}
+
+	for _, opt := range opts {
+		opt(po)
+	}
+
+	return po
 }
 
 // OptimizePrompt runs the optimization process
 func (po *PromptOptimizer) OptimizePrompt(ctx context.Context, iterations int) (string, error) {
-	return po.internal.OptimizePrompt(ctx, iterations)
+	optimizedPrompt, err := po.internal.OptimizePrompt(ctx, iterations)
+	if err != nil {
+		return "", err
+	}
+	// Convert the optimized Prompt object to a string
+	return optimizedPrompt.Input, nil
 }
 
 // GetOptimizationHistory returns the history of optimization attempts
-func (po *PromptOptimizer) GetOptimizationHistory() []llm.OptimizationEntry {
+func (po *PromptOptimizer) GetOptimizationHistory() []OptimizationEntry {
 	return po.internal.GetOptimizationHistory()
+}
+
+// WithCustomMetrics adds custom metrics to the PromptOptimizer
+func WithCustomMetrics(metrics ...Metric) OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.internal.WithCustomMetrics(metrics...)
+	}
+}
+
+// WithOptimizationGoal sets the optimization goal for the PromptOptimizer
+func WithOptimizationGoal(goal string) OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.internal.WithOptimizationGoal(goal)
+	}
+}
+
+// WithRatingSystem sets the rating system for the PromptOptimizer
+func WithRatingSystem(system string) OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.internal.WithRatingSystem(system)
+	}
 }
 
 // SetOption sets an option for the LLM with the given key and value
