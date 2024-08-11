@@ -99,12 +99,20 @@ type PromptOptimizer struct {
 	internal   *llm.PromptOptimizer
 	callback   IterationCallback
 	memorySize int
+	verbose    bool
+}
+
+func WithVerbose() OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.verbose = true
+	}
 }
 
 // Modify the existing WithIterationCallback function
 func WithIterationCallback(callback IterationCallback) OptimizerOption {
 	return func(po *PromptOptimizer) {
 		po.callback = callback
+		po.verbose = false // Disable verbose mode when a custom callback is set
 		po.internal.WithIterationCallback(func(iteration int, entry llm.OptimizationEntry) {
 			if po.callback != nil {
 				po.callback(iteration, OptimizationEntry(entry))
@@ -141,6 +149,30 @@ func WithIterations(iterations int) OptimizerOption {
 	}
 }
 
+func defaultVerboseCallback(iteration int, entry OptimizationEntry) {
+	fmt.Printf("\nIteration %d complete:\n", iteration)
+	fmt.Printf("  Prompt: %s\n", entry.Prompt.Input)
+	fmt.Printf("  Overall Score: %.2f\n", entry.Assessment.OverallScore)
+	fmt.Printf("  Overall Grade: %s\n", entry.Assessment.OverallGrade)
+	fmt.Println("  Metrics:")
+	for _, metric := range entry.Assessment.Metrics {
+		fmt.Printf("    - %s: %.2f\n", metric.Name, metric.Value)
+	}
+	fmt.Println("  Strengths:")
+	for _, strength := range entry.Assessment.Strengths {
+		fmt.Printf("    - %s (Example: %s)\n", strength.Point, strength.Example)
+	}
+	fmt.Println("  Weaknesses:")
+	for _, weakness := range entry.Assessment.Weaknesses {
+		fmt.Printf("    - %s (Example: %s)\n", weakness.Point, weakness.Example)
+	}
+	fmt.Println("  Suggestions:")
+	for _, suggestion := range entry.Assessment.Suggestions {
+		fmt.Printf("    - %s (Expected Impact: %.2f, Reasoning: %s)\n", suggestion.Description, suggestion.ExpectedImpact, suggestion.Reasoning)
+	}
+	fmt.Printf("%s\n", strings.Repeat("-", 50))
+}
+
 // OptimizePrompt runs the optimization process
 func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (string, error) {
 	optimizedPrompt, err := po.internal.OptimizePrompt(ctx)
@@ -163,18 +195,29 @@ func NewPromptOptimizer(l LLM, initialPrompt string, taskDesc string, opts ...Op
 	}
 	debugManager := llm.NewDebugManager(internalLLM.logger, debugOptions)
 
-	// Create an internal Prompt object from the input string
 	internalPrompt := &llm.Prompt{
 		Input: initialPrompt,
 	}
 
 	po := &PromptOptimizer{
 		internal:   llm.NewPromptOptimizer(internalLLM.LLM, debugManager, internalPrompt, taskDesc),
-		memorySize: 2, // Default memory size
+		memorySize: 2,
+		verbose:    false, // Default to false
 	}
 
 	for _, opt := range opts {
 		opt(po)
+	}
+
+	// Set the internal callback if verbose is true or a custom callback is set
+	if po.verbose || po.callback != nil {
+		po.internal.WithIterationCallback(func(iteration int, entry llm.OptimizationEntry) {
+			if po.callback != nil {
+				po.callback(iteration, OptimizationEntry(entry))
+			} else if po.verbose {
+				defaultVerboseCallback(iteration, OptimizationEntry(entry))
+			}
+		})
 	}
 
 	return po

@@ -34,6 +34,7 @@ func main() {
 		metrics      []gollm.Metric
 		ratingSystem string
 		threshold    float64
+		verbose      bool
 	}{
 		{
 			name:         "Creative Writing (Numerical)",
@@ -86,10 +87,7 @@ func main() {
 			gollm.WithOptimizationGoal(fmt.Sprintf("Optimize the prompt for %s", ex.name)),
 			gollm.WithMaxRetries(3),
 			gollm.WithRetryDelay(time.Second * 2),
-			gollm.WithIterationCallback(func(iteration int, entry gollm.OptimizationEntry) {
-				fmt.Printf("\nIteration %d complete:\n", iteration)
-				printIterationInfo(entry)
-			}),
+			gollm.WithVerbose(),
 		}
 
 		if ex.ratingSystem == "numerical" {
@@ -101,7 +99,7 @@ func main() {
 		fmt.Println("\nStarting prompt optimization...")
 		fmt.Println("This may take a while. Please wait...")
 
-		optimizedPrompt, err := optimizer.OptimizePrompt(ctx, 5) // 5 iterations
+		optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
 		if err != nil {
 			log.Printf("Optimization error: %v", err)
 			continue
@@ -119,27 +117,4 @@ func main() {
 		fmt.Printf("\nGenerated Response:\n%s\n\n", response)
 		fmt.Printf("%s\n", strings.Repeat("=", 100))
 	}
-}
-
-func printIterationInfo(entry gollm.OptimizationEntry) {
-	fmt.Printf("  Prompt: %s\n", entry.Prompt.Input)
-	fmt.Printf("  Overall Score: %.2f\n", entry.Assessment.OverallScore)
-	fmt.Printf("  Overall Grade: %s\n", entry.Assessment.OverallGrade)
-	fmt.Println("  Metrics:")
-	for _, metric := range entry.Assessment.Metrics {
-		fmt.Printf("    - %s: %.2f\n", metric.Name, metric.Value)
-	}
-	fmt.Println("  Strengths:")
-	for _, strength := range entry.Assessment.Strengths {
-		fmt.Printf("    - %s (Example: %s)\n", strength.Point, strength.Example)
-	}
-	fmt.Println("  Weaknesses:")
-	for _, weakness := range entry.Assessment.Weaknesses {
-		fmt.Printf("    - %s (Example: %s)\n", weakness.Point, weakness.Example)
-	}
-	fmt.Println("  Suggestions:")
-	for _, suggestion := range entry.Assessment.Suggestions {
-		fmt.Printf("    - %s (Expected Impact: %.2f, Reasoning: %s)\n", suggestion.Description, suggestion.ExpectedImpact, suggestion.Reasoning)
-	}
-	fmt.Printf("%s\n", strings.Repeat("-", 50))
 }

@@ -447,6 +447,7 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*Prompt, error) 
 
 		po.history = append(po.history, entry)
 
+		// Call the iteration callback if set
 		if po.iterationCallback != nil {
 			po.iterationCallback(i+1, entry)
 		}
