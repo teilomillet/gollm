@@ -60,6 +60,8 @@ type PromptOptimizer struct {
 	iterationCallback IterationCallback
 	maxRetries        int
 	retryDelay        time.Duration
+	memorySize        int
+	iterations        int
 }
 
 type OptimizationEntry struct {
@@ -121,12 +123,34 @@ func (po *PromptOptimizer) WithIterationCallback(callback IterationCallback) {
 	po.iterationCallback = callback
 }
 
+func (po *PromptOptimizer) WithIterations(iterations int) {
+	po.iterations = iterations
+}
+
 func (po *PromptOptimizer) WithMaxRetries(maxRetries int) {
 	po.maxRetries = maxRetries
 }
 
 func (po *PromptOptimizer) WithRetryDelay(delay time.Duration) {
 	po.retryDelay = delay
+}
+
+// Add this method to the PromptOptimizer struct
+func (po *PromptOptimizer) WithMemorySize(size int) {
+	po.memorySize = size
+}
+
+func WithMemorySize(size int) OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.memorySize = size
+	}
+}
+
+func (po *PromptOptimizer) recentHistory() []OptimizationEntry {
+	if len(po.history) <= po.memorySize {
+		return po.history
+	}
+	return po.history[len(po.history)-po.memorySize:]
 }
 
 func validGrade(fl validator.FieldLevel) bool {
@@ -151,6 +175,8 @@ func NewPromptOptimizer(llm LLM, debugManager *DebugManager, initialPrompt *Prom
 		threshold:     0.8,
 		maxRetries:    3,
 		retryDelay:    time.Second * 2,
+		memorySize:    2,
+		iterations:    5,
 	}
 
 	for _, opt := range opts {
@@ -161,16 +187,21 @@ func NewPromptOptimizer(llm LLM, debugManager *DebugManager, initialPrompt *Prom
 }
 
 func (po *PromptOptimizer) assessPrompt(ctx context.Context, prompt *Prompt) (OptimizationEntry, error) {
+	recentHistory := po.recentHistory()
 	assessPrompt := NewPrompt(fmt.Sprintf(`
     Assess the following prompt for the task: %s
 
     Full Prompt Structure:
     %+v
 
+    Recent History:
+    %+v
+
     Custom Metrics: %v
 
     Optimization Goal: %s
 
+    Consider the recent history when making your assessment.
     Provide your assessment as a JSON object with the following structure:
     {
         "metrics": [{"name": string, "value": number, "reasoning": string}, ...],
@@ -196,7 +227,7 @@ func (po *PromptOptimizer) assessPrompt(ctx context.Context, prompt *Prompt) (Op
     - Rank suggestions by their expected impact (20 being highest impact).
     - Use clear, jargon-free language in your assessment.
     - Double-check that your response is valid JSON before submitting.
-`, po.taskDesc, prompt, po.customMetrics, po.optimizationGoal))
+`, po.taskDesc, prompt, recentHistory, po.customMetrics, po.optimizationGoal))
 
 	response, _, err := po.llm.Generate(ctx, assessPrompt.String())
 	if err != nil {
@@ -302,14 +333,21 @@ func cleanJSONResponse(response string) string {
 }
 
 func (po *PromptOptimizer) generateImprovedPrompt(ctx context.Context, prevEntry OptimizationEntry) (*Prompt, error) {
+	recentHistory := po.recentHistory()
 	improvePrompt := NewPrompt(fmt.Sprintf(`
-    Based on the following assessment, generate an improved version of the entire prompt structure:
+    Based on the following assessment and recent history, generate an improved version of the entire prompt structure:
 
     Previous prompt: %+v
     Assessment: %+v
 
+    Recent History:
+    %+v
+
     Task Description: %s
     Optimization Goal: %s
+
+    Consider the recent history when generating improvements.
+   
 
     Provide two versions of the improved prompt:
     1. An incremental improvement
@@ -346,7 +384,7 @@ func (po *PromptOptimizer) generateImprovedPrompt(ctx context.Context, prevEntry
     - Rate the expected impact of each version on a scale of 0 to 20.
 
     Double-check that your response is valid JSON before submitting.
-`, prevEntry.Prompt, prevEntry.Assessment, po.taskDesc, po.optimizationGoal))
+`, prevEntry.Prompt, prevEntry.Assessment, recentHistory, po.taskDesc, po.optimizationGoal))
 
 	po.debugManager.LogPrompt(improvePrompt.String())
 
@@ -381,12 +419,12 @@ func (po *PromptOptimizer) generateImprovedPrompt(ctx context.Context, prevEntry
 	return &improvedPrompts.IncrementalImprovement, nil
 }
 
-func (po *PromptOptimizer) OptimizePrompt(ctx context.Context, iterations int) (*Prompt, error) {
+func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*Prompt, error) {
 	currentPrompt := po.initialPrompt
 	var bestPrompt *Prompt
 	var bestScore float64
 
-	for i := 0; i < iterations; i++ {
+	for i := 0; i < po.iterations; i++ {
 		var entry OptimizationEntry
 		var err error
 
@@ -468,4 +506,3 @@ func (po *PromptOptimizer) isOptimizationGoalMet(assessment PromptAssessment) (b
 func (po *PromptOptimizer) GetOptimizationHistory() []OptimizationEntry {
 	return po.history
 }
-

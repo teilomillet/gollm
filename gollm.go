@@ -96,15 +96,19 @@ type IterationCallback func(iteration int, entry OptimizationEntry)
 
 // PromptOptimizer is the public interface for the prompt optimization system
 type PromptOptimizer struct {
-	internal *llm.PromptOptimizer
-	callback IterationCallback
+	internal   *llm.PromptOptimizer
+	callback   IterationCallback
+	memorySize int
 }
 
-// WithIterationCallback sets the iteration callback for the PromptOptimizer
+// Modify the existing WithIterationCallback function
 func WithIterationCallback(callback IterationCallback) OptimizerOption {
 	return func(po *PromptOptimizer) {
+		po.callback = callback
 		po.internal.WithIterationCallback(func(iteration int, entry llm.OptimizationEntry) {
-			callback(iteration, OptimizationEntry(entry))
+			if po.callback != nil {
+				po.callback(iteration, OptimizationEntry(entry))
+			}
 		})
 	}
 }
@@ -123,9 +127,23 @@ func WithRetryDelay(delay time.Duration) OptimizerOption {
 	}
 }
 
+// WithMemorySize sets the memory size for the PromptOptimizer
+func WithMemorySize(size int) OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.memorySize = size
+		po.internal.WithMemorySize(size)
+	}
+}
+
+func WithIterations(iterations int) OptimizerOption {
+	return func(po *PromptOptimizer) {
+		po.internal.WithIterations(iterations)
+	}
+}
+
 // OptimizePrompt runs the optimization process
-func (po *PromptOptimizer) OptimizePrompt(ctx context.Context, iterations int) (string, error) {
-	optimizedPrompt, err := po.internal.OptimizePrompt(ctx, iterations)
+func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (string, error) {
+	optimizedPrompt, err := po.internal.OptimizePrompt(ctx)
 	if err != nil {
 		return "", fmt.Errorf("optimization failed: %w", err)
 	}
@@ -151,7 +169,8 @@ func NewPromptOptimizer(l LLM, initialPrompt string, taskDesc string, opts ...Op
 	}
 
 	po := &PromptOptimizer{
-		internal: llm.NewPromptOptimizer(internalLLM.LLM, debugManager, internalPrompt, taskDesc),
+		internal:   llm.NewPromptOptimizer(internalLLM.LLM, debugManager, internalPrompt, taskDesc),
+		memorySize: 2, // Default memory size
 	}
 
 	for _, opt := range opts {

@@ -13,8 +13,8 @@ import (
 )
 
 func main() {
-	// Command-line flags for all configuration options
-	promptType := flag.String("type", "raw", "Prompt type (raw, qa, cot, summarize)")
+	// Existing flags
+	promptType := flag.String("type", "raw", "Prompt type (raw, qa, cot, summarize, optimize)")
 	verbose := flag.Bool("verbose", false, "Display verbose output including full prompt")
 	provider := flag.String("provider", "", "LLM provider (anthropic, openai, groq)")
 	model := flag.String("model", "", "LLM model")
@@ -27,32 +27,15 @@ func main() {
 	debugLevel := flag.String("debug-level", "warn", "Debug level (debug, info, warn, error)")
 	outputFormat := flag.String("output-format", "", "Output format for structured responses (json)")
 
+	// New flags for prompt optimization
+	optimizeGoal := flag.String("optimize-goal", "Improve the prompt's clarity and effectiveness", "Optimization goal")
+	optimizeIterations := flag.Int("optimize-iterations", 5, "Number of optimization iterations")
+	optimizeMemory := flag.Int("optimize-memory", 2, "Number of previous iterations to remember")
+
 	flag.Parse()
 
 	// Prepare configuration options
-	var configOpts []gollm.ConfigOption
-
-	if *provider != "" {
-		configOpts = append(configOpts, gollm.SetProvider(*provider))
-	}
-	if *model != "" {
-		configOpts = append(configOpts, gollm.SetModel(*model))
-	}
-	if *temperature != -1 {
-		configOpts = append(configOpts, gollm.SetTemperature(*temperature))
-	}
-	if *maxTokens != 0 {
-		configOpts = append(configOpts, gollm.SetMaxTokens(*maxTokens))
-	}
-	if *timeout != 0 {
-		configOpts = append(configOpts, gollm.SetTimeout(*timeout))
-	}
-	if *apiKey != "" {
-		configOpts = append(configOpts, gollm.SetAPIKey(*apiKey))
-	}
-	configOpts = append(configOpts, gollm.SetMaxRetries(*maxRetries))
-	configOpts = append(configOpts, gollm.SetRetryDelay(*retryDelay))
-	configOpts = append(configOpts, gollm.SetDebugLevel(gollm.LogLevel(getLogLevel(*debugLevel))))
+	configOpts := prepareConfigOptions(provider, model, temperature, maxTokens, timeout, apiKey, maxRetries, retryDelay, debugLevel)
 
 	// Create LLM client with the specified options
 	llmClient, err := gollm.NewLLM(configOpts...)
@@ -80,6 +63,19 @@ func main() {
 		response, err = gollm.ChainOfThought(ctx, llmClient, rawPrompt)
 	case "summarize":
 		response, err = gollm.Summarize(ctx, llmClient, rawPrompt)
+	case "optimize":
+		optimizer := gollm.NewPromptOptimizer(
+			llmClient,
+			rawPrompt,
+			*optimizeGoal,
+			gollm.WithIterations(*optimizeIterations),
+			gollm.WithMemorySize(*optimizeMemory),
+		)
+		optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
+		if err == nil {
+			response = optimizedPrompt
+			fullPrompt = fmt.Sprintf("Initial Prompt: %s\nOptimization Goal: %s\nMemory Size: %d", rawPrompt, *optimizeGoal, *optimizeMemory)
+		}
 	default:
 		prompt := gollm.NewPrompt(rawPrompt)
 		if *outputFormat == "json" {
@@ -94,14 +90,46 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *verbose {
+	printResponse(*verbose, *promptType, fullPrompt, rawPrompt, response, *outputFormat)
+}
+
+func prepareConfigOptions(provider, model *string, temperature *float64, maxTokens *int, timeout *time.Duration, apiKey *string, maxRetries *int, retryDelay *time.Duration, debugLevel *string) []gollm.ConfigOption {
+	var configOpts []gollm.ConfigOption
+
+	if *provider != "" {
+		configOpts = append(configOpts, gollm.SetProvider(*provider))
+	}
+	if *model != "" {
+		configOpts = append(configOpts, gollm.SetModel(*model))
+	}
+	if *temperature != -1 {
+		configOpts = append(configOpts, gollm.SetTemperature(*temperature))
+	}
+	if *maxTokens != 0 {
+		configOpts = append(configOpts, gollm.SetMaxTokens(*maxTokens))
+	}
+	if *timeout != 0 {
+		configOpts = append(configOpts, gollm.SetTimeout(*timeout))
+	}
+	if *apiKey != "" {
+		configOpts = append(configOpts, gollm.SetAPIKey(*apiKey))
+	}
+	configOpts = append(configOpts, gollm.SetMaxRetries(*maxRetries))
+	configOpts = append(configOpts, gollm.SetRetryDelay(*retryDelay))
+	configOpts = append(configOpts, gollm.SetDebugLevel(gollm.LogLevel(getLogLevel(*debugLevel))))
+
+	return configOpts
+}
+
+func printResponse(verbose bool, promptType, fullPrompt, rawPrompt, response, outputFormat string) {
+	if verbose {
 		if fullPrompt == "" {
 			fullPrompt = rawPrompt // For qa, cot, and summarize, we don't have access to the full prompt
 		}
-		fmt.Printf("Prompt Type: %s\nFull Prompt:\n%s\n\nResponse:\n---------\n", *promptType, fullPrompt)
+		fmt.Printf("Prompt Type: %s\nFull Prompt:\n%s\n\nResponse:\n---------\n", promptType, fullPrompt)
 	}
 
-	if *outputFormat == "json" {
+	if outputFormat == "json" {
 		var jsonResponse interface{}
 		err := json.Unmarshal([]byte(response), &jsonResponse)
 		if err != nil {
