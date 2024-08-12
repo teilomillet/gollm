@@ -1,10 +1,6 @@
 # gollm - Go Large Language Model
 
-
-
 ![Gophers building a robot by Renee French](img/gopherrobot4s.jpg)
-
-<!-- ![The Gollm Golem](img/robot_golem.jpeg "Build your own AI golem with gollm") -->
 
 `gollm` is a Go package designed to help you build your own AI golems. Just as the mystical golem of legend was brought to life with sacred words, gollm empowers you to breathe life into your AI creations using the power of Large Language Models (LLMs). This package simplifies and streamlines interactions with various LLM providers, offering a unified, flexible, and powerful interface for AI engineers and developers to craft their own digital servants.
 
@@ -16,7 +12,7 @@
 - **Easy Provider and Model Switching:** Mold your golem's capabilities by configuring preferred providers and models with simple function calls.
 - **Flexible Configuration Options:** Customize your golem's essence using environment variables, code-based configuration, or configuration files to suit your project's needs.
 - **Advanced Prompt Engineering:** Craft sophisticated instructions to guide your golem's responses effectively.
-- **PromptOptimizer:** Automatically refine and improve your prompts for better results.
+- **PromptOptimizer:** Automatically refine and improve your prompts for better results, with support for custom metrics and different rating systems.
 - **Memory Retention:** Maintain context across multiple interactions for more coherent conversations.
 - **Structured Output and Validation:** Ensure your golem's outputs are consistent and reliable with JSON schema generation and validation.
 - **Provider Comparison Tools:** Test your golem's performance across different LLM providers and models for the same task.
@@ -32,6 +28,7 @@ Your gollm-powered golems can handle a wide range of AI-powered tasks, including
 - **Complex Reasoning Tasks:** Use the ChainOfThought function to break down and analyze complex problems step-by-step.
 - **Structured Data Generation:** Create and validate complex data structures with customizable JSON schemas.
 - **Model Performance Analysis:** Compare different models' performance for specific tasks to optimize your AI pipeline.
+- **Prompt Optimization:** Automatically improve prompts for various tasks, from creative writing to technical documentation.
 
 ## Installation
 
@@ -80,11 +77,9 @@ For more advanced usage, including research and content refinement, check out th
 
 ## Advanced Usage
 
-## Using Memory with LLM
+### Using Memory with LLM
 
-gollm now supports adding memory to your LLM instances. This allows the LLM to maintain context across multiple interactions. To use this feature:
-
-1. When creating a new LLM instance, use the `SetMemory` option:
+gollm supports adding memory to your LLM instances, allowing them to maintain context across multiple interactions:
 
 ```go
 llm, err := gollm.NewLLM(
@@ -95,46 +90,15 @@ llm, err := gollm.NewLLM(
 )
 ```
 
-2. Use the LLM as usual. The memory will automatically be maintained:
-
-```go
-response, err := llm.Generate(context.Background(), gollm.NewPrompt("Hello, how are you?"))
-// The next generation will include the context of the previous interaction
-response, err = llm.Generate(context.Background(), gollm.NewPrompt("What did I just ask you?"))
-```
-
-3. If needed, you can clear the memory:
-
-```go
-if llmWithMemory, ok := llm.(*gollm.LLMWithMemory); ok {
-    llmWithMemory.ClearMemory()
-}
-```
-
-The memory feature uses tiktoken for accurate token counting and automatically manages the conversation history within the specified token limit.
-
 ### Comparing Models
 
 The `CompareModels` function allows you to easily compare responses from different LLM providers or models:
 
 ```go
-type JokeResponse struct {
-	Setup    string `json:"setup"`
-	Punchline string `json:"punchline"`
-}
-
-func validateJoke(joke JokeResponse) error {
-	if joke.Setup == "" || joke.Punchline == "" {
-		return fmt.Errorf("invalid joke structure")
-	}
-	return nil
-}
-
 configs := []*gollm.Config{
 	{Provider: "openai", Model: "gpt-4o-mini", APIKey: "your-openai-api-key"},
-	{Provider: "anthropic", Model: "claude-3-5-sonnet-20240620	", APIKey: "your-anthropic-api-key"},
-	{Provider: "groq", Model: "llama-3.1-70b-versatile", APIKey: "your-anthropic-api-key"},
-
+	{Provider: "anthropic", Model: "claude-3-5-sonnet-20240620", APIKey: "your-anthropic-api-key"},
+	{Provider: "groq", Model: "llama-3.1-70b-versatile", APIKey: "your-groq-api-key"},
 }
 
 prompt := "Tell me a joke about programming. Respond in JSON format with 'setup' and 'punchline' fields."
@@ -147,27 +111,34 @@ if err != nil {
 fmt.Println(gollm.AnalyzeComparisonResults(results))
 ```
 
-This example compares responses from OpenAI and Anthropic models, ensuring that each response is a valid joke with a setup and punchline.
+### Prompt Optimization
+
+gollm now includes a powerful PromptOptimizer that can automatically refine and improve your prompts:
+
+```go
+optimizer := gollm.NewPromptOptimizer(llm, initialPrompt, taskDescription,
+	gollm.WithCustomMetrics(
+		gollm.Metric{Name: "Clarity", Description: "How clear and understandable the prompt is"},
+		gollm.Metric{Name: "Relevance", Description: "How relevant the prompt is to the task"},
+	),
+	gollm.WithRatingSystem("numerical"),
+	gollm.WithThreshold(0.8),
+	gollm.WithVerbose(),
+)
+
+optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
+if err != nil {
+	log.Fatalf("Optimization failed: %v", err)
+}
+
+fmt.Printf("Optimized Prompt: %s\n", optimizedPrompt)
+```
 
 ### JSON Output Validation
 
-`gollm` now supports automatic validation of JSON outputs from LLMs. This is particularly useful when you expect a specific structure in the LLM's response:
+gollm supports automatic validation of JSON outputs from LLMs:
 
 ```go
-type AnalysisResult struct {
-	Topic       string   `json:"topic"`
-	Pros        []string `json:"pros"`
-	Cons        []string `json:"cons"`
-	Conclusion  string   `json:"conclusion"`
-}
-
-func validateAnalysis(analysis AnalysisResult) error {
-	if analysis.Topic == "" || len(analysis.Pros) == 0 || len(analysis.Cons) == 0 || analysis.Conclusion == "" {
-		return fmt.Errorf("invalid analysis structure")
-	}
-	return nil
-}
-
 prompt := gollm.NewPrompt("Analyze the pros and cons of remote work.",
 	gollm.WithOutput("Respond in JSON format with 'topic', 'pros', 'cons', and 'conclusion' fields."),
 )
@@ -181,23 +152,7 @@ var result AnalysisResult
 if err := json.Unmarshal([]byte(response), &result); err != nil {
 	log.Fatalf("Failed to parse response: %v", err)
 }
-
-if err := validateAnalysis(result); err != nil {
-	log.Fatalf("Invalid analysis: %v", err)
-}
-
-fmt.Printf("Analysis: %+v\n", result)
 ```
-
-Find other examples that demonstrates how to use JSON schema validation to ensure that the LLM's response matches the expected structure in the examples/.
-
-## Streaming Support
-
-Currently, `gollm` does not support streaming responses. This feature is on our roadmap for future development.
-
-## Project Status
-
-`gollm` is actively maintained and under continuous development. We welcome contributions and feedback from the community.
 
 ## Examples and Tutorials
 
@@ -207,9 +162,12 @@ Check out our [examples directory](https://github.com/teilomillet/gollm/tree/mai
 - Different prompt types
 - Comparing providers
 - Advanced prompt templates
-- Combining multiple `gollm` features
+- Prompt optimization
 - JSON output validation
 
+## Project Status
+
+`gollm` is actively maintained and under continuous development. We welcome contributions and feedback from the community.
 
 ## License
 
