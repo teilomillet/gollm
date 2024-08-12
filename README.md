@@ -1,10 +1,40 @@
 # gollm - Go Large Language Model
 
-![Gophers building a robot by Renee French](img/gopherrobot4s.jpg)
+<div align="center">
+  <img src="img/gopherrobot4s.jpg" alt="Gophers building a robot by Renee French">
+</div>
 
 `gollm` is a Go package designed to help you build your own AI golems. Just as the mystical golem of legend was brought to life with sacred words, gollm empowers you to breathe life into your AI creations using the power of Large Language Models (LLMs). This package simplifies and streamlines interactions with various LLM providers, offering a unified, flexible, and powerful interface for AI engineers and developers to craft their own digital servants.
 
 [Documentation](https://docs.gollm.co)
+
+## Table of Contents
+
+- [Key Features](#key-features)
+- [Real-World Applications](#real-world-applications)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+  - [Basic Usage](#basic-usage)
+- [Quick Reference](#quick-reference)
+  - [LLM Creation and Configuration](#llm-creation-and-configuration)
+  - [Prompt Creation](#prompt-creation)
+  - [Generate Response](#generate-response)
+  - [Chain of Thought](#chain-of-thought)
+  - [Prompt Optimization](#prompt-optimization)
+  - [Model Comparison](#model-comparison)
+- [Advanced Usage](#advanced-usage)
+  - [Prompt Engineering](#prompt-engineering)
+  - [Pre-built Functions (Chain of Thought)](#pre-built-functions-chain-of-thought)
+  - [Working with Examples](#working-with-examples)
+  - [Prompt Templates](#prompt-templates)
+  - [Structured Output (JSON Output Validation)](#structured-output-json-output-validation)
+  - [Prompt Optimizer](#prompt-optimizer)
+  - [Model Comparison](#model-comparison-1)
+  - [Memory Retention](#memory-retention)
+- [Best Practices](#best-practices)
+- [Examples and Tutorials](#examples-and-tutorials)
+- [Project Status](#project-status)
+- [License](#license)
 
 ## Key Features
 
@@ -134,6 +164,7 @@ The `gollm` package offers a range of advanced features to enhance your AI appli
 - Prompt Engineering
 - Pre-built Functions (e.g., Chain of Thought)
 - Working with Examples
+- Prompt Templates
 - Structured Output (JSON output validation)
 - Prompt Optimizer
 - Model Comparison
