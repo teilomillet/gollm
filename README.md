@@ -38,7 +38,7 @@
 
 ## Key Features
 
-- **Unified API for Multiple LLM Providers:** Shape your golem's mind using various providers, including OpenAI, Anthropic, and Groq. Seamlessly switch between models like GPT-4, GPT-4o-mini, Claude, and llama-3.1.
+- **Unified API for Multiple LLM Providers:** Shape your golem's mind using various providers, including OpenAI, Anthropic Groq and Ollama. Seamlessly switch between models like GPT-4, GPT-4o-mini, Claude, and llama-3.1.
 - **Easy Provider and Model Switching:** Mold your golem's capabilities by configuring preferred providers and models with simple function calls.
 - **Flexible Configuration Options:** Customize your golem's essence using environment variables, code-based configuration, or configuration files to suit your project's needs.
 - **Advanced Prompt Engineering:** Craft sophisticated instructions to guide your golem's responses effectively.
