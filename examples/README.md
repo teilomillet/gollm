@@ -17,7 +17,7 @@ export GROQ_API_KEY=your_api_key_here
 
 Alternatively, you can use a `.env` file in the examples directory:
 
-```
+```bash
 OPENAI_API_KEY=your_api_key_here
 ANTHROPIC_API_KEY=your_api_key_here
 GROQ_API_KEY=your_api_key_here
@@ -43,6 +43,7 @@ go run 1_basic_usage.go
 8. `chain_of_thought_example.go`: Illustrates the use of the Chain of Thought feature for complex reasoning tasks.
 9. `question_answer_example.go`: Shows how to use the QuestionAnswer function for simple Q&A tasks.
 10. `summarize_example.go`: Demonstrates the use of the summarization feature.
+11. `mixture_of_agents_example.go`: Demonstrates how to use the Mixture of Agents feature for improving outputs using multiple agents.
 
 ## Configuration
 
