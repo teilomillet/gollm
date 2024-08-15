@@ -497,6 +497,39 @@ Check out our [examples directory](https://github.com/teilomillet/gollm/tree/mai
 
 `gollm` is actively maintained and under continuous development. We welcome contributions and feedback from the community.
 
+## Philosophy
+
+gollm is built on a philosophy of pragmatic minimalism and forward-thinking simplicity:
+
+1. **Build what's necessary**: We add features and capabilities as they become needed, avoiding speculative development.
+
+2. **Simplicity first**: Every addition should be as simple and straightforward as possible while fulfilling its purpose.
+
+3. **Future-compatible**: While we don't build for hypothetical future needs, we carefully consider how current changes might impact future development.
+
+4. **Readability counts**: Code should be clear and self-explanatory. If it's not, we improve it or document it thoroughly.
+
+5. **Modular design**: Each component should do one thing well, allowing for easy understanding, testing, and future modification.
+
+This philosophy guides our development process and helps us maintain a lean, efficient, and adaptable codebase. We encourage all contributors to keep these principles in mind when proposing changes or new features.
+
+## Contributing
+
+We welcome contributions that align with our philosophy! Whether you're fixing a bug, improving documentation, or proposing new features, your efforts are appreciated.
+
+To get started:
+
+1. Familiarize yourself with our [philosophy](#philosophy) and development approach.
+2. Check out our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute.
+3. Look through our [issues](https://github.com/teilomillet/gollm/issues) for something that interests you.
+4. Fork the repository, make your changes, and submit a pull request.
+
+Remember, the best contributions are those that adhere to our philosophy of pragmatic minimalism and readability. We encourage you to include examples and clear comments with your code.
+
+If you have any questions or ideas, feel free to open an issue or join our community chat. We're always excited to discuss how we can improve gollm while staying true to our core principles.
+
+Thank you for helping make gollm better!
+
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
