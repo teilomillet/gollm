@@ -16,7 +16,7 @@ func main() {
 	// Existing flags
 	promptType := flag.String("type", "raw", "Prompt type (raw, qa, cot, summarize, optimize)")
 	verbose := flag.Bool("verbose", false, "Display verbose output including full prompt")
-	provider := flag.String("provider", "", "LLM provider (anthropic, openai, groq)")
+	provider := flag.String("provider", "", "LLM provider (anthropic, openai, groq, mistral)")
 	model := flag.String("model", "", "LLM model")
 	temperature := flag.Float64("temperature", -1, "LLM temperature")
 	maxTokens := flag.Int("max-tokens", 0, "LLM max tokens")
@@ -156,4 +156,3 @@ func getLogLevel(level string) gollm.LogLevel {
 		return gollm.LogLevelWarn
 	}
 }
-
