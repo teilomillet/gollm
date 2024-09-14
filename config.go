@@ -204,66 +204,89 @@ func SetMemory(maxTokens int) ConfigOption {
 	}
 }
 
+// SetTopP sets the top-p value. A higher value (e.g., 0.95) will lead to more diverse text,
+// while a lower value (e.g., 0.5) will generate more focused and conservative text. (Default: 0.9)
 func SetTopP(topP float64) ConfigOption {
 	return func(c *Config) {
 		c.TopP = topP
 	}
 }
 
+// SetFrequencyPenalty sets the frequency penalty. It penalizes new tokens based on their frequency in the text so far.
+// Higher values decrease the model's likelihood to repeat the same line verbatim.
 func SetFrequencyPenalty(penalty float64) ConfigOption {
 	return func(c *Config) {
 		c.FrequencyPenalty = penalty
 	}
 }
 
+// SetPresencePenalty sets the presence penalty. It penalizes new tokens based on whether they appear in the text so far.
+// Higher values increase the model's likelihood to talk about new topics.
 func SetPresencePenalty(penalty float64) ConfigOption {
 	return func(c *Config) {
 		c.PresencePenalty = penalty
 	}
 }
 
+// SetSeed sets the random number seed for generation. Setting this to a specific number
+// will make the model generate the same text for the same prompt. (Default: 0)
 func SetSeed(seed int) ConfigOption {
 	return func(c *Config) {
 		c.Seed = &seed
 	}
 }
 
+// SetMinP sets the minimum probability for a token to be considered, relative to the probability
+// of the most likely token. It aims to ensure a balance of quality and variety. (Default: 0.05)
 func SetMinP(minP float64) ConfigOption {
 	return func(c *Config) {
 		c.MinP = &minP
 	}
 }
 
+// SetRepeatPenalty sets how strongly to penalize repetitions. A higher value (e.g., 1.5)
+// will penalize repetitions more strongly, while a lower value (e.g., 0.9) will be more lenient. (Default: 1.1)
 func SetRepeatPenalty(penalty float64) ConfigOption {
 	return func(c *Config) {
 		c.RepeatPenalty = &penalty
 	}
 }
 
+// SetRepeatLastN sets how far back the model should look to prevent repetition.
+// (Default: 64, 0 = disabled, -1 = num_ctx)
 func SetRepeatLastN(n int) ConfigOption {
 	return func(c *Config) {
 		c.RepeatLastN = &n
 	}
 }
 
+// SetMirostat enables Mirostat sampling for controlling perplexity.
+// (default: 0, 0 = disabled, 1 = Mirostat, 2 = Mirostat 2.0)
 func SetMirostat(mode int) ConfigOption {
 	return func(c *Config) {
 		c.Mirostat = &mode
 	}
 }
 
+// SetMirostatEta influences how quickly the algorithm responds to feedback from the generated text.
+// A lower learning rate will result in slower adjustments, while a higher learning rate will make
+// the algorithm more responsive. (Default: 0.1)
 func SetMirostatEta(eta float64) ConfigOption {
 	return func(c *Config) {
 		c.MirostatEta = &eta
 	}
 }
 
+// SetMirostatTau controls the balance between coherence and diversity of the output.
+// A lower value will result in more focused and coherent text. (Default: 5.0)
 func SetMirostatTau(tau float64) ConfigOption {
 	return func(c *Config) {
 		c.MirostatTau = &tau
 	}
 }
 
+// SetTfsZ sets the value for tail free sampling, which is used to reduce the impact of less probable tokens.
+// A higher value (e.g., 2.0) will reduce the impact more, while a value of 1.0 disables this setting. (Default: 1)
 func SetTfsZ(z float64) ConfigOption {
 	return func(c *Config) {
 		c.TfsZ = &z
