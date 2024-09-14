@@ -28,7 +28,11 @@ type Message struct {
 func NewMemory(maxTokens int, model string, logger Logger) (*Memory, error) {
 	encoding, err := tiktoken.EncodingForModel(model)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get encoding for model: %v", err)
+		logger.Warn("Failed to get encoding for model, defaulting to gpt-4o", "model", model, "error", err)
+		encoding, err = tiktoken.EncodingForModel("gpt-4o")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get default encoding: %v", err)
+		}
 	}
 
 	return &Memory{
