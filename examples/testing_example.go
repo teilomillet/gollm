@@ -9,50 +9,54 @@ import (
 )
 
 func main() {
-	ollamaEndpoint := "http://localhost:11434"
-
-	// Create a new LLM instance with Ollama provider and memory
-	llm, err := gollm.NewLLM(
-		gollm.SetProvider("ollama"),
-		gollm.SetModel("llama3.1"),
-		gollm.SetDebugLevel(gollm.LogLevelDebug),
-		gollm.SetOllamaEndpoint(ollamaEndpoint),
-		gollm.SetMemory(4000),
-		gollm.SetTemperature(0.7),
-		gollm.SetTopP(0.9),
-		gollm.SetFrequencyPenalty(0.5),
-		gollm.SetPresencePenalty(0.5),
-	)
-	if err != nil {
-		log.Fatalf("Failed to create LLM: %v", err)
-	}
-
 	ctx := context.Background()
 
-	// First prompt
-	prompt1 := gollm.NewPrompt("Who was the first person to walk on the moon?")
-	response1, err := llm.Generate(ctx, prompt1)
+	// Create two LLM instances with different settings
+	llm1, err := createLLM(0.7, 0.9, 0.05, 1.1, 64, 1, 0.1, 5.0, 1.0, 42)
 	if err != nil {
-		log.Printf("Error generating response for first prompt: %v", err)
-	} else {
-		fmt.Printf("Response to first prompt: %s\n\n", response1)
+		log.Fatalf("Failed to create LLM1: %v", err)
 	}
 
-	// Second prompt, referencing the first
-	prompt2 := gollm.NewPrompt("What year did that event happen?")
-	response2, err := llm.Generate(ctx, prompt2)
+	llm2, err := createLLM(0.9, 0.5, 0.1, 1.5, 32, 2, 0.2, 4.0, 0.5, 123)
 	if err != nil {
-		log.Printf("Error generating response for second prompt: %v", err)
-	} else {
-		fmt.Printf("Response to second prompt: %s\n\n", response2)
+		log.Fatalf("Failed to create LLM2: %v", err)
 	}
 
-	// Third prompt, to demonstrate memory retention
-	prompt3 := gollm.NewPrompt("Can you summarize the information you've provided about the moon landing?")
-	response3, err := llm.Generate(ctx, prompt3)
+	prompt := gollm.NewPrompt("Explain the concept of quantum entanglement and its potential applications.")
+
+	// Generate responses from both LLMs
+	response1, err := llm1.Generate(ctx, prompt)
 	if err != nil {
-		log.Printf("Error generating response for third prompt: %v", err)
-	} else {
-		fmt.Printf("Response to third prompt: %s\n\n", response3)
+		log.Fatalf("Failed to generate response from LLM1: %v", err)
 	}
+
+	response2, err := llm2.Generate(ctx, prompt)
+	if err != nil {
+		log.Fatalf("Failed to generate response from LLM2: %v", err)
+	}
+
+	// Print responses
+	fmt.Println("Response from LLM1 (more conservative settings):")
+	fmt.Println(response1)
+	fmt.Println("\nResponse from LLM2 (more creative settings):")
+	fmt.Println(response2)
 }
+
+func createLLM(temperature, topP, minP, repeatPenalty float64, repeatLastN int, mirostat int, mirostatEta, mirostatTau, tfsZ float64, seed int) (gollm.LLM, error) {
+	return gollm.NewLLM(
+		gollm.SetProvider("ollama"),
+		gollm.SetModel("llama3.1"),
+		gollm.SetOllamaEndpoint("http://localhost:11434"),
+		gollm.SetTemperature(temperature),
+		gollm.SetTopP(topP),
+		gollm.SetMinP(minP),
+		gollm.SetRepeatPenalty(repeatPenalty),
+		gollm.SetRepeatLastN(repeatLastN),
+		gollm.SetMirostat(mirostat),
+		gollm.SetMirostatEta(mirostatEta),
+		gollm.SetMirostatTau(mirostatTau),
+		gollm.SetTfsZ(tfsZ),
+		gollm.SetSeed(seed),
+	)
+}
+

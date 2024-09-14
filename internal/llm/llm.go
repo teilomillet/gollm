@@ -55,12 +55,18 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 		if config.OllamaEndpoint != "" {
 			ollamaProvider.SetEndpoint(config.OllamaEndpoint)
 		}
-		// Set new options for Ollama provider
+		// Set options for Ollama provider
 		ollamaProvider.SetOption("temperature", config.Temperature)
 		ollamaProvider.SetOption("max_tokens", config.MaxTokens)
 		ollamaProvider.SetOption("top_p", config.TopP)
-		ollamaProvider.SetOption("frequency_penalty", config.FrequencyPenalty)
-		ollamaProvider.SetOption("presence_penalty", config.PresencePenalty)
+		ollamaProvider.SetOption("min_p", config.MinP)
+		ollamaProvider.SetOption("repeat_penalty", config.RepeatPenalty)
+		ollamaProvider.SetOption("repeat_last_n", config.RepeatLastN)
+		ollamaProvider.SetOption("mirostat", config.Mirostat)
+		ollamaProvider.SetOption("mirostat_eta", config.MirostatEta)
+		ollamaProvider.SetOption("mirostat_tau", config.MirostatTau)
+		ollamaProvider.SetOption("tfs_z", config.TfsZ)
+		ollamaProvider.SetOption("seed", config.Seed)
 		return ollamaProvider, nil
 	}
 
@@ -78,8 +84,14 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 	llmClient.SetOption("temperature", config.Temperature)
 	llmClient.SetOption("max_tokens", config.MaxTokens)
 	llmClient.SetOption("top_p", config.TopP)
-	llmClient.SetOption("frequency_penalty", config.FrequencyPenalty)
-	llmClient.SetOption("presence_penalty", config.PresencePenalty)
+	llmClient.SetOption("min_p", config.MinP)
+	llmClient.SetOption("repeat_penalty", config.RepeatPenalty)
+	llmClient.SetOption("repeat_last_n", config.RepeatLastN)
+	llmClient.SetOption("mirostat", config.Mirostat)
+	llmClient.SetOption("mirostat_eta", config.MirostatEta)
+	llmClient.SetOption("mirostat_tau", config.MirostatTau)
+	llmClient.SetOption("tfs_z", config.TfsZ)
+	llmClient.SetOption("seed", config.Seed)
 
 	return llmClient, nil
 }

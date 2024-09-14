@@ -39,6 +39,14 @@ type Config struct {
 	APIKey           string
 	DebugLevel       LogLevel
 	MemoryOption     *MemoryOption
+	Seed             *int
+	MinP             *float64
+	RepeatPenalty    *float64
+	RepeatLastN      *int
+	Mirostat         *int
+	MirostatEta      *float64
+	MirostatTau      *float64
+	TfsZ             *float64
 }
 
 // toInternalConfig converts Config to internal llm.Config
@@ -58,6 +66,14 @@ func (c *Config) toInternalConfig() *llm.Config {
 		RetryDelay:       c.RetryDelay,
 		APIKeys:          map[string]string{c.Provider: c.APIKey},
 		LogLevel:         internalLevel,
+		Seed:             c.Seed,
+		MinP:             c.MinP,
+		RepeatPenalty:    c.RepeatPenalty,
+		RepeatLastN:      c.RepeatLastN,
+		Mirostat:         c.Mirostat,
+		MirostatEta:      c.MirostatEta,
+		MirostatTau:      c.MirostatTau,
+		TfsZ:             c.TfsZ,
 	}
 }
 
@@ -203,5 +219,53 @@ func SetFrequencyPenalty(penalty float64) ConfigOption {
 func SetPresencePenalty(penalty float64) ConfigOption {
 	return func(c *Config) {
 		c.PresencePenalty = penalty
+	}
+}
+
+func SetSeed(seed int) ConfigOption {
+	return func(c *Config) {
+		c.Seed = &seed
+	}
+}
+
+func SetMinP(minP float64) ConfigOption {
+	return func(c *Config) {
+		c.MinP = &minP
+	}
+}
+
+func SetRepeatPenalty(penalty float64) ConfigOption {
+	return func(c *Config) {
+		c.RepeatPenalty = &penalty
+	}
+}
+
+func SetRepeatLastN(n int) ConfigOption {
+	return func(c *Config) {
+		c.RepeatLastN = &n
+	}
+}
+
+func SetMirostat(mode int) ConfigOption {
+	return func(c *Config) {
+		c.Mirostat = &mode
+	}
+}
+
+func SetMirostatEta(eta float64) ConfigOption {
+	return func(c *Config) {
+		c.MirostatEta = &eta
+	}
+}
+
+func SetMirostatTau(tau float64) ConfigOption {
+	return func(c *Config) {
+		c.MirostatTau = &tau
+	}
+}
+
+func SetTfsZ(z float64) ConfigOption {
+	return func(c *Config) {
+		c.TfsZ = &z
 	}
 }
