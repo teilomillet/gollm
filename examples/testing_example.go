@@ -18,6 +18,10 @@ func main() {
 		gollm.SetDebugLevel(gollm.LogLevelDebug),
 		gollm.SetOllamaEndpoint(ollamaEndpoint),
 		gollm.SetMemory(4000),
+		gollm.SetTemperature(0.7),
+		gollm.SetTopP(0.9),
+		gollm.SetFrequencyPenalty(0.5),
+		gollm.SetPresencePenalty(0.5),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)

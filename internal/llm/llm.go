@@ -55,6 +55,12 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 		if config.OllamaEndpoint != "" {
 			ollamaProvider.SetEndpoint(config.OllamaEndpoint)
 		}
+		// Set new options for Ollama provider
+		ollamaProvider.SetOption("temperature", config.Temperature)
+		ollamaProvider.SetOption("max_tokens", config.MaxTokens)
+		ollamaProvider.SetOption("top_p", config.TopP)
+		ollamaProvider.SetOption("frequency_penalty", config.FrequencyPenalty)
+		ollamaProvider.SetOption("presence_penalty", config.PresencePenalty)
 		return ollamaProvider, nil
 	}
 
@@ -67,8 +73,13 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 		MaxRetries: config.MaxRetries,
 		RetryDelay: config.RetryDelay,
 	}
+
+	// Set options including new parameters
 	llmClient.SetOption("temperature", config.Temperature)
 	llmClient.SetOption("max_tokens", config.MaxTokens)
+	llmClient.SetOption("top_p", config.TopP)
+	llmClient.SetOption("frequency_penalty", config.FrequencyPenalty)
+	llmClient.SetOption("presence_penalty", config.PresencePenalty)
 
 	return llmClient, nil
 }

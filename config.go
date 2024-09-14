@@ -25,33 +25,39 @@ const (
 
 // Config holds the configuration for the LLM
 type Config struct {
-	Provider       string
-	Model          string
-	OllamaEndpoint string
-	Temperature    float64
-	MaxTokens      int
-	Timeout        time.Duration
-	MaxRetries     int
-	RetryDelay     time.Duration
-	APIKey         string
-	DebugLevel     LogLevel
-	MemoryOption   *MemoryOption
+	Provider         string
+	Model            string
+	OllamaEndpoint   string
+	Temperature      float64
+	MaxTokens        int
+	TopP             float64
+	FrequencyPenalty float64
+	PresencePenalty  float64
+	Timeout          time.Duration
+	MaxRetries       int
+	RetryDelay       time.Duration
+	APIKey           string
+	DebugLevel       LogLevel
+	MemoryOption     *MemoryOption
 }
 
 // toInternalConfig converts Config to internal llm.Config
 func (c *Config) toInternalConfig() *llm.Config {
 	internalLevel := llm.LogLevel(c.DebugLevel)
 	return &llm.Config{
-		Provider:       c.Provider,
-		Model:          c.Model,
-		OllamaEndpoint: c.OllamaEndpoint,
-		Temperature:    c.Temperature,
-		MaxTokens:      c.MaxTokens,
-		Timeout:        c.Timeout,
-		MaxRetries:     c.MaxRetries,
-		RetryDelay:     c.RetryDelay,
-		APIKeys:        map[string]string{c.Provider: c.APIKey},
-		LogLevel:       internalLevel,
+		Provider:         c.Provider,
+		Model:            c.Model,
+		OllamaEndpoint:   c.OllamaEndpoint,
+		Temperature:      c.Temperature,
+		MaxTokens:        c.MaxTokens,
+		TopP:             c.TopP,
+		FrequencyPenalty: c.FrequencyPenalty,
+		PresencePenalty:  c.PresencePenalty,
+		Timeout:          c.Timeout,
+		MaxRetries:       c.MaxRetries,
+		RetryDelay:       c.RetryDelay,
+		APIKeys:          map[string]string{c.Provider: c.APIKey},
+		LogLevel:         internalLevel,
 	}
 }
 
@@ -179,5 +185,23 @@ func SetMemory(maxTokens int) ConfigOption {
 		c.MemoryOption = &MemoryOption{
 			MaxTokens: maxTokens,
 		}
+	}
+}
+
+func SetTopP(topP float64) ConfigOption {
+	return func(c *Config) {
+		c.TopP = topP
+	}
+}
+
+func SetFrequencyPenalty(penalty float64) ConfigOption {
+	return func(c *Config) {
+		c.FrequencyPenalty = penalty
+	}
+}
+
+func SetPresencePenalty(penalty float64) ConfigOption {
+	return func(c *Config) {
+		c.PresencePenalty = penalty
 	}
 }
