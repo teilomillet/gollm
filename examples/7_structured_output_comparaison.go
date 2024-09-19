@@ -78,7 +78,7 @@ func main() {
 	debugLog(debugLevel, "Created %d valid configurations", len(configs))
 
 	// Generate JSON schema for ComplexPerson
-	schema, err := gollm.GenerateJSONSchema(&ComplexPerson{})
+	schema, err := gollm.GenerateJSONSchema(ComplexPerson{})
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema: %v", err)
 	}

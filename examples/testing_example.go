@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/teilomillet/gollm"
 )
@@ -24,22 +27,25 @@ func main() {
 
 	prompt := gollm.NewPrompt("Explain the concept of quantum entanglement and its potential applications.")
 
-	// Generate responses from both LLMs
+	// Process LLM1
+	fmt.Println("Generating response from LLM1 (more conservative settings):")
 	response1, err := llm1.Generate(ctx, prompt)
 	if err != nil {
 		log.Fatalf("Failed to generate response from LLM1: %v", err)
 	}
+	fmt.Println(response1)
 
+	getUserFeedback("LLM1")
+
+	// Process LLM2
+	fmt.Println("\nGenerating response from LLM2 (more creative settings):")
 	response2, err := llm2.Generate(ctx, prompt)
 	if err != nil {
 		log.Fatalf("Failed to generate response from LLM2: %v", err)
 	}
-
-	// Print responses
-	fmt.Println("Response from LLM1 (more conservative settings):")
-	fmt.Println(response1)
-	fmt.Println("\nResponse from LLM2 (more creative settings):")
 	fmt.Println(response2)
+
+	getUserFeedback("LLM2")
 }
 
 func createLLM(temperature, topP, minP, repeatPenalty float64, repeatLastN int, mirostat int, mirostatEta, mirostatTau, tfsZ float64, seed int) (gollm.LLM, error) {
@@ -60,3 +66,15 @@ func createLLM(temperature, topP, minP, repeatPenalty float64, repeatLastN int, 
 	)
 }
 
+func getUserFeedback(llmName string) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("\nPlease rate the response from %s (1-5): ", llmName)
+	rating, _ := reader.ReadString('\n')
+	rating = strings.TrimSpace(rating)
+
+	fmt.Print("Any additional comments? ")
+	comments, _ := reader.ReadString('\n')
+	comments = strings.TrimSpace(comments)
+
+	fmt.Printf("Feedback for %s - Rating: %s, Comments: %s\n\n", llmName, rating, comments)
+}
