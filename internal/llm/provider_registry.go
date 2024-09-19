@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-type ProviderConstructor func(apiKey, model string) Provider
+type ProviderConstructor func(apiKey, model string, extraHeaders map[string]string) Provider
 
 type ProviderRegistry struct {
 	providers map[string]ProviderConstructor
@@ -53,7 +53,7 @@ func (pr *ProviderRegistry) Register(name string, constructor ProviderConstructo
 	pr.providers[name] = constructor
 }
 
-func (pr *ProviderRegistry) Get(name, apiKey, model string) (Provider, error) {
+func (pr *ProviderRegistry) Get(name, apiKey, model string, extraHeaders map[string]string) (Provider, error) {
 	pr.mutex.RLock()
 	constructor, exists := pr.providers[name]
 	pr.mutex.RUnlock()
@@ -62,5 +62,5 @@ func (pr *ProviderRegistry) Get(name, apiKey, model string) (Provider, error) {
 		return nil, fmt.Errorf("unknown provider: %s", name)
 	}
 
-	return constructor(apiKey, model), nil
+	return constructor(apiKey, model, extraHeaders), nil
 }

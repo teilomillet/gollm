@@ -14,19 +14,28 @@ import (
 
 // OllamaProvider implements both the Provider and LLM interfaces for Ollama
 type OllamaProvider struct {
-	model    string
-	endpoint string
-	logger   Logger
-	options  map[string]interface{}
+	model        string
+	endpoint     string
+	logger       Logger
+	extraHeaders map[string]string
+	options      map[string]interface{}
 }
 
 // NewOllamaProvider creates a new OllamaProvider
-func NewOllamaProvider(apiKey, model string) Provider {
-	return &OllamaProvider{
-		model:    model,
-		endpoint: "http://localhost:11434", // Default endpoint
-		options:  make(map[string]interface{}),
+func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+	if extraHeaders == nil {
+		extraHeaders = make(map[string]string)
 	}
+	return &OllamaProvider{
+		model:        model,
+		endpoint:     "http://localhost:11434", // Default endpoint
+		extraHeaders: extraHeaders,
+		options:      make(map[string]interface{}),
+	}
+}
+
+func (p *OllamaProvider) SetExtraHeaders(extraHeaders map[string]string) {
+	p.extraHeaders = extraHeaders
 }
 
 // Implement LLM interface methods
@@ -134,4 +143,3 @@ func (p *OllamaProvider) ParseResponse(body []byte) (string, error) {
 
 	return fullResponse.String(), nil
 }
-

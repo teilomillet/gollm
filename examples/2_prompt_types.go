@@ -20,7 +20,7 @@ func main() {
 
 	llm, err := gollm.NewLLM(
 		gollm.SetProvider("openai"),
-		gollm.SetModel("gpt-3.5-turbo"),
+		gollm.SetModel("gpt-4o-mini"),
 		gollm.SetAPIKey(apiKey),
 		gollm.SetMaxTokens(300),
 		gollm.SetMaxRetries(3),
@@ -125,7 +125,7 @@ func main() {
 	fmt.Printf("JSON Schema for User Profile Prompt:\n%s\n", string(schemaBytes))
 
 	// Demonstrate validation
-	validPrompt := gollm.NewPrompt("Valid prompt", gollm.WithMaxLength(100))
+	validPrompt := gollm.NewPrompt("Valid prompt", gollm.WithMaxLength(1000))
 	err = validPrompt.Validate()
 	if err != nil {
 		fmt.Printf("Unexpected validation error: %v\n", err)
@@ -165,29 +165,32 @@ func main() {
 	// Example 7: Prompt with JSON Schema Validation
 	fmt.Println("\nExample 7: Prompt with JSON Schema Validation")
 	jsonSchemaPrompt := gollm.NewPrompt("Generate a user profile",
-		gollm.WithOutput(`JSON object with the following schema:
-		{
-			"type": "object",
-			"properties": {
-				"name": {"type": "string"},
-				"age": {"type": "integer", "minimum": 18},
-				"interests": {"type": "array", "items": {"type": "string"}}
-			},
-			"required": ["name", "age", "interests"]
-		}`),
+		gollm.WithOutput(`{
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "age": {"type": "integer", "minimum": 18},
+            "interests": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["name", "age", "interests"]
+    }`),
 	)
+
 	jsonSchemaResponse, err := llm.Generate(ctx, jsonSchemaPrompt, gollm.WithJSONSchemaValidation())
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema validated response: %v", err)
 	}
+
+	// Print the raw response to debug
+	fmt.Printf("Raw JSON Schema Response:\n%s\n", jsonSchemaResponse)
 
 	var userProfile map[string]interface{}
 	err = json.Unmarshal([]byte(jsonSchemaResponse), &userProfile)
 	if err != nil {
 		log.Fatalf("Failed to parse JSON response: %v", err)
 	}
+
 	fmt.Printf("JSON Schema Validated Response:\n%+v\n", userProfile)
 
 	fmt.Println("\nExample completed.")
 }
-

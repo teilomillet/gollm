@@ -88,6 +88,19 @@ func main() {
 	}
 	fmt.Printf("JSON Schema for Advanced Prompt:\n%s\n", string(schemaBytes))
 
+	// Create a valid prompt with a non-empty input
+	validPrompt := gollm.NewPrompt("Provide an overview of Go language.")
+	fmt.Printf("Valid prompt created: %+v\n", validPrompt)
+
+	// Validate the prompt
+	err = validPrompt.Validate()
+	if err != nil {
+		fmt.Printf("Validation error: %v\n", err)
+	} else {
+		fmt.Println("Prompt validation succeeded.")
+	}
+
+	// Create an invalid prompt to test validation
 	invalidPrompt := gollm.NewPrompt("") // Invalid because Input is required
 	fmt.Printf("Invalid prompt created: %+v\n", invalidPrompt)
 	err = invalidPrompt.Validate()

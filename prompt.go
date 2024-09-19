@@ -10,18 +10,55 @@ import (
 	"github.com/teilomillet/gollm/internal/llm"
 )
 
+type CacheType string
+
+const (
+	CacheTypeEphemeral CacheType = "ephemeral"
+)
+
+type Message struct {
+	Role      string
+	Content   string
+	CacheType CacheType
+}
+
 // Prompt represents a structured prompt for an LLM
 type Prompt struct {
-	Input      string   `json:"input" jsonschema:"required,description=The main input text for the LLM" validate:"required"`
-	Output     string   `json:"output,omitempty" jsonschema:"description=Specification for the expected output format"`
-	Directives []string `json:"directives,omitempty" jsonschema:"description=List of directives to guide the LLM"`
-	Context    string   `json:"context,omitempty" jsonschema:"description=Additional context for the LLM"`
-	MaxLength  int      `json:"maxLength,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
-	Examples   []string `json:"examples,omitempty" jsonschema:"description=List of examples to guide the LLM"`
+	Input           string    `json:"input" jsonschema:"required,description=The main input text for the LLM" validate:"required"`
+	Output          string    `json:"output,omitempty" jsonschema:"description=Specification for the expected output format"`
+	Directives      []string  `json:"directives,omitempty" jsonschema:"description=List of directives to guide the LLM"`
+	Context         string    `json:"context,omitempty" jsonschema:"description=Additional context for the LLM"`
+	MaxLength       int       `json:"maxLength,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
+	Examples        []string  `json:"examples,omitempty" jsonschema:"description=List of examples to guide the LLM"`
+	SystemPrompt    string    `json:"systemPrompt,omitempty" jsonschema:"description=System prompt for the LLM"`
+	SystemCacheType CacheType `json:"systemCacheType,omitempty" jsonschema:"description=Cache type for the system prompt"`
+	Messages        []Message `json:"messages,omitempty" jsonschema:"description=List of messages for the conversation"`
 }
 
 // SchemaOption is a function type for schema generation options
 type SchemaOption func(*jsonschema.Reflector)
+
+func CacheOption(cacheType CacheType) PromptOption {
+	return func(p *Prompt) {
+		if len(p.Messages) > 0 {
+			p.Messages[len(p.Messages)-1].CacheType = cacheType
+		}
+	}
+}
+
+// WithSystemPrompt adds a system prompt with optional caching
+func WithSystemPrompt(prompt string, cacheType CacheType) PromptOption {
+	return func(p *Prompt) {
+		p.SystemPrompt = prompt
+		p.SystemCacheType = cacheType
+	}
+}
+
+func WithMessage(role, content string, cacheType CacheType) PromptOption {
+	return func(p *Prompt) {
+		p.Messages = append(p.Messages, Message{Role: role, Content: content, CacheType: cacheType})
+	}
+}
 
 // WithExpandedStruct sets the ExpandedStruct option for schema generation
 func WithExpandedStruct(expanded bool) SchemaOption {
@@ -51,7 +88,8 @@ type PromptOption func(*Prompt)
 // NewPrompt creates a new Prompt with the given input and applies any provided options
 func NewPrompt(input string, opts ...PromptOption) *Prompt {
 	p := &Prompt{
-		Input: input,
+		Input:    input,
+		Messages: []Message{{Role: "user", Content: input}},
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -105,6 +143,15 @@ func (p *Prompt) Apply(opts ...PromptOption) {
 func (p *Prompt) String() string {
 	var builder strings.Builder
 
+	if p.SystemPrompt != "" {
+		builder.WriteString("System: ")
+		builder.WriteString(p.SystemPrompt)
+		if p.SystemCacheType != "" {
+			builder.WriteString(fmt.Sprintf(" (Cache: %s)", p.SystemCacheType))
+		}
+		builder.WriteString("\n\n")
+	}
+
 	if p.Context != "" {
 		builder.WriteString("Context: ")
 		builder.WriteString(p.Context)
@@ -141,6 +188,15 @@ func (p *Prompt) String() string {
 		builder.WriteString(fmt.Sprintf("\n\nPlease limit your response to approximately %d words.", p.MaxLength))
 	}
 
+	if len(p.Messages) > 0 {
+		builder.WriteString("\nMessages:\n")
+		for _, msg := range p.Messages {
+			builder.WriteString(fmt.Sprintf("%s: %s\n", msg.Role, msg.Content))
+			if msg.CacheType != "" {
+				builder.WriteString(fmt.Sprintf("(Cache: %s)\n", msg.CacheType))
+			}
+		}
+	}
+
 	return builder.String()
 }
-

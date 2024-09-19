@@ -7,14 +7,16 @@ import (
 
 // AnthropicProvider implements the Provider interface for Anthropic
 type AnthropicProvider struct {
-	apiKey string
-	model  string
+	apiKey       string
+	model        string
+	extraHeaders map[string]string
 }
 
-func NewAnthropicProvider(apiKey, model string) Provider {
+func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	return &AnthropicProvider{
-		apiKey: apiKey,
-		model:  model,
+		apiKey:       apiKey,
+		model:        model,
+		extraHeaders: extraHeaders,
 	}
 }
 
@@ -27,11 +29,15 @@ func (p *AnthropicProvider) Endpoint() string {
 }
 
 func (p *AnthropicProvider) Headers() map[string]string {
-	return map[string]string{
+	headers := map[string]string{
 		"Content-Type":      "application/json",
 		"x-api-key":         p.apiKey,
 		"anthropic-version": "2023-06-01",
 	}
+	for k, v := range p.extraHeaders {
+		headers[k] = v
+	}
+	return headers
 }
 
 func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
@@ -66,4 +72,8 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	return response.Content[0].Text, nil
+}
+
+func (p *AnthropicProvider) SetExtraHeaders(headers map[string]string) {
+	p.extraHeaders = headers
 }

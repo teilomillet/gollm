@@ -7,14 +7,19 @@ import (
 
 // GroqProvider implements the Provider interface for Groq
 type GroqProvider struct {
-	apiKey string
-	model  string
+	apiKey       string
+	model        string
+	extraHeaders map[string]string
 }
 
-func NewGroqProvider(apiKey, model string) Provider {
+func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+	if extraHeaders == nil {
+		extraHeaders = make(map[string]string)
+	}
 	return &GroqProvider{
-		apiKey: apiKey,
-		model:  model,
+		apiKey:       apiKey,
+		model:        model,
+		extraHeaders: extraHeaders,
 	}
 }
 
@@ -27,10 +32,16 @@ func (p *GroqProvider) Endpoint() string {
 }
 
 func (p *GroqProvider) Headers() map[string]string {
-	return map[string]string{
+	headers := map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer " + p.apiKey,
 	}
+
+	for key, value := range p.extraHeaders {
+		headers[key] = value
+	}
+
+	return headers
 }
 
 func (p *GroqProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
@@ -67,4 +78,8 @@ func (p *GroqProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	return response.Choices[0].Message.Content, nil
+}
+
+func (p *GroqProvider) SetExtraHeaders(extraHeaders map[string]string) {
+	p.extraHeaders = extraHeaders
 }

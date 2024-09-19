@@ -25,6 +25,7 @@ type Provider interface {
 	Headers() map[string]string
 	PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error)
 	ParseResponse(body []byte) (string, error)
+	SetExtraHeaders(extraHeaders map[string]string)
 }
 
 // LLMImpl is our implementation of the internal LLM interface
@@ -39,7 +40,12 @@ type LLMImpl struct {
 }
 
 func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, error) {
-	provider, err := registry.Get(config.Provider, config.APIKeys[config.Provider], config.Model)
+	extraHeaders := make(map[string]string)
+	if config.Provider == "anthropic" && config.EnableCaching {
+		extraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
+	}
+
+	provider, err := registry.Get(config.Provider, config.APIKeys[config.Provider], config.Model, extraHeaders)
 	if err != nil {
 		return nil, err
 	}
@@ -83,16 +89,13 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 	// Set common options for other providers
 	llmClient.SetOption("temperature", config.Temperature)
 	llmClient.SetOption("max_tokens", config.MaxTokens)
-	llmClient.SetOption("top_p", config.TopP)
-	llmClient.SetOption("frequency_penalty", config.FrequencyPenalty)
-	llmClient.SetOption("presence_penalty", config.PresencePenalty)
+
 	if config.Seed != nil {
 		llmClient.SetOption("seed", *config.Seed)
 	}
 
 	return llmClient, nil
 }
-
 func (l *LLMImpl) SetOption(key string, value interface{}) {
 	l.Options[key] = value
 	l.logger.Debug("Option set", key, value)

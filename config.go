@@ -47,6 +47,8 @@ type Config struct {
 	MirostatEta      *float64
 	MirostatTau      *float64
 	TfsZ             *float64
+	EnableCaching    bool
+	ExtraHeaders     map[string]string
 }
 
 // toInternalConfig converts Config to internal llm.Config
@@ -74,6 +76,8 @@ func (c *Config) toInternalConfig() *llm.Config {
 		MirostatEta:      c.MirostatEta,
 		MirostatTau:      c.MirostatTau,
 		TfsZ:             c.TfsZ,
+		ExtraHeaders:     c.ExtraHeaders,
+		EnableCaching:    c.EnableCaching,
 	}
 }
 
@@ -120,6 +124,14 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return config, nil
+}
+
+// Add this function to your config.go
+func SetEnableCaching(enableCaching bool) ConfigOption {
+	return func(c *Config) {
+		c.EnableCaching = enableCaching
+
+	}
 }
 
 // SetProvider sets the provider in the Config
@@ -200,6 +212,18 @@ func SetMemory(maxTokens int) ConfigOption {
 	return func(c *Config) {
 		c.MemoryOption = &MemoryOption{
 			MaxTokens: maxTokens,
+		}
+	}
+}
+
+// SetExtraHeaders sets additional headers in the Config
+func SetExtraHeaders(headers map[string]string) ConfigOption {
+	return func(c *Config) {
+		if c.ExtraHeaders == nil {
+			c.ExtraHeaders = make(map[string]string)
+		}
+		for k, v := range headers {
+			c.ExtraHeaders[k] = v
 		}
 	}
 }

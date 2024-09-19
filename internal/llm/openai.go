@@ -5,20 +5,20 @@ import (
 	"fmt"
 )
 
-func RegisterOpenAIProvider(registry *ProviderRegistry) {
-	registry.Register("openai", NewOpenAIProvider)
-}
-
-// OpenAIProvider implements the Provider interface for OpenAI
 type OpenAIProvider struct {
-	apiKey string
-	model  string
+	apiKey       string
+	model        string
+	extraHeaders map[string]string
 }
 
-func NewOpenAIProvider(apiKey, model string) Provider {
+func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+	if extraHeaders == nil {
+		extraHeaders = make(map[string]string)
+	}
 	return &OpenAIProvider{
-		apiKey: apiKey,
-		model:  model,
+		apiKey:       apiKey,
+		model:        model,
+		extraHeaders: extraHeaders,
 	}
 }
 
@@ -31,10 +31,16 @@ func (p *OpenAIProvider) Endpoint() string {
 }
 
 func (p *OpenAIProvider) Headers() map[string]string {
-	return map[string]string{
+	headers := map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer " + p.apiKey,
 	}
+
+	for key, value := range p.extraHeaders {
+		headers[key] = value
+	}
+
+	return headers
 }
 
 func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
@@ -71,4 +77,8 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	return response.Choices[0].Message.Content, nil
+}
+
+func (p *OpenAIProvider) SetExtraHeaders(extraHeaders map[string]string) {
+	p.extraHeaders = extraHeaders
 }

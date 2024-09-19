@@ -4,6 +4,7 @@ package gollm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -38,11 +39,13 @@ type LLM interface {
 	GetDebugLevel() LogLevel
 
 	SetOllamaEndpoint(endpoint string) error
+
+	SetSystemPrompt(prompt string, cacheType CacheType)
 }
 
 // llmImpl is the concrete implementation of the LLM interface
 type llmImpl struct {
-	llm.LLM  // Embedded LLM interface from internal package
+	llm.LLM
 	logger   llm.Logger
 	provider string
 	model    string
@@ -55,6 +58,22 @@ type GenerateOption func(*generateConfig)
 // generateConfig holds configuration options for the Generate method
 type generateConfig struct {
 	useJSONSchema bool
+}
+
+// Add the SetSystemPrompt method
+func (l *llmImpl) SetSystemPrompt(prompt string, cacheType CacheType) {
+	// This method now serves as a convenience method to create a new Prompt with a system prompt
+	newPrompt := NewPrompt("",
+		WithSystemPrompt(prompt, cacheType),
+	)
+	l.SetOption("system_prompt", newPrompt)
+}
+
+// WithCaching enables or disables caching in the Config
+func WithCaching(enable bool) ConfigOption {
+	return func(c *Config) {
+		c.EnableCaching = enable
+	}
 }
 
 // WithJSONSchemaValidation returns a GenerateOption that enables JSON schema validation
@@ -335,64 +354,76 @@ func CleanResponse(response string) string {
 	return strings.TrimSpace(response)
 }
 
+// Generate produces a response given a context, prompt, and optional generate options
+// Generate produces a response given a context, prompt, and optional generate options
 func (l *llmImpl) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error) {
-	// Log the start of the Generate method
 	l.logger.Debug("Starting Generate method",
 		"prompt_length", len(prompt.String()),
 		"context", ctx)
 
-	// Check if llmImpl is nil
-	if l == nil {
-		l.logger.Error("llmImpl is nil")
-		return "", fmt.Errorf("llmImpl is nil")
+	if l == nil || l.LLM == nil {
+		return "", fmt.Errorf("llmImpl or internal LLM is nil")
 	}
 
-	// Check if internal LLM is nil
-	if l.LLM == nil {
-		l.logger.Error("internal LLM is nil")
-		return "", fmt.Errorf("internal LLM is nil")
-	}
-
-	// Ensure logger is initialized
-	if l.logger == nil {
-		l.logger = llm.NewLogger(llm.LogLevel(LogLevelWarn))
-		l.logger.Warn("Logger was nil, created new logger with WARN level")
-	}
-
-	// Apply generate options
 	config := &generateConfig{}
 	for _, opt := range opts {
 		opt(config)
 	}
-	l.logger.Debug("Generate options applied",
-		"useJSONSchema", config.useJSONSchema)
 
-	// Validate prompt with JSON schema if enabled
 	if config.useJSONSchema {
-		l.logger.Debug("Validating prompt with JSON schema")
-		if err := llm.Validate(prompt); err != nil {
-			l.logger.Error("Prompt validation failed", "error", err)
+		if err := prompt.Validate(); err != nil {
 			return "", fmt.Errorf("invalid prompt: %w", err)
 		}
-		l.logger.Debug("Prompt validation successful")
 	}
 
-	// Send prompt to LLM
-	l.logger.Debug("Sending prompt to LLM",
-		"prompt", prompt.String(),
-		"provider", l.GetProvider(),
-		"model", l.GetModel())
-	response, fullPrompt, err := l.LLM.Generate(ctx, prompt.String())
+	request := map[string]interface{}{
+		"model":      l.model,
+		"max_tokens": l.config.MaxTokens,
+	}
+
+	if prompt.SystemPrompt != "" {
+		system := []map[string]interface{}{
+			{
+				"type": "text",
+				"text": prompt.SystemPrompt,
+			},
+		}
+		if prompt.SystemCacheType != "" {
+			system[0]["cache_control"] = map[string]string{"type": string(prompt.SystemCacheType)}
+		}
+		request["system"] = system
+	}
+
+	var messages []map[string]interface{}
+	for _, msg := range prompt.Messages {
+		message := map[string]interface{}{
+			"role": msg.Role,
+			"content": []map[string]interface{}{{
+				"type": "text",
+				"text": msg.Content,
+			}},
+		}
+		if msg.CacheType != "" {
+			message["content"].([]map[string]interface{})[0]["cache_control"] = map[string]string{"type": string(msg.CacheType)}
+		}
+		messages = append(messages, message)
+	}
+	request["messages"] = messages
+
+	// Log the request that will be sent to the backend
+	l.logger.Debug("Prepared request for LLM", "request", request)
+
+	// Serialize the request map to JSON
+	jsonRequest, err := json.Marshal(request)
 	if err != nil {
-		l.logger.Error("Error from LLM.Generate",
-			"error", err,
-			"fullPrompt", fullPrompt)
-		return "", err
+		return "", fmt.Errorf("failed to serialize request: %w", err)
 	}
-	l.logger.Debug("Received response from LLM",
-		"response_length", len(response))
 
-	// Clean the response
+	response, _, err := l.LLM.Generate(ctx, string(jsonRequest))
+	if err != nil {
+		return "", fmt.Errorf("LLM.Generate error: %w", err)
+	}
+
 	cleanedResponse := CleanResponse(response)
 	l.logger.Debug("Response cleaned",
 		"original_length", len(response),
@@ -403,50 +434,72 @@ func (l *llmImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 
 // NewLLM creates a new LLM instance, potentially with memory if the option is set
 func NewLLM(opts ...ConfigOption) (LLM, error) {
+	// Load the configuration
 	config, err := LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Apply configuration options
 	for _, opt := range opts {
 		opt(config)
 	}
 
+	// Create a new logger
 	logger := llm.NewLogger(llm.LogLevel(config.DebugLevel))
 
-	internalConfig := config.toInternalConfig()
-
-	// Pass the OllamaEndpoint to the internal config
-	if config.OllamaEndpoint != "" {
-		internalConfig.OllamaEndpoint = config.OllamaEndpoint
+	// Add Anthropic beta header for prompt caching if using Anthropic and caching is enabled
+	if config.Provider == "anthropic" && config.EnableCaching {
+		if config.ExtraHeaders == nil {
+			config.ExtraHeaders = make(map[string]string)
+		}
+		config.ExtraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
 	}
 
+	// Convert to internal config
+	internalConfig := config.toInternalConfig()
+
+	// Create the base LLM
 	baseLLM, err := llm.NewLLM(internalConfig, logger, llm.NewProviderRegistry())
 	if err != nil {
 		logger.Error("Failed to create internal LLM", "error", err)
 		return nil, fmt.Errorf("failed to create internal LLM: %w", err)
 	}
 
+	var llmInstance LLM
+
+	// Create LLM with memory if MemoryOption is set
 	if config.MemoryOption != nil {
 		llmWithMemory, err := llm.NewLLMWithMemory(baseLLM, config.MemoryOption.MaxTokens, config.Model, logger)
 		if err != nil {
 			logger.Error("Failed to create LLM with memory", "error", err)
 			return nil, fmt.Errorf("failed to create LLM with memory: %w", err)
 		}
-		return &llmImpl{
+		llmInstance = &llmImpl{
 			LLM:      llmWithMemory,
 			logger:   logger,
 			provider: config.Provider,
 			model:    config.Model,
 			config:   config,
-		}, nil
+		}
+	} else {
+		llmInstance = &llmImpl{
+			LLM:      baseLLM,
+			logger:   logger,
+			provider: config.Provider,
+			model:    config.Model,
+			config:   config,
+		}
 	}
 
-	return &llmImpl{
-		LLM:      baseLLM,
-		logger:   logger,
-		provider: config.Provider,
-		model:    config.Model,
-		config:   config,
-	}, nil
+	// Add Anthropic beta header for prompt caching if using Anthropic and caching is enabled
+	if config.Provider == "anthropic" && config.EnableCaching {
+		if internalConfig.ExtraHeaders == nil {
+			internalConfig.ExtraHeaders = make(map[string]string)
+		}
+		internalConfig.ExtraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
+		logger.Debug("Enabled prompt caching for Anthropic provider")
+	}
+
+	return llmInstance, nil
 }
