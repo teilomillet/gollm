@@ -37,7 +37,7 @@ func main() {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}
 
-	schemaJSON, err := gollm.GenerateJSONSchema(&PersonInfo{}, gollm.WithExpandedStruct(true))
+	schemaJSON, err := llm.GetPromptJSONSchema(gollm.WithExpandedStruct(true))
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema: %v", err)
 	}

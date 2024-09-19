@@ -43,7 +43,6 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 	if err != nil {
 		return nil, err
 	}
-
 	logger.SetLevel(config.LogLevel)
 
 	// Special handling for Ollama provider
@@ -55,9 +54,22 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 		if config.OllamaEndpoint != "" {
 			ollamaProvider.SetEndpoint(config.OllamaEndpoint)
 		}
+		// Set options for Ollama provider
+		ollamaProvider.SetOption("temperature", config.Temperature)
+		ollamaProvider.SetOption("max_tokens", config.MaxTokens)
+		ollamaProvider.SetOption("top_p", config.TopP)
+		ollamaProvider.SetOption("min_p", config.MinP)
+		ollamaProvider.SetOption("repeat_penalty", config.RepeatPenalty)
+		ollamaProvider.SetOption("repeat_last_n", config.RepeatLastN)
+		ollamaProvider.SetOption("mirostat", config.Mirostat)
+		ollamaProvider.SetOption("mirostat_eta", config.MirostatEta)
+		ollamaProvider.SetOption("mirostat_tau", config.MirostatTau)
+		ollamaProvider.SetOption("tfs_z", config.TfsZ)
+		ollamaProvider.SetOption("seed", config.Seed)
 		return ollamaProvider, nil
 	}
 
+	// For other providers
 	llmClient := &LLMImpl{
 		Provider:   provider,
 		Options:    make(map[string]interface{}),
@@ -67,8 +79,16 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 		MaxRetries: config.MaxRetries,
 		RetryDelay: config.RetryDelay,
 	}
+
+	// Set common options for other providers
 	llmClient.SetOption("temperature", config.Temperature)
 	llmClient.SetOption("max_tokens", config.MaxTokens)
+	llmClient.SetOption("top_p", config.TopP)
+	llmClient.SetOption("frequency_penalty", config.FrequencyPenalty)
+	llmClient.SetOption("presence_penalty", config.PresencePenalty)
+	if config.Seed != nil {
+		llmClient.SetOption("seed", *config.Seed)
+	}
 
 	return llmClient, nil
 }
