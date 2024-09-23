@@ -143,3 +143,8 @@ func (p *OllamaProvider) ParseResponse(body []byte) (string, error) {
 
 	return fullResponse.String(), nil
 }
+
+func (p *OllamaProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
+	// Ollama doesn't support function calling natively, so we return nil
+	return nil, nil
+}

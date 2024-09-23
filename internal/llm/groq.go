@@ -80,6 +80,29 @@ func (p *GroqProvider) ParseResponse(body []byte) (string, error) {
 	return response.Choices[0].Message.Content, nil
 }
 
+func (p *GroqProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
+	var response struct {
+		Choices []struct {
+			Message struct {
+				FunctionCall *struct {
+					Name      string          `json:"name"`
+					Arguments json.RawMessage `json:"arguments"`
+				} `json:"function_call"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("error parsing response: %w", err)
+	}
+
+	if len(response.Choices) == 0 || response.Choices[0].Message.FunctionCall == nil {
+		return nil, nil // No function call
+	}
+
+	return json.Marshal(response.Choices[0].Message.FunctionCall)
+}
+
 func (p *GroqProvider) SetExtraHeaders(extraHeaders map[string]string) {
 	p.extraHeaders = extraHeaders
 }

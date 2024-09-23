@@ -52,6 +52,16 @@ type llmImpl struct {
 	config   *Config
 }
 
+// ToolCall is the struct for the function calling
+type ToolCall struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string          `json:"name"`
+		Arguments json.RawMessage `json:"arguments"`
+	} `json:"function"`
+}
+
 // GenerateOption is a function type for configuring generate options
 type GenerateOption func(*generateConfig)
 
@@ -355,11 +365,8 @@ func CleanResponse(response string) string {
 }
 
 // Generate produces a response given a context, prompt, and optional generate options
-// Generate produces a response given a context, prompt, and optional generate options
 func (l *llmImpl) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error) {
-	l.logger.Debug("Starting Generate method",
-		"prompt_length", len(prompt.String()),
-		"context", ctx)
+	l.logger.Debug("Starting Generate method", "prompt_length", len(prompt.String()), "context", ctx)
 
 	if l == nil || l.LLM == nil {
 		return "", fmt.Errorf("llmImpl or internal LLM is nil")
@@ -379,44 +386,20 @@ func (l *llmImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 	request := map[string]interface{}{
 		"model":      l.model,
 		"max_tokens": l.config.MaxTokens,
+		"messages":   prompt.Messages,
+	}
+	if len(prompt.Tools) > 0 {
+		request["tools"] = prompt.Tools
+	}
+	if prompt.ToolChoice != "" {
+		request["tool_choice"] = prompt.ToolChoice
 	}
 
-	if prompt.SystemPrompt != "" {
-		system := []map[string]interface{}{
-			{
-				"type": "text",
-				"text": prompt.SystemPrompt,
-			},
-		}
-		if prompt.SystemCacheType != "" {
-			system[0]["cache_control"] = map[string]string{"type": string(prompt.SystemCacheType)}
-		}
-		request["system"] = system
-	}
-
-	var messages []map[string]interface{}
-	for _, msg := range prompt.Messages {
-		message := map[string]interface{}{
-			"role": msg.Role,
-			"content": []map[string]interface{}{{
-				"type": "text",
-				"text": msg.Content,
-			}},
-		}
-		if msg.CacheType != "" {
-			message["content"].([]map[string]interface{})[0]["cache_control"] = map[string]string{"type": string(msg.CacheType)}
-		}
-		messages = append(messages, message)
-	}
-	request["messages"] = messages
-
-	// Log the request that will be sent to the backend
 	l.logger.Debug("Prepared request for LLM", "request", request)
 
-	// Serialize the request map to JSON
 	jsonRequest, err := json.Marshal(request)
 	if err != nil {
-		return "", fmt.Errorf("failed to serialize request: %w", err)
+		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	response, _, err := l.LLM.Generate(ctx, string(jsonRequest))
@@ -424,12 +407,113 @@ func (l *llmImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 		return "", fmt.Errorf("LLM.Generate error: %w", err)
 	}
 
-	cleanedResponse := CleanResponse(response)
-	l.logger.Debug("Response cleaned",
-		"original_length", len(response),
-		"cleaned_length", len(cleanedResponse))
+	l.logger.Debug("Raw response from LLM", "response", response)
 
-	return cleanedResponse, nil
+	var parsedResponse struct {
+		Choices []struct {
+			Message struct {
+				Content   string     `json:"content"`
+				ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	if err := json.Unmarshal([]byte(response), &parsedResponse); err != nil {
+		return "", fmt.Errorf("failed to parse LLM response: %w", err)
+	}
+
+	if len(parsedResponse.Choices) == 0 {
+		return "", fmt.Errorf("empty response from LLM")
+	}
+
+	message := parsedResponse.Choices[0].Message
+
+	if len(message.ToolCalls) > 0 {
+		toolCallsJSON, err := json.Marshal(message.ToolCalls)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal tool calls: %w", err)
+		}
+		return string(toolCallsJSON), nil
+	}
+
+	return message.Content, nil
+}
+
+func (l *llmImpl) HandleFunctionCallResponse(response string) (string, error) {
+	var llmResponse struct {
+		Choices []struct {
+			Message struct {
+				Content   string     `json:"content"`
+				ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	err := json.Unmarshal([]byte(response), &llmResponse)
+	if err != nil {
+		// If it's not JSON, return the raw response
+		l.logger.Debug("Received non-JSON response", "response", response)
+		return response, nil
+	}
+
+	if len(llmResponse.Choices) == 0 {
+		return "", fmt.Errorf("empty response from LLM")
+	}
+
+	message := llmResponse.Choices[0].Message
+
+	if len(message.ToolCalls) > 0 {
+		l.logger.Debug("Received function call response", "tool_calls", message.ToolCalls)
+		toolCallsJSON, err := json.Marshal(message.ToolCalls)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal tool calls: %w", err)
+		}
+		return string(toolCallsJSON), nil
+	}
+
+	// If there are no tool calls, return the content
+	l.logger.Debug("Received regular response", "content", message.Content)
+	return message.Content, nil
+}
+
+func (l *llmImpl) GenerateFunctionCallFollowUp(ctx context.Context, originalPrompt *Prompt, functionCallResponse string, functionResult string) (string, error) {
+	var parsedResponse struct {
+		Choices []struct {
+			Message struct {
+				ToolCalls []ToolCall `json:"tool_calls"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal([]byte(functionCallResponse), &parsedResponse); err != nil {
+		return "", fmt.Errorf("failed to parse function call response: %w", err)
+	}
+
+	if len(parsedResponse.Choices) == 0 || len(parsedResponse.Choices[0].Message.ToolCalls) == 0 {
+		return "", fmt.Errorf("invalid function call response")
+	}
+
+	toolCall := parsedResponse.Choices[0].Message.ToolCalls[0]
+
+	newMessages := append(originalPrompt.Messages,
+		Message{
+			Role:      "assistant",
+			Content:   "",
+			ToolCalls: parsedResponse.Choices[0].Message.ToolCalls,
+		},
+		Message{
+			Role:       "tool",
+			Content:    functionResult,
+			Name:       toolCall.Function.Name,
+			ToolCallID: toolCall.ID,
+		},
+	)
+
+	followUpPrompt := NewPrompt(
+		"",
+		WithMessages(newMessages),
+	)
+
+	return l.Generate(ctx, followUpPrompt)
 }
 
 // NewLLM creates a new LLM instance, potentially with memory if the option is set

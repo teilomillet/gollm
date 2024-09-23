@@ -26,6 +26,7 @@ type Provider interface {
 	PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error)
 	ParseResponse(body []byte) (string, error)
 	SetExtraHeaders(extraHeaders map[string]string)
+	HandleFunctionCalls(body []byte) ([]byte, error)
 }
 
 // LLMImpl is our implementation of the internal LLM interface

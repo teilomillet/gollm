@@ -3,6 +3,7 @@ package llm
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // AnthropicProvider implements the Provider interface for Anthropic
@@ -58,20 +59,82 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]int
 func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 	var response struct {
 		Content []struct {
+			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
 	}
 
-	err := json.Unmarshal(body, &response)
-	if err != nil {
+	if err := json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("error parsing response: %w", err)
 	}
 
-	if len(response.Content) == 0 || response.Content[0].Text == "" {
-		return "", fmt.Errorf("empty response from API")
+	if len(response.Content) == 0 {
+		return "", fmt.Errorf("empty response from LLM")
 	}
 
-	return response.Content[0].Text, nil
+	// Initialize the final response
+	var finalResponse string
+
+	for _, content := range response.Content {
+		if content.Type == "text" {
+			finalResponse += content.Text
+		} else if content.Type == "tool_call" {
+			// Extract the function call from the text
+			start := strings.Index(content.Text, "<function_call>")
+			end := strings.Index(content.Text, "</function_call>")
+			if start != -1 && end != -1 {
+				functionCall := content.Text[start+len("<function_call>") : end]
+				var function struct {
+					Name      string          `json:"name"`
+					Arguments json.RawMessage `json:"arguments"`
+				}
+				if err := json.Unmarshal([]byte(functionCall), &function); err != nil {
+					return "", fmt.Errorf("failed to parse function call: %w", err)
+				}
+				// Append the function call to the final response
+				finalResponse += fmt.Sprintf("<function_call>%s</function_call>", functionCall)
+			}
+		}
+	}
+
+	return finalResponse, nil
+}
+
+func (p *AnthropicProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
+	var response struct {
+		Content []struct {
+			Text      string `json:"text"`
+			ToolCalls []struct {
+				Function struct {
+					Name      string          `json:"name"`
+					Arguments json.RawMessage `json:"arguments"`
+				} `json:"function"`
+			} `json:"tool_calls"`
+		} `json:"content"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("error parsing response: %w", err)
+	}
+
+	if len(response.Content) == 0 || len(response.Content[0].ToolCalls) == 0 {
+		return nil, nil // No function call
+	}
+
+	// Extract the first function call
+	firstFunctionCall := response.Content[0].ToolCalls[0].Function
+
+	// Parse the arguments
+	var argsMap map[string]interface{}
+	if err := json.Unmarshal(firstFunctionCall.Arguments, &argsMap); err != nil {
+		return nil, fmt.Errorf("failed to parse arguments: %w", err)
+	}
+
+	// Return the parsed function call
+	return json.Marshal(map[string]interface{}{
+		"name":      firstFunctionCall.Name,
+		"arguments": argsMap,
+	})
 }
 
 func (p *AnthropicProvider) SetExtraHeaders(headers map[string]string) {

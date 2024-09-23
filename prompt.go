@@ -17,9 +17,24 @@ const (
 )
 
 type Message struct {
-	Role      string
-	Content   string
-	CacheType CacheType
+	Role       string     `json:"role"`
+	Content    string     `json:"content"`
+	CacheType  CacheType  `json:"cache_type,omitempty"`
+	Name       string     `json:"name,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+}
+
+type Function struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Parameters  map[string]interface{} `json:"parameters"`
+	Strict      bool                   `json:"strict,omitempty"`
+}
+
+type Tool struct {
+	Type     string   `json:"type"`
+	Function Function `json:"function"`
 }
 
 // Prompt represents a structured prompt for an LLM
@@ -33,6 +48,8 @@ type Prompt struct {
 	SystemPrompt    string    `json:"systemPrompt,omitempty" jsonschema:"description=System prompt for the LLM"`
 	SystemCacheType CacheType `json:"systemCacheType,omitempty" jsonschema:"description=Cache type for the system prompt"`
 	Messages        []Message `json:"messages,omitempty" jsonschema:"description=List of messages for the conversation"`
+	Tools           []Tool    `json:"tools,omitempty"`
+	ToolChoice      string    `json:"toolChoice,omitempty"`
 }
 
 // SchemaOption is a function type for schema generation options
@@ -57,6 +74,27 @@ func WithSystemPrompt(prompt string, cacheType CacheType) PromptOption {
 func WithMessage(role, content string, cacheType CacheType) PromptOption {
 	return func(p *Prompt) {
 		p.Messages = append(p.Messages, Message{Role: role, Content: content, CacheType: cacheType})
+	}
+}
+
+// WithTools adds tools to the Prompt
+func WithTools(tools []Tool) PromptOption {
+	return func(p *Prompt) {
+		p.Tools = tools
+	}
+}
+
+// WithToolChoice sets the tool choice for the Prompt
+func WithToolChoice(choice string) PromptOption {
+	return func(p *Prompt) {
+		p.ToolChoice = choice
+	}
+}
+
+// WithMessages sets the messages for the Prompt
+func WithMessages(messages []Message) PromptOption {
+	return func(p *Prompt) {
+		p.Messages = messages
 	}
 }
 
