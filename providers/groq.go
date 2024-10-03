@@ -31,6 +31,10 @@ func (p *GroqProvider) Endpoint() string {
 	return "https://api.groq.com/openai/v1/chat/completions"
 }
 
+func (p *GroqProvider) SupportsJSONSchema() bool {
+	return false
+}
+
 func (p *GroqProvider) Headers() map[string]string {
 	headers := map[string]string{
 		"Content-Type":  "application/json",
@@ -54,6 +58,31 @@ func (p *GroqProvider) PrepareRequest(prompt string, options map[string]interfac
 
 	for k, v := range options {
 		requestBody[k] = v
+	}
+
+	return json.Marshal(requestBody)
+}
+
+func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+	requestBody := map[string]interface{}{
+		"model": p.model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
+		"response_format": map[string]interface{}{
+			"type":   "json_schema",
+			"schema": schema,
+		},
+	}
+
+	// Add any additional options
+	for k, v := range options {
+		requestBody[k] = v
+	}
+
+	// Add strict option if provided
+	if strict, ok := options["strict"].(bool); ok && strict {
+		requestBody["response_format"].(map[string]interface{})["strict"] = true
 	}
 
 	return json.Marshal(requestBody)

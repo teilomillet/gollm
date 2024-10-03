@@ -1,4 +1,6 @@
-package gollm
+// File: utils/examples.go
+
+package utils
 
 import (
 	"bufio"
@@ -15,7 +17,8 @@ type Example struct {
 	Content string `json:"content"`
 }
 
-func readExamplesFromFile(filePath string) ([]string, error) {
+// ReadExamplesFromFile reads examples from a file and returns them as a slice of strings
+func ReadExamplesFromFile(filePath string) ([]string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -53,7 +56,8 @@ func readExamplesFromFile(filePath string) ([]string, error) {
 	return examples, nil
 }
 
-func selectExamples(examples []string, n int, order string) []string {
+// SelectExamples selects a subset of examples based on the given parameters
+func SelectExamples(examples []string, n int, order string) []string {
 	if n >= len(examples) {
 		return examples
 	}

@@ -1,4 +1,4 @@
-// File: internal/llm/config.go
+// File: config/config.go
 
 package config
 

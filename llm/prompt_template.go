@@ -1,4 +1,4 @@
-package gollm
+package llm
 
 import (
 	"bytes"

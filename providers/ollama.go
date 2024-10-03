@@ -40,6 +40,10 @@ func (p *OllamaProvider) SetExtraHeaders(extraHeaders map[string]string) {
 	p.extraHeaders = extraHeaders
 }
 
+func (p *OllamaProvider) SupportsJSONSchema() bool {
+	return false
+}
+
 // Implement LLM interface methods
 
 func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (string, string, error) {
@@ -122,6 +126,12 @@ func (p *OllamaProvider) PrepareRequest(prompt string, options map[string]interf
 	}
 
 	return json.Marshal(requestBody)
+}
+
+func (p *OllamaProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+	// Ollama doesn't support JSON schema validation natively
+	// We'll just use the regular PrepareRequest method
+	return p.PrepareRequest(prompt, options)
 }
 
 func (p *OllamaProvider) ParseResponse(body []byte) (string, error) {

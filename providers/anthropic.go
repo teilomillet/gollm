@@ -29,6 +29,10 @@ func (p *AnthropicProvider) Endpoint() string {
 	return "https://api.anthropic.com/v1/messages"
 }
 
+func (p *AnthropicProvider) SupportsJSONSchema() bool {
+	return false
+}
+
 func (p *AnthropicProvider) Headers() map[string]string {
 	headers := map[string]string{
 		"Content-Type":      "application/json",
@@ -51,6 +55,31 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]int
 
 	for k, v := range options {
 		requestBody[k] = v
+	}
+
+	return json.Marshal(requestBody)
+}
+
+func (p *AnthropicProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+	requestBody := map[string]interface{}{
+		"model": p.model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
+		"response_format": map[string]interface{}{
+			"type":   "json_schema",
+			"schema": schema,
+		},
+	}
+
+	// Add any additional options
+	for k, v := range options {
+		requestBody[k] = v
+	}
+
+	// Add strict option if provided
+	if strict, ok := options["strict"].(bool); ok && strict {
+		requestBody["response_format"].(map[string]interface{})["strict"] = true
 	}
 
 	return json.Marshal(requestBody)

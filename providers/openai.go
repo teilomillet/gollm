@@ -30,6 +30,10 @@ func (p *OpenAIProvider) Endpoint() string {
 	return "https://api.openai.com/v1/chat/completions"
 }
 
+func (p *OpenAIProvider) SupportsJSONSchema() bool {
+	return true
+}
+
 func (p *OpenAIProvider) Headers() map[string]string {
 	headers := map[string]string{
 		"Content-Type":  "application/json",
@@ -97,6 +101,26 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 	for k, v := range options {
 		request[k] = v
 	}
+	return json.Marshal(request)
+}
+
+func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+	request := map[string]interface{}{
+		"model": p.model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
+		"response_format": map[string]interface{}{
+			"type":   "json_schema",
+			"schema": schema,
+		},
+	}
+
+	// Add any additional options
+	for k, v := range options {
+		request[k] = v
+	}
+
 	return json.Marshal(request)
 }
 

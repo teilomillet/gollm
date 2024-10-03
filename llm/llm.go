@@ -1,10 +1,9 @@
-// File: internal/llm/llm.go
-
 package llm
 
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,9 +17,13 @@ import (
 // LLM interface defines the methods that our internal language model should implement
 type LLM interface {
 	Generate(ctx context.Context, prompt string) (response string, fullPrompt string, err error)
+	GenerateWithSchema(ctx context.Context, prompt string, schema interface{}) (string, string, error)
 	SetOption(key string, value interface{})
 	SetDebugLevel(level utils.LogLevel)
 	SetEndpoint(endpoint string)
+	NewPrompt(prompt string) *Prompt
+	GetLogger() utils.Logger
+	SupportsJSONSchema() bool
 }
 
 // LLMImpl is our implementation of the internal LLM interface
@@ -44,33 +47,7 @@ func NewLLM(config *config.Config, logger utils.Logger, registry *providers.Prov
 	if err != nil {
 		return nil, err
 	}
-	logger.SetLevel(config.LogLevel)
 
-	// Special handling for Ollama provider
-	if config.Provider == "ollama" {
-		ollamaProvider, ok := provider.(*providers.OllamaProvider)
-		if !ok {
-			return nil, fmt.Errorf("unexpected provider type for Ollama")
-		}
-		if config.OllamaEndpoint != "" {
-			ollamaProvider.SetEndpoint(config.OllamaEndpoint)
-		}
-		// Set options for Ollama provider
-		ollamaProvider.SetOption("temperature", config.Temperature)
-		ollamaProvider.SetOption("max_tokens", config.MaxTokens)
-		ollamaProvider.SetOption("top_p", config.TopP)
-		ollamaProvider.SetOption("min_p", config.MinP)
-		ollamaProvider.SetOption("repeat_penalty", config.RepeatPenalty)
-		ollamaProvider.SetOption("repeat_last_n", config.RepeatLastN)
-		ollamaProvider.SetOption("mirostat", config.Mirostat)
-		ollamaProvider.SetOption("mirostat_eta", config.MirostatEta)
-		ollamaProvider.SetOption("mirostat_tau", config.MirostatTau)
-		ollamaProvider.SetOption("tfs_z", config.TfsZ)
-		ollamaProvider.SetOption("seed", config.Seed)
-		return ollamaProvider, nil
-	}
-
-	// For other providers
 	llmClient := &LLMImpl{
 		Provider:   provider,
 		Options:    make(map[string]interface{}),
@@ -81,7 +58,7 @@ func NewLLM(config *config.Config, logger utils.Logger, registry *providers.Prov
 		RetryDelay: config.RetryDelay,
 	}
 
-	// Set common options for other providers
+	// Set common options for all providers
 	llmClient.SetOption("temperature", config.Temperature)
 	llmClient.SetOption("max_tokens", config.MaxTokens)
 
@@ -89,8 +66,25 @@ func NewLLM(config *config.Config, logger utils.Logger, registry *providers.Prov
 		llmClient.SetOption("seed", *config.Seed)
 	}
 
+	// Special handling for Ollama provider
+	if config.Provider == "ollama" {
+		if config.OllamaEndpoint != "" {
+			llmClient.SetEndpoint(config.OllamaEndpoint)
+		}
+		// Set Ollama-specific options
+		llmClient.SetOption("top_p", config.TopP)
+		llmClient.SetOption("min_p", config.MinP)
+		llmClient.SetOption("repeat_penalty", config.RepeatPenalty)
+		llmClient.SetOption("repeat_last_n", config.RepeatLastN)
+		llmClient.SetOption("mirostat", config.Mirostat)
+		llmClient.SetOption("mirostat_eta", config.MirostatEta)
+		llmClient.SetOption("mirostat_tau", config.MirostatTau)
+		llmClient.SetOption("tfs_z", config.TfsZ)
+	}
+
 	return llmClient, nil
 }
+
 func (l *LLMImpl) SetOption(key string, value interface{}) {
 	l.Options[key] = value
 	l.logger.Debug("Option set", key, value)
@@ -105,6 +99,18 @@ func (l *LLMImpl) SetEndpoint(endpoint string) {
 func (l *LLMImpl) SetDebugLevel(level utils.LogLevel) {
 	l.logger.Debug("Setting internal LLM debug level", "new_level", level)
 	l.logger.SetLevel(level)
+}
+
+func (l *LLMImpl) GetLogger() utils.Logger {
+	return l.logger
+}
+
+func (l *LLMImpl) NewPrompt(prompt string) *Prompt {
+	return &Prompt{Input: prompt}
+}
+
+func (l *LLMImpl) SupportsJSONSchema() bool {
+	return l.Provider.SupportsJSONSchema()
 }
 
 func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, string, error) {
@@ -175,4 +181,101 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt string) (string, e
 
 	l.logger.Debug("Text generated successfully", "result", result)
 	return result, nil
+}
+
+func (l *LLMImpl) GenerateWithSchema(ctx context.Context, prompt string, schema interface{}) (string, string, error) {
+	var result string
+	var fullPrompt string
+	var lastErr error
+
+	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
+		l.logger.Debug("Generating text with schema", "provider", l.Provider.Name(), "prompt", prompt, "attempt", attempt+1)
+
+		result, fullPrompt, lastErr = l.attemptGenerateWithSchema(ctx, prompt, schema)
+		if lastErr == nil {
+			return result, fullPrompt, nil
+		}
+
+		l.logger.Warn("Generation attempt with schema failed", "error", lastErr, "attempt", attempt+1)
+
+		if attempt < l.MaxRetries {
+			l.logger.Debug("Retrying", "delay", l.RetryDelay)
+			select {
+			case <-ctx.Done():
+				return "", fullPrompt, ctx.Err()
+			case <-time.After(l.RetryDelay):
+				// Continue to next attempt
+			}
+		}
+	}
+
+	return "", fullPrompt, fmt.Errorf("failed to generate with schema after %d attempts: %w", l.MaxRetries+1, lastErr)
+}
+
+func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, schema interface{}) (string, string, error) {
+	var reqBody []byte
+	var err error
+	var fullPrompt string
+
+	if l.SupportsJSONSchema() {
+		reqBody, err = l.Provider.PrepareRequestWithSchema(prompt, l.Options, schema)
+		fullPrompt = prompt
+	} else {
+		fullPrompt = l.preparePromptWithSchema(prompt, schema)
+		reqBody, err = l.Provider.PrepareRequest(fullPrompt, l.Options)
+	}
+
+	if err != nil {
+		return "", fullPrompt, NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
+	}
+
+	l.logger.Debug("Request body", "provider", l.Provider.Name(), "body", string(reqBody))
+
+	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(reqBody))
+	if err != nil {
+		return "", fullPrompt, NewLLMError(ErrorTypeRequest, "failed to create request", err)
+	}
+
+	for k, v := range l.Provider.Headers() {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := l.client.Do(req)
+	if err != nil {
+		return "", fullPrompt, NewLLMError(ErrorTypeRequest, "failed to send request", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fullPrompt, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		l.logger.Error("API error", "provider", l.Provider.Name(), "status", resp.StatusCode, "body", string(body))
+		return "", fullPrompt, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
+	}
+
+	result, err := l.Provider.ParseResponse(body)
+	if err != nil {
+		return "", fullPrompt, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
+	}
+
+	// Validate the result against the schema
+	if err := ValidateAgainstSchema(result, schema); err != nil {
+		return "", fullPrompt, NewLLMError(ErrorTypeResponse, "response does not match schema", err)
+	}
+
+	l.logger.Debug("Text generated successfully", "result", result)
+	return result, fullPrompt, nil
+}
+
+func (l *LLMImpl) preparePromptWithSchema(prompt string, schema interface{}) string {
+	schemaJSON, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		l.logger.Warn("Failed to marshal schema", "error", err)
+		return prompt
+	}
+
+	return fmt.Sprintf("%s\n\nPlease provide your response in JSON format according to this schema:\n%s", prompt, string(schemaJSON))
 }

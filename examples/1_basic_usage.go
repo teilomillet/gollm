@@ -82,7 +82,7 @@ func main() {
 
 	// Example 4: JSON Schema Generation and Validation
 	fmt.Println("\nExample 4: JSON Schema Generation and Validation")
-	schemaBytes, err := advancedPrompt.GenerateJSONSchema()
+	schemaBytes, err := llm.GetPromptJSONSchema()
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema: %v", err)
 	}
@@ -111,7 +111,7 @@ func main() {
 	// Example 5: Using Chain of Thought
 	fmt.Println("\nExample 5: Using Chain of Thought")
 	cotPrompt := "Explain the process of photosynthesis step by step."
-	cotResponse, err := gollm.ChainOfThought(ctx, llm, cotPrompt)
+	cotResponse, err := llm.Generate(ctx, gollm.NewPrompt(cotPrompt))
 	if err != nil {
 		log.Fatalf("Failed to generate Chain of Thought response: %v", err)
 	}
@@ -119,3 +119,4 @@ func main() {
 
 	fmt.Println("\nBasic usage example completed.")
 }
+

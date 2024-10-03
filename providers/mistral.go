@@ -39,6 +39,10 @@ func (p *MistralProvider) Endpoint() string {
 	return "https://api.mistral.ai/v1/chat/completions"
 }
 
+func (p *MistralProvider) SupportsJSONSchema() bool {
+	return false
+}
+
 // Headers returns the headers for the API request.
 func (p *MistralProvider) Headers() map[string]string {
 	headers := map[string]string{
@@ -64,6 +68,31 @@ func (p *MistralProvider) PrepareRequest(prompt string, options map[string]inter
 
 	for k, v := range options {
 		requestBody[k] = v
+	}
+
+	return json.Marshal(requestBody)
+}
+
+func (p *MistralProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+	requestBody := map[string]interface{}{
+		"model": p.model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
+		"response_format": map[string]interface{}{
+			"type":   "json_schema",
+			"schema": schema,
+		},
+	}
+
+	// Add any additional options
+	for k, v := range options {
+		requestBody[k] = v
+	}
+
+	// Add strict option if provided
+	if strict, ok := options["strict"].(bool); ok && strict {
+		requestBody["response_format"].(map[string]interface{})["strict"] = true
 	}
 
 	return json.Marshal(requestBody)

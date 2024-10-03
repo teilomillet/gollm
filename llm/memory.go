@@ -1,4 +1,4 @@
-// File: internal/llm/memory.go
+// File: llm/memory.go
 
 package llm
 
@@ -11,19 +11,19 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+type MemoryMessage struct {
+	Role    string
+	Content string
+	Tokens  int
+}
+
 type Memory struct {
-	messages    []Message
+	messages    []MemoryMessage
 	mutex       sync.Mutex
 	totalTokens int
 	maxTokens   int
 	encoding    *tiktoken.Tiktoken
 	logger      utils.Logger
-}
-
-type Message struct {
-	Role    string
-	Content string
-	Tokens  int
 }
 
 func NewMemory(maxTokens int, model string, logger utils.Logger) (*Memory, error) {
@@ -37,7 +37,7 @@ func NewMemory(maxTokens int, model string, logger utils.Logger) (*Memory, error
 	}
 
 	return &Memory{
-		messages:  []Message{},
+		messages:  []MemoryMessage{},
 		maxTokens: maxTokens,
 		encoding:  encoding,
 		logger:    logger,
@@ -49,7 +49,7 @@ func (m *Memory) Add(role, content string) {
 	defer m.mutex.Unlock()
 
 	tokens := m.encoding.Encode(content, nil, nil)
-	message := Message{Role: role, Content: content, Tokens: len(tokens)}
+	message := MemoryMessage{Role: role, Content: content, Tokens: len(tokens)}
 	m.messages = append(m.messages, message)
 	m.totalTokens += len(tokens)
 
@@ -81,16 +81,16 @@ func (m *Memory) Clear() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	m.messages = []Message{}
+	m.messages = []MemoryMessage{}
 	m.totalTokens = 0
 	m.logger.Debug("Cleared memory")
 }
 
-func (m *Memory) GetMessages() []Message {
+func (m *Memory) GetMessages() []MemoryMessage {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	return append([]Message(nil), m.messages...)
+	return append([]MemoryMessage(nil), m.messages...)
 }
 
 type LLMWithMemory struct {
@@ -127,6 +127,7 @@ func (l *LLMWithMemory) ClearMemory() {
 	l.memory.Clear()
 }
 
-func (l *LLMWithMemory) GetMemory() []Message {
+func (l *LLMWithMemory) GetMemory() []MemoryMessage {
 	return l.memory.GetMessages()
 }
+

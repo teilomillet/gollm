@@ -15,7 +15,6 @@ var validate *validator.Validate
 
 func init() {
 	validate = validator.New()
-	validate.RegisterValidation("validGrade", validGrade)
 }
 
 // Validate checks if the given struct is valid according to its validation rules
@@ -191,4 +190,119 @@ func addValidationToSchema(schema map[string]interface{}, validateTag string) {
 			// Add more cases as needed
 		}
 	}
+}
+
+func ValidateAgainstSchema(response string, schema interface{}) error {
+	var responseData interface{}
+	if err := json.Unmarshal([]byte(response), &responseData); err != nil {
+		return fmt.Errorf("failed to parse response JSON: %w", err)
+	}
+
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+		return fmt.Errorf("failed to parse schema JSON: %w", err)
+	}
+
+	if err := validateJSONAgainstSchema(responseData, schemaMap); err != nil {
+		return fmt.Errorf("response does not match schema: %w", err)
+	}
+
+	return nil
+}
+
+func validateJSONAgainstSchema(data interface{}, schema map[string]interface{}) error {
+	schemaType, ok := schema["type"].(string)
+	if !ok {
+		return fmt.Errorf("schema missing 'type' field")
+	}
+
+	switch schemaType {
+	case "object":
+		return validateObject(data, schema)
+	case "array":
+		return validateArray(data, schema)
+	case "string", "number", "integer", "boolean":
+		return validatePrimitive(data, schemaType)
+	default:
+		return fmt.Errorf("unsupported schema type: %s", schemaType)
+	}
+}
+
+func validateObject(data interface{}, schema map[string]interface{}) error {
+	dataMap, ok := data.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("expected object, got %T", data)
+	}
+
+	properties, ok := schema["properties"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid 'properties' in schema")
+	}
+
+	for key, propSchema := range properties {
+		propData, exists := dataMap[key]
+		if !exists {
+			if required, ok := schema["required"].([]interface{}); ok {
+				for _, req := range required {
+					if req.(string) == key {
+						return fmt.Errorf("missing required field: %s", key)
+					}
+				}
+			}
+			continue
+		}
+
+		if err := validateJSONAgainstSchema(propData, propSchema.(map[string]interface{})); err != nil {
+			return fmt.Errorf("invalid field '%s': %w", key, err)
+		}
+	}
+
+	return nil
+}
+
+func validateArray(data interface{}, schema map[string]interface{}) error {
+	dataSlice, ok := data.([]interface{})
+	if !ok {
+		return fmt.Errorf("expected array, got %T", data)
+	}
+
+	items, ok := schema["items"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid 'items' in schema")
+	}
+
+	for i, item := range dataSlice {
+		if err := validateJSONAgainstSchema(item, items); err != nil {
+			return fmt.Errorf("invalid item at index %d: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+func validatePrimitive(data interface{}, expectedType string) error {
+	switch expectedType {
+	case "string":
+		if _, ok := data.(string); !ok {
+			return fmt.Errorf("expected string, got %T", data)
+		}
+	case "number":
+		if _, ok := data.(float64); !ok {
+			return fmt.Errorf("expected number, got %T", data)
+		}
+	case "integer":
+		if _, ok := data.(float64); !ok {
+			return fmt.Errorf("expected integer, got %T", data)
+		}
+	case "boolean":
+		if _, ok := data.(bool); !ok {
+			return fmt.Errorf("expected boolean, got %T", data)
+		}
+	}
+	return nil
 }
