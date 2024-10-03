@@ -48,38 +48,15 @@ func NewLLM(config *config.Config, logger utils.Logger, registry *providers.Prov
 		return nil, err
 	}
 
+	provider.SetDefaultOptions(config)
+
 	llmClient := &LLMImpl{
 		Provider:   provider,
-		Options:    make(map[string]interface{}),
 		client:     &http.Client{Timeout: config.Timeout},
 		logger:     logger,
 		config:     config,
 		MaxRetries: config.MaxRetries,
 		RetryDelay: config.RetryDelay,
-	}
-
-	// Set common options for all providers
-	llmClient.SetOption("temperature", config.Temperature)
-	llmClient.SetOption("max_tokens", config.MaxTokens)
-
-	if config.Seed != nil {
-		llmClient.SetOption("seed", *config.Seed)
-	}
-
-	// Special handling for Ollama provider
-	if config.Provider == "ollama" {
-		if config.OllamaEndpoint != "" {
-			llmClient.SetEndpoint(config.OllamaEndpoint)
-		}
-		// Set Ollama-specific options
-		llmClient.SetOption("top_p", config.TopP)
-		llmClient.SetOption("min_p", config.MinP)
-		llmClient.SetOption("repeat_penalty", config.RepeatPenalty)
-		llmClient.SetOption("repeat_last_n", config.RepeatLastN)
-		llmClient.SetOption("mirostat", config.Mirostat)
-		llmClient.SetOption("mirostat_eta", config.MirostatEta)
-		llmClient.SetOption("mirostat_tau", config.MirostatTau)
-		llmClient.SetOption("tfs_z", config.TfsZ)
 	}
 
 	return llmClient, nil
@@ -114,31 +91,34 @@ func (l *LLMImpl) SupportsJSONSchema() bool {
 }
 
 func (l *LLMImpl) Generate(ctx context.Context, prompt string) (string, string, error) {
-	var result string
-	var lastErr error
-
 	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
 		l.logger.Debug("Generating text", "provider", l.Provider.Name(), "prompt", prompt, "attempt", attempt+1)
 
-		result, lastErr = l.attemptGenerate(ctx, prompt)
-		if lastErr == nil {
+		result, err := l.attemptGenerate(ctx, prompt)
+		if err == nil {
 			return result, prompt, nil
 		}
 
-		l.logger.Warn("Generation attempt failed", "error", lastErr, "attempt", attempt+1)
+		l.logger.Warn("Generation attempt failed", "error", err, "attempt", attempt+1)
 
 		if attempt < l.MaxRetries {
 			l.logger.Debug("Retrying", "delay", l.RetryDelay)
-			select {
-			case <-ctx.Done():
-				return "", prompt, ctx.Err()
-			case <-time.After(l.RetryDelay):
-				// Continue to next attempt
+			if err := l.wait(ctx); err != nil {
+				return "", prompt, err
 			}
 		}
 	}
 
-	return "", prompt, fmt.Errorf("failed to generate after %d attempts: %w", l.MaxRetries+1, lastErr)
+	return "", prompt, fmt.Errorf("failed to generate after %d attempts", l.MaxRetries+1)
+}
+
+func (l *LLMImpl) wait(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(l.RetryDelay):
+		return nil
+	}
 }
 
 func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt string) (string, error) {

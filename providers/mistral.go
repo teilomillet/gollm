@@ -3,6 +3,8 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/teilomillet/gollm/config"
 )
 
 // RegisterMistralProvider registers the Mistral provider with the provider registry.
@@ -15,9 +17,9 @@ type MistralProvider struct {
 	apiKey       string
 	model        string
 	extraHeaders map[string]string
+	options      map[string]interface{}
 }
 
-// NewMistralProvider creates a new Mistral provider.
 func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
@@ -26,6 +28,19 @@ func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) Pr
 		apiKey:       apiKey,
 		model:        model,
 		extraHeaders: extraHeaders,
+		options:      make(map[string]interface{}),
+	}
+}
+
+func (p *MistralProvider) SetOption(key string, value interface{}) {
+	p.options[key] = value
+}
+
+func (p *MistralProvider) SetDefaultOptions(config *config.Config) {
+	p.SetOption("temperature", config.Temperature)
+	p.SetOption("max_tokens", config.MaxTokens)
+	if config.Seed != nil {
+		p.SetOption("seed", *config.Seed)
 	}
 }
 
@@ -66,6 +81,12 @@ func (p *MistralProvider) PrepareRequest(prompt string, options map[string]inter
 		},
 	}
 
+	// First, add the default options
+	for k, v := range p.options {
+		requestBody[k] = v
+	}
+
+	// Then, add any additional options (which may override defaults)
 	for k, v := range options {
 		requestBody[k] = v
 	}

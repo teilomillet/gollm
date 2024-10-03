@@ -47,7 +47,6 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 	remainingConfigs := make([]*config.Config, len(configs))
 	copy(remainingConfigs, configs)
 
-	registry := providers.NewProviderRegistry()
 	logger := utils.NewLogger(utils.LogLevelDebug)
 
 	for attempt := 1; attempt <= 3; attempt++ {
@@ -59,6 +58,9 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 
 		for _, config := range remainingConfigs {
 			debugLog(config, "Attempting generation for %s %s (Attempt %d)", config.Provider, config.Model, attempt)
+
+			// Create a new ProviderRegistry for each LLM instance
+			registry := providers.NewProviderRegistry()
 
 			llmInstance, err := llm.NewLLM(config, logger, registry)
 			if err != nil {
@@ -144,4 +146,3 @@ func AnalyzeComparisonResults[T any](results []ComparisonResult[T]) string {
 
 	return analysis.String()
 }
-

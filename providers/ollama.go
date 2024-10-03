@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -34,6 +35,25 @@ func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Pro
 		extraHeaders: extraHeaders,
 		options:      make(map[string]interface{}),
 	}
+}
+
+func (p *OllamaProvider) SetDefaultOptions(config *config.Config) {
+	p.SetOption("temperature", config.Temperature)
+	p.SetOption("max_tokens", config.MaxTokens)
+	if config.Seed != nil {
+		p.SetOption("seed", *config.Seed)
+	}
+	if config.OllamaEndpoint != "" {
+		p.SetEndpoint(config.OllamaEndpoint)
+	}
+	p.SetOption("top_p", config.TopP)
+	p.SetOption("min_p", config.MinP)
+	p.SetOption("repeat_penalty", config.RepeatPenalty)
+	p.SetOption("repeat_last_n", config.RepeatLastN)
+	p.SetOption("mirostat", config.Mirostat)
+	p.SetOption("mirostat_eta", config.MirostatEta)
+	p.SetOption("mirostat_tau", config.MirostatTau)
+	p.SetOption("tfs_z", config.TfsZ)
 }
 
 func (p *OllamaProvider) SetExtraHeaders(extraHeaders map[string]string) {

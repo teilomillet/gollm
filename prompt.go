@@ -1,47 +1,32 @@
 // File: prompt.go
-
 package gollm
 
 import (
 	"github.com/teilomillet/gollm/llm"
+	"strings"
 )
 
-// Reuse types from llm package
+// Re-export types from llm package
 type (
-	CacheType = llm.CacheType
-	Message   = llm.PromptMessage
-	Function  = llm.Function
-	Tool      = llm.Tool
+	Prompt        = llm.Prompt
+	CacheType     = llm.CacheType
+	PromptMessage = llm.PromptMessage
+	Function      = llm.Function
+	Tool          = llm.Tool
+	PromptOption  = llm.PromptOption
+	SchemaOption  = llm.SchemaOption
+	ToolCall      = llm.ToolCall
+	MemoryMessage = llm.MemoryMessage
 )
 
-// Reuse constants
+// Re-export constants
 const (
 	CacheTypeEphemeral = llm.CacheTypeEphemeral
 )
 
-// Reuse PromptOption type
-type PromptOption = llm.PromptOption
-
-// Prompt represents a structured prompt for an LLM
-type Prompt struct {
-	*llm.Prompt
-}
-
-// NewPrompt creates a new Prompt with the given input and applies any provided options
-func NewPrompt(input string, opts ...llm.PromptOption) *Prompt {
-	p := &Prompt{
-		Prompt: llm.NewPrompt(input, opts...),
-	}
-	return p
-}
-
-// ToLLMPrompt converts the gollm.Prompt to an llm.Prompt
-func (p *Prompt) ToLLMPrompt() *llm.Prompt {
-	return p.Prompt
-}
-
-// Wrap and export llm package functions
+// Re-export functions
 var (
+	NewPrompt          = llm.NewPrompt
 	CacheOption        = llm.CacheOption
 	WithSystemPrompt   = llm.WithSystemPrompt
 	WithMessage        = llm.WithMessage
@@ -56,20 +41,32 @@ var (
 	WithExpandedStruct = llm.WithExpandedStruct
 )
 
-// Prompt methods
-func (p *Prompt) Validate() error {
-	return p.Prompt.Validate()
+// GenerateOption is a function type for configuring generate options
+type GenerateOption func(*GenerateConfig)
+
+// GenerateConfig holds configuration options for the Generate method
+type GenerateConfig struct {
+	UseJSONSchema bool
 }
 
-func (p *Prompt) GenerateJSONSchema(opts ...llm.SchemaOption) ([]byte, error) {
-	return p.Prompt.GenerateJSONSchema(opts...)
+// WithJSONSchemaValidation returns a GenerateOption that enables JSON schema validation
+func WithJSONSchemaValidation() GenerateOption {
+	return func(c *GenerateConfig) {
+		c.UseJSONSchema = true
+	}
 }
 
-func (p *Prompt) Apply(opts ...PromptOption) {
-	p.Prompt.Apply(opts...)
-}
+// CleanResponse removes markdown code block syntax and trims the JSON response
+func CleanResponse(response string) string {
+	response = strings.TrimPrefix(response, "```json")
+	response = strings.TrimSuffix(response, "```")
 
-func (p *Prompt) String() string {
-	return p.Prompt.String()
+	start := strings.Index(response, "{")
+	end := strings.LastIndex(response, "}")
+	if start != -1 && end != -1 && end > start {
+		response = response[start : end+1]
+	}
+
+	return strings.TrimSpace(response)
 }
 

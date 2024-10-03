@@ -22,7 +22,7 @@ func main() {
 	// Create a new LLM instance with custom configuration
 	llm, err := gollm.NewLLM(
 		gollm.SetProvider("openai"),
-		gollm.SetModel("gpt-3.5-turbo"),
+		gollm.SetModel("gpt-4o-mini"),
 		gollm.SetAPIKey(apiKey),
 		gollm.SetMaxTokens(200),
 		gollm.SetMaxRetries(3),
@@ -119,4 +119,3 @@ func main() {
 
 	fmt.Println("\nBasic usage example completed.")
 }
-

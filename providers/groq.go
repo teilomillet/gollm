@@ -3,6 +3,8 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/teilomillet/gollm/config"
 )
 
 // GroqProvider implements the Provider interface for Groq
@@ -10,6 +12,7 @@ type GroqProvider struct {
 	apiKey       string
 	model        string
 	extraHeaders map[string]string
+	options      map[string]interface{}
 }
 
 func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provider {
@@ -20,6 +23,7 @@ func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provi
 		apiKey:       apiKey,
 		model:        model,
 		extraHeaders: extraHeaders,
+		options:      make(map[string]interface{}),
 	}
 }
 
@@ -29,6 +33,18 @@ func (p *GroqProvider) Name() string {
 
 func (p *GroqProvider) Endpoint() string {
 	return "https://api.groq.com/openai/v1/chat/completions"
+}
+
+func (p *GroqProvider) SetOption(key string, value interface{}) {
+	p.options[key] = value
+}
+
+func (p *GroqProvider) SetDefaultOptions(config *config.Config) {
+	p.SetOption("temperature", config.Temperature)
+	p.SetOption("max_tokens", config.MaxTokens)
+	if config.Seed != nil {
+		p.SetOption("seed", *config.Seed)
+	}
 }
 
 func (p *GroqProvider) SupportsJSONSchema() bool {
@@ -56,6 +72,12 @@ func (p *GroqProvider) PrepareRequest(prompt string, options map[string]interfac
 		},
 	}
 
+	// First, add the default options
+	for k, v := range p.options {
+		requestBody[k] = v
+	}
+
+	// Then, add any additional options (which may override defaults)
 	for k, v := range options {
 		requestBody[k] = v
 	}
