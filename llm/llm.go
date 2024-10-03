@@ -9,38 +9,32 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/providers"
+	"github.com/teilomillet/gollm/utils"
 )
 
 // LLM interface defines the methods that our internal language model should implement
 type LLM interface {
 	Generate(ctx context.Context, prompt string) (response string, fullPrompt string, err error)
 	SetOption(key string, value interface{})
-	SetDebugLevel(level LogLevel)
+	SetDebugLevel(level utils.LogLevel)
 	SetEndpoint(endpoint string)
-}
-
-type Provider interface {
-	Name() string
-	Endpoint() string
-	Headers() map[string]string
-	PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error)
-	ParseResponse(body []byte) (string, error)
-	SetExtraHeaders(extraHeaders map[string]string)
-	HandleFunctionCalls(body []byte) ([]byte, error)
 }
 
 // LLMImpl is our implementation of the internal LLM interface
 type LLMImpl struct {
-	Provider   Provider
+	Provider   providers.Provider
 	Options    map[string]interface{}
 	client     *http.Client
-	logger     Logger
-	config     *Config
+	logger     utils.Logger
+	config     *config.Config
 	MaxRetries int
 	RetryDelay time.Duration
 }
 
-func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, error) {
+func NewLLM(config *config.Config, logger utils.Logger, registry *providers.ProviderRegistry) (LLM, error) {
 	extraHeaders := make(map[string]string)
 	if config.Provider == "anthropic" && config.EnableCaching {
 		extraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
@@ -54,7 +48,7 @@ func NewLLM(config *Config, logger Logger, registry *ProviderRegistry) (LLM, err
 
 	// Special handling for Ollama provider
 	if config.Provider == "ollama" {
-		ollamaProvider, ok := provider.(*OllamaProvider)
+		ollamaProvider, ok := provider.(*providers.OllamaProvider)
 		if !ok {
 			return nil, fmt.Errorf("unexpected provider type for Ollama")
 		}
@@ -108,7 +102,7 @@ func (l *LLMImpl) SetEndpoint(endpoint string) {
 }
 
 // SetDebugLevel updates the debug level for the internal LLM
-func (l *LLMImpl) SetDebugLevel(level LogLevel) {
+func (l *LLMImpl) SetDebugLevel(level utils.LogLevel) {
 	l.logger.Debug("Setting internal LLM debug level", "new_level", level)
 	l.logger.SetLevel(level)
 }

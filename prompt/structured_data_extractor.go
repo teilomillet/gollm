@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/teilomillet/gollm/internal/llm"
+	"github.com/teilomillet/gollm/llm"
 )
 
 // ExtractStructuredData extracts structured data from text based on a given struct type

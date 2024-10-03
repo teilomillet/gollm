@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/teilomillet/gollm/utils"
 )
 
 type Metric struct {
@@ -49,7 +50,7 @@ type PromptAssessment struct {
 
 type PromptOptimizer struct {
 	llm               LLM
-	debugManager      *DebugManager
+	debugManager      *utils.DebugManager
 	initialPrompt     *Prompt
 	taskDesc          string
 	customMetrics     []Metric
@@ -165,7 +166,7 @@ func validGrade(fl validator.FieldLevel) bool {
 	return validGrades[grade]
 }
 
-func NewPromptOptimizer(llm LLM, debugManager *DebugManager, initialPrompt *Prompt, taskDesc string, opts ...OptimizerOption) *PromptOptimizer {
+func NewPromptOptimizer(llm LLM, debugManager *utils.DebugManager, initialPrompt *Prompt, taskDesc string, opts ...OptimizerOption) *PromptOptimizer {
 	optimizer := &PromptOptimizer{
 		llm:           llm,
 		debugManager:  debugManager,

@@ -2,6 +2,8 @@ package llm
 
 import (
 	"fmt"
+
+	"github.com/teilomillet/gollm/utils"
 )
 
 // ErrorType represents the type of an error
@@ -75,7 +77,7 @@ func NewLLMError(errType ErrorType, message string, err error) *LLMError {
 }
 
 // HandleError logs the error and exits the program if it's a fatal error
-func HandleError(err error, fatal bool, logger Logger) {
+func HandleError(err error, fatal bool, logger utils.Logger) {
 	if err == nil {
 		return
 	}

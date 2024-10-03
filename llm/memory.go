@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/pkoukk/tiktoken-go"
+	"github.com/teilomillet/gollm/utils"
 )
 
 type Memory struct {
@@ -16,7 +17,7 @@ type Memory struct {
 	totalTokens int
 	maxTokens   int
 	encoding    *tiktoken.Tiktoken
-	logger      Logger
+	logger      utils.Logger
 }
 
 type Message struct {
@@ -25,7 +26,7 @@ type Message struct {
 	Tokens  int
 }
 
-func NewMemory(maxTokens int, model string, logger Logger) (*Memory, error) {
+func NewMemory(maxTokens int, model string, logger utils.Logger) (*Memory, error) {
 	encoding, err := tiktoken.EncodingForModel(model)
 	if err != nil {
 		logger.Warn("Failed to get encoding for model, defaulting to gpt-4o", "model", model, "error", err)
@@ -97,7 +98,7 @@ type LLMWithMemory struct {
 	memory *Memory
 }
 
-func NewLLMWithMemory(baseLLM LLM, maxTokens int, model string, logger Logger) (*LLMWithMemory, error) {
+func NewLLMWithMemory(baseLLM LLM, maxTokens int, model string, logger utils.Logger) (*LLMWithMemory, error) {
 	memory, err := NewMemory(maxTokens, model, logger)
 	if err != nil {
 		return nil, err

@@ -1,8 +1,10 @@
-package gollm
+package prompt
 
 import (
 	"context"
 	"fmt"
+
+	"github.com/teilomillet/gollm/llm"
 )
 
 var chainOfThoughtTemplate = NewPromptTemplate(

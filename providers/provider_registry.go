@@ -1,4 +1,4 @@
-package llm
+package providers
 
 import (
 	"fmt"

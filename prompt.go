@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/invopop/jsonschema"
-	"github.com/teilomillet/gollm/internal/llm"
+	"github.com/teilomillet/gollm/llm"
 )
 
 type CacheType string

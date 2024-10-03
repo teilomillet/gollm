@@ -5,7 +5,8 @@ package gollm
 import (
 	"time"
 
-	"github.com/teilomillet/gollm/internal/llm"
+	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/utils"
 )
 
 // LogLevel represents the level of logging
@@ -52,9 +53,9 @@ type Config struct {
 }
 
 // toInternalConfig converts Config to internal llm.Config
-func (c *Config) toInternalConfig() *llm.Config {
-	internalLevel := llm.LogLevel(c.DebugLevel)
-	return &llm.Config{
+func (c *Config) toInternalConfig() *config.Config {
+	internalLevel := utils.LogLevel(c.DebugLevel)
+	return &config.Config{
 		Provider:         c.Provider,
 		Model:            c.Model,
 		OllamaEndpoint:   c.OllamaEndpoint,
@@ -82,15 +83,15 @@ func (c *Config) toInternalConfig() *llm.Config {
 }
 
 // Convert llm.LogLevel to gollm.LogLevel
-func convertLogLevel(level llm.LogLevel) LogLevel {
+func convertLogLevel(level utils.LogLevel) LogLevel {
 	switch level {
-	case llm.LogLevelDebug:
+	case utils.LogLevelDebug:
 		return LogLevelDebug
-	case llm.LogLevelInfo:
+	case utils.LogLevelInfo:
 		return LogLevelInfo
-	case llm.LogLevelWarn:
+	case utils.LogLevelWarn:
 		return LogLevelWarn
-	case llm.LogLevelError:
+	case utils.LogLevelError:
 		return LogLevelError
 	default:
 		return LogLevelWarn // Default to Warn if unknown
@@ -102,7 +103,7 @@ type ConfigOption func(*Config)
 
 // LoadConfig loads the configuration from environment variables
 func LoadConfig() (*Config, error) {
-	internalConfig, err := llm.LoadConfig()
+	internalConfig, err := config.LoadConfig()
 	if err != nil {
 		return nil, err
 	}

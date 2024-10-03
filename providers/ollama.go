@@ -1,6 +1,6 @@
 // File: internal/llm/ollama.go
 
-package llm
+package providers
 
 import (
 	"bytes"
@@ -10,13 +10,15 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/teilomillet/gollm/utils"
 )
 
 // OllamaProvider implements both the Provider and LLM interfaces for Ollama
 type OllamaProvider struct {
 	model        string
 	endpoint     string
-	logger       Logger
+	logger       utils.Logger
 	extraHeaders map[string]string
 	options      map[string]interface{}
 }
@@ -83,7 +85,7 @@ func (p *OllamaProvider) SetOption(key string, value interface{}) {
 }
 
 // Add the missing SetDebugLevel method
-func (p *OllamaProvider) SetDebugLevel(level LogLevel) {
+func (p *OllamaProvider) SetDebugLevel(level utils.LogLevel) {
 	if p.logger != nil {
 		p.logger.SetLevel(level)
 	}
