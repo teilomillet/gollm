@@ -1,4 +1,4 @@
-// File: prompt.go
+// File: gollm/prompt.go
 package gollm
 
 import (
@@ -8,15 +8,16 @@ import (
 
 // Re-export types from llm package
 type (
-	Prompt        = llm.Prompt
-	CacheType     = llm.CacheType
-	PromptMessage = llm.PromptMessage
-	Function      = llm.Function
-	Tool          = llm.Tool
-	PromptOption  = llm.PromptOption
-	SchemaOption  = llm.SchemaOption
-	ToolCall      = llm.ToolCall
-	MemoryMessage = llm.MemoryMessage
+	Prompt         = llm.Prompt
+	CacheType      = llm.CacheType
+	PromptMessage  = llm.PromptMessage
+	Function       = llm.Function
+	Tool           = llm.Tool
+	PromptOption   = llm.PromptOption
+	SchemaOption   = llm.SchemaOption
+	ToolCall       = llm.ToolCall
+	MemoryMessage  = llm.MemoryMessage
+	PromptTemplate = llm.PromptTemplate
 )
 
 // Re-export constants
@@ -39,6 +40,8 @@ var (
 	WithMaxLength      = llm.WithMaxLength
 	WithExamples       = llm.WithExamples
 	WithExpandedStruct = llm.WithExpandedStruct
+	NewPromptTemplate  = llm.NewPromptTemplate
+	WithPromptOptions  = llm.WithPromptOptions
 )
 
 // GenerateOption is a function type for configuring generate options
@@ -60,13 +63,11 @@ func WithJSONSchemaValidation() GenerateOption {
 func CleanResponse(response string) string {
 	response = strings.TrimPrefix(response, "```json")
 	response = strings.TrimSuffix(response, "```")
-
 	start := strings.Index(response, "{")
 	end := strings.LastIndex(response, "}")
 	if start != -1 && end != -1 && end > start {
 		response = response[start : end+1]
 	}
-
 	return strings.TrimSpace(response)
 }
 
