@@ -67,7 +67,7 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 				return nil, fmt.Errorf("failed to create LLM for %s: %w", config.Provider, err)
 			}
 
-			response, _, err := llmInstance.Generate(ctx, prompt)
+			response, err := llmInstance.Generate(ctx, llm.NewPrompt(prompt))
 
 			index := findConfigIndex(configs, config)
 			results[index].Provider = config.Provider

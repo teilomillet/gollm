@@ -103,24 +103,30 @@ func NewLLMWithMemory(baseLLM LLM, maxTokens int, model string, logger utils.Log
 	if err != nil {
 		return nil, err
 	}
-
 	return &LLMWithMemory{
 		LLM:    baseLLM,
 		memory: memory,
 	}, nil
 }
 
-func (l *LLMWithMemory) Generate(ctx context.Context, prompt string) (string, string, error) {
-	l.memory.Add("user", prompt)
+// Update the Generate method to match the new interface
+func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error) {
+	l.memory.Add("user", prompt.Input)
 	fullPrompt := l.memory.GetPrompt()
 
-	response, _, err := l.LLM.Generate(ctx, fullPrompt)
+	// Create a new Prompt with the full memory context
+	memoryPrompt := &Prompt{
+		Input: fullPrompt,
+		// Copy other fields from the original prompt if needed
+	}
+
+	response, err := l.LLM.Generate(ctx, memoryPrompt, opts...)
 	if err != nil {
-		return "", fullPrompt, err
+		return "", err
 	}
 
 	l.memory.Add("assistant", response)
-	return response, fullPrompt, nil
+	return response, nil
 }
 
 func (l *LLMWithMemory) ClearMemory() {
@@ -131,3 +137,21 @@ func (l *LLMWithMemory) GetMemory() []MemoryMessage {
 	return l.memory.GetMessages()
 }
 
+// If GenerateWithSchema is used, you might want to add a similar method here
+func (l *LLMWithMemory) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (string, error) {
+	l.memory.Add("user", prompt.Input)
+	fullPrompt := l.memory.GetPrompt()
+
+	memoryPrompt := &Prompt{
+		Input: fullPrompt,
+		// Copy other fields from the original prompt if needed
+	}
+
+	response, err := l.LLM.GenerateWithSchema(ctx, memoryPrompt, schema, opts...)
+	if err != nil {
+		return "", err
+	}
+
+	l.memory.Add("assistant", response)
+	return response, nil
+}

@@ -3,24 +3,25 @@ package tools
 import (
 	"context"
 	"fmt"
-	"github.com/teilomillet/gollm/llm"
+
+	"github.com/teilomillet/gollm"
 )
 
-var chainOfThoughtTemplate = llm.NewPromptTemplate(
+var chainOfThoughtTemplate = gollm.NewPromptTemplate(
 	"ChainOfThought",
 	"Perform a chain of thought reasoning",
 	"Perform a chain of thought reasoning for the following question:\n\n{{.Question}}",
-	llm.WithPromptOptions(
-		llm.WithDirectives(
+	gollm.WithPromptOptions(
+		gollm.WithDirectives(
 			"Break down the problem into steps",
 			"Show your reasoning for each step",
 		),
-		llm.WithOutput("Chain of Thought:"),
+		gollm.WithOutput("Chain of Thought:"),
 	),
 )
 
 // ChainOfThought performs a chain of thought reasoning
-func ChainOfThought(ctx context.Context, l llm.LLM, question string, opts ...llm.PromptOption) (string, error) {
+func ChainOfThought(ctx context.Context, l gollm.LLM, question string, opts ...gollm.PromptOption) (string, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -31,14 +32,9 @@ func ChainOfThought(ctx context.Context, l llm.LLM, question string, opts ...llm
 		return "", fmt.Errorf("failed to execute chain of thought template: %w", err)
 	}
 	prompt.Apply(opts...)
-
-	// Convert the prompt to a string before passing it to Generate
-	promptString := prompt.String()
-
-	response, _, err := l.Generate(ctx, promptString)
+	response, err := l.Generate(ctx, prompt)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate response: %w", err)
 	}
 	return response, nil
 }
-

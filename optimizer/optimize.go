@@ -31,9 +31,7 @@ func OptimizePrompt(ctx context.Context, llm llm.LLM, config OptimizationConfig)
 		return "", "", fmt.Errorf("optimized prompt is nil")
 	}
 
-	optimizedPrompt = optimizedPromptObj.String()
-
-	response, _, err = llm.Generate(ctx, optimizedPrompt)
+	response, err = llm.Generate(ctx, optimizedPromptObj)
 	if err != nil {
 		return optimizedPrompt, "", fmt.Errorf("response generation failed: %w", err)
 	}

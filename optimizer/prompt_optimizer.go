@@ -1,4 +1,4 @@
-// File: internal/llm/prompt_optimizer.go
+// File: optimizer/prompt_optimizer.go
 
 package optimizer
 
@@ -12,6 +12,13 @@ import (
 	"github.com/teilomillet/gollm/llm"
 	"github.com/teilomillet/gollm/utils"
 )
+
+func init() {
+	err := llm.RegisterCustomValidation("validGrade", validGrade)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to register validGrade function: %v", err))
+	}
+}
 
 type OptimizationRating interface {
 	IsGoalMet() bool
@@ -181,4 +188,3 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 func (po *PromptOptimizer) GetOptimizationHistory() []OptimizationEntry {
 	return po.history
 }
-

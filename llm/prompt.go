@@ -257,4 +257,3 @@ func WithExpandedStruct(expanded bool) SchemaOption {
 		r.ExpandedStruct = expanded
 	}
 }
-

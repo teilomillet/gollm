@@ -53,7 +53,7 @@ func (po *PromptOptimizer) assessPrompt(ctx context.Context, prompt *llm.Prompt)
 		- Double-check that your response is valid JSON before submitting.
 	`, po.taskDesc, prompt, recentHistory, po.customMetrics, po.optimizationGoal))
 
-	response, _, err := po.llm.Generate(ctx, assessPrompt.String())
+	response, err := po.llm.Generate(ctx, assessPrompt)
 	if err != nil {
 		return OptimizationEntry{}, fmt.Errorf("failed to assess prompt: %w", err)
 	}
@@ -106,5 +106,3 @@ func (po *PromptOptimizer) isOptimizationGoalMet(assessment PromptAssessment) (b
 		return false, fmt.Errorf("unknown rating system: %s", po.ratingSystem)
 	}
 }
-
-// Other assessment-related functions...

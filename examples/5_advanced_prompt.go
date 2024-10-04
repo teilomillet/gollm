@@ -1,5 +1,3 @@
-// File: examples/5_advanced_prompt.go
-
 package main
 
 import (
@@ -8,9 +6,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/teilomillet/gollm"
+	"github.com/teilomillet/gollm/tools"
 )
 
 // AnalysisResult represents the structured output of our analysis
@@ -25,8 +25,15 @@ type Perspective struct {
 	Implications []string `json:"implications"`
 }
 
-func main() {
+// cleanJSONResponse removes markdown code block delimiters and trims whitespace
+func cleanJSONResponse(response string) string {
+	response = strings.TrimSpace(response)
+	response = strings.TrimPrefix(response, "```json")
+	response = strings.TrimSuffix(response, "```")
+	return strings.TrimSpace(response)
+}
 
+func main() {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		log.Fatalf("OPENAI_API_KEY environment variable is not set")
@@ -41,7 +48,7 @@ func main() {
 		gollm.SetTimeout(30*time.Second),
 		gollm.SetMaxRetries(3),
 		gollm.SetRetryDelay(1*time.Second),
-		gollm.SetDebugLevel(gollm.LogLevelInfo),
+		gollm.SetLogLevel(gollm.LogLevelInfo),
 		gollm.SetAPIKey(apiKey),
 	)
 	if err != nil {
@@ -107,12 +114,15 @@ Please structure your response as a JSON object with the following format:
 			log.Fatalf("Failed to generate analysis for topic '%s': %v", topic, err)
 		}
 
+		// Clean the JSON response
+		cleanedJSON := cleanJSONResponse(analysisJSON)
+
 		// Parse the JSON response
 		var result AnalysisResult
-		err = json.Unmarshal([]byte(analysisJSON), &result)
+		err = json.Unmarshal([]byte(cleanedJSON), &result)
 		if err != nil {
 			log.Printf("Warning: Failed to parse analysis JSON for topic '%s': %v", topic, err)
-			log.Printf("Raw response: %s", analysisJSON)
+			log.Printf("Raw response: %s", cleanedJSON)
 			continue // Skip to the next topic instead of exiting
 		}
 
@@ -127,13 +137,13 @@ Please structure your response as a JSON object with the following format:
 		fmt.Printf("  Summary: %s\n\n", result.Summary)
 
 		// Demonstrate additional gollm package features
-		summary, err := gollm.Summarize(ctx, llmClient, analysisJSON, gollm.WithMaxLength(50))
+		summary, err := tools.Summarize(ctx, llmClient, analysisJSON, gollm.WithMaxLength(50))
 		if err != nil {
 			log.Fatalf("Failed to generate summary: %v", err)
 		}
 		fmt.Printf("Brief summary (50 words): %s\n", summary)
 
-		keyPoints, err := gollm.ChainOfThought(ctx, llmClient, fmt.Sprintf("Extract 3 key points from this analysis:\n%s", analysisJSON))
+		keyPoints, err := tools.ChainOfThought(ctx, llmClient, fmt.Sprintf("Extract 3 key points from this analysis:\n%s", analysisJSON))
 		if err != nil {
 			log.Fatalf("Failed to extract key points: %v", err)
 		}
@@ -141,7 +151,7 @@ Please structure your response as a JSON object with the following format:
 	}
 
 	// Demonstrate error handling and retries
-	_, err = gollm.QuestionAnswer(ctx, llmClient, "This is an intentionally long prompt that exceeds the token limit to demonstrate error handling.")
+	_, err = tools.QuestionAnswer(ctx, llmClient, "This is an intentionally long prompt that exceeds the token limit to demonstrate error handling.")
 	if err != nil {
 		fmt.Printf("Expected error occurred: %v\n", err)
 		// Here you would typically implement appropriate error handling or fallback strategies

@@ -26,7 +26,7 @@ func main() {
 		gollm.SetModel("gpt-4o-mini"),
 		gollm.SetAPIKey(apiKey),
 		gollm.SetMemory(4000), // Enable memory with a 4000 token limit
-		gollm.SetDebugLevel(gollm.LogLevelInfo),
+		gollm.SetLogLevel(gollm.LogLevelInfo),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)

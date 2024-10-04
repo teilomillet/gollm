@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/teilomillet/gollm"
+	"github.com/teilomillet/gollm/optimizer"
+	"github.com/teilomillet/gollm/tools"
 )
 
 func main() {
@@ -58,18 +60,18 @@ func main() {
 
 	switch *promptType {
 	case "qa":
-		response, err = gollm.QuestionAnswer(ctx, llmClient, rawPrompt)
+		response, err = tools.QuestionAnswer(ctx, llmClient, rawPrompt)
 	case "cot":
-		response, err = gollm.ChainOfThought(ctx, llmClient, rawPrompt)
+		response, err = tools.ChainOfThought(ctx, llmClient, rawPrompt)
 	case "summarize":
-		response, err = gollm.Summarize(ctx, llmClient, rawPrompt)
+		response, err = tools.Summarize(ctx, llmClient, rawPrompt)
 	case "optimize":
-		optimizer := gollm.NewPromptOptimizer(
+		optimizer := optimizer.NewPromptOptimizer(
 			llmClient,
 			rawPrompt,
 			*optimizeGoal,
-			gollm.WithIterations(*optimizeIterations),
-			gollm.WithMemorySize(*optimizeMemory),
+			optimizer.WithIterations(*optimizeIterations),
+			optimizer.WithMemorySize(*optimizeMemory),
 		)
 		optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
 		if err == nil {
@@ -116,7 +118,7 @@ func prepareConfigOptions(provider, model *string, temperature *float64, maxToke
 	}
 	configOpts = append(configOpts, gollm.SetMaxRetries(*maxRetries))
 	configOpts = append(configOpts, gollm.SetRetryDelay(*retryDelay))
-	configOpts = append(configOpts, gollm.SetDebugLevel(gollm.LogLevel(getLogLevel(*debugLevel))))
+	configOpts = append(configOpts, gollm.SetLogLevel(gollm.LogLevel(getLogLevel(*debugLevel))))
 
 	return configOpts
 }

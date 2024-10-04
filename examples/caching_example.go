@@ -61,23 +61,18 @@ This discussion covered various topics related to innovation, user-centered desi
 
 func main() {
 	fmt.Println("Starting the Caching Example...")
-
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
 		log.Fatalf("ANTHROPIC_API_KEY environment variable is not set")
 	}
-
 	ctx := context.Background()
-
 	llm, err := createLLM(apiKey, true)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}
-
 	systemPrompt := createSystemPrompt()
 	fmt.Printf("System prompt length: %d words\n", len(strings.Fields(systemPrompt)))
 
-	// Updated queries to reflect the system prompt discussion
 	userQueries := []string{
 		"What are the key differences between open-source and closed ecosystems as discussed by Linus Torvalds and Steve Jobs?",
 		"How did Ken Thompson and Linus Torvalds view simplicity in their software design philosophies?",
@@ -87,8 +82,7 @@ func main() {
 
 	for i, query := range userQueries {
 		fmt.Printf("\nQuery %d: %s\n", i+1, query)
-
-		prompt := gollm.NewPrompt("",
+		prompt := gollm.NewPrompt(query,
 			gollm.WithSystemPrompt(systemPrompt, gollm.CacheTypeEphemeral),
 			gollm.WithMessage("user", query, gollm.CacheTypeEphemeral),
 		)
@@ -97,7 +91,6 @@ func main() {
 			start := time.Now()
 			response, err := llm.Generate(ctx, prompt)
 			duration := time.Since(start)
-
 			if err != nil {
 				log.Printf("Failed to generate response (query %d, attempt %d): %v", i+1, attempt+1, err)
 				continue
@@ -121,11 +114,11 @@ func main() {
 func createLLM(apiKey string, enableCaching bool) (gollm.LLM, error) {
 	return gollm.NewLLM(
 		gollm.SetProvider("anthropic"),
-		gollm.SetModel("claude-3-opus-20240229"),
+		gollm.SetModel("claude-3-5-sonnet-20240620"),
 		gollm.SetAPIKey(apiKey),
-		gollm.SetMaxTokens(50), // Limit response length
-		gollm.SetDebugLevel(gollm.LogLevelDebug),
-		gollm.SetEnableCaching(enableCaching), // Ensure caching is enabled here
+		gollm.SetMaxTokens(1024),
+		gollm.SetLogLevel(gollm.LogLevelDebug),
+		gollm.SetEnableCaching(enableCaching),
 		gollm.SetTimeout(30*time.Second),
 	)
 }

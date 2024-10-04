@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/llm"
 	"github.com/teilomillet/gollm/providers"
 	"github.com/teilomillet/gollm/utils"
@@ -11,14 +12,14 @@ import (
 
 // LLM is the interface that wraps the basic LLM operations
 type LLM interface {
-	Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error)
-	SetOption(key string, value interface{})
+	llm.LLM // Embed the base interface
+	// Additional methods specific to gollm
 	GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error)
 	GetProvider() string
 	GetModel() string
-	UpdateDebugLevel(level LogLevel)
+	UpdateLogLevel(level LogLevel)
 	Debug(msg string, keysAndValues ...interface{})
-	GetDebugLevel() LogLevel
+	GetLogLevel() LogLevel
 	SetOllamaEndpoint(endpoint string) error
 	SetSystemPrompt(prompt string, cacheType CacheType)
 }
@@ -29,7 +30,7 @@ type llmImpl struct {
 	provider providers.Provider
 	logger   utils.Logger
 	model    string
-	config   *Config
+	config   *config.Config
 }
 
 // SetSystemPrompt sets the system prompt for the LLM
@@ -53,9 +54,9 @@ func (l *llmImpl) Debug(msg string, keysAndValues ...interface{}) {
 	l.logger.Debug(msg, keysAndValues...)
 }
 
-// GetDebugLevel returns the current debug level of the LLM
-func (l *llmImpl) GetDebugLevel() LogLevel {
-	return l.config.DebugLevel
+// GetLogLevel returns the current log level of the LLM
+func (l *llmImpl) GetLogLevel() LogLevel {
+	return LogLevel(l.config.LogLevel)
 }
 
 // SetOption sets an option for the LLM with the given key and value
@@ -79,34 +80,20 @@ func (l *llmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
 	return p.GenerateJSONSchema(opts...)
 }
 
-// UpdateDebugLevel updates the debug level for both the gollm package and the internal llm package
-func (l *llmImpl) UpdateDebugLevel(level LogLevel) {
-	l.logger.Debug("Updating debug level",
-		"current_level", l.config.DebugLevel,
-		"new_level", level)
-
-	l.config.DebugLevel = level
+// UpdateLogLevel updates the log level for both the gollm package and the internal llm package
+func (l *llmImpl) UpdateLogLevel(level LogLevel) {
+	l.config.LogLevel = utils.LogLevel(level)
 	l.logger.SetLevel(utils.LogLevel(level))
-
-	if internalLLM, ok := l.LLM.(interface{ SetDebugLevel(utils.LogLevel) }); ok {
-		internalLLM.SetDebugLevel(utils.LogLevel(level))
-		l.logger.Debug("Updated internal LLM debug level")
-	} else {
-		l.logger.Warn("Internal LLM does not support SetDebugLevel")
+	if internalLLM, ok := l.LLM.(interface{ SetLogLevel(utils.LogLevel) }); ok {
+		internalLLM.SetLogLevel(utils.LogLevel(level))
 	}
-
-	l.logger.Debug("Debug level updated successfully")
 }
 
-// Generate produces a response given a context, prompt, and optional generate options
-func (l *llmImpl) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error) {
+// Implement the base Generate method (if not already provided by embedded llm.LLM)
+func (l *llmImpl) Generate(ctx context.Context, prompt *llm.Prompt, opts ...llm.GenerateOption) (string, error) {
 	l.logger.Debug("Starting Generate method", "prompt_length", len(prompt.String()), "context", ctx)
 
-	if l == nil || l.LLM == nil {
-		return "", fmt.Errorf("llmImpl or internal LLM is nil")
-	}
-
-	config := &GenerateConfig{}
+	config := &llm.GenerateConfig{}
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -117,43 +104,42 @@ func (l *llmImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 		}
 	}
 
-	response, _, err := l.LLM.Generate(ctx, prompt.String())
+	// Call the base LLM's Generate method
+	response, err := l.LLM.Generate(ctx, prompt, opts...)
 	if err != nil {
 		return "", fmt.Errorf("LLM.Generate error: %w", err)
 	}
-	// Return the raw response, let the caller decide how to handle it
+
 	return response, nil
 }
 
 // NewLLM creates a new LLM instance, potentially with memory if the option is set
 func NewLLM(opts ...ConfigOption) (LLM, error) {
-	config, err := LoadConfig()
+	cfg, err := LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	for _, opt := range opts {
-		opt(config)
+		opt(cfg)
 	}
 
-	logger := utils.NewLogger(utils.LogLevel(config.DebugLevel))
+	logger := utils.NewLogger(cfg.LogLevel)
 
-	if config.Provider == "anthropic" && config.EnableCaching {
-		if config.ExtraHeaders == nil {
-			config.ExtraHeaders = make(map[string]string)
+	if cfg.Provider == "anthropic" && cfg.EnableCaching {
+		if cfg.ExtraHeaders == nil {
+			cfg.ExtraHeaders = make(map[string]string)
 		}
-		config.ExtraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
+		cfg.ExtraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
 	}
 
-	internalConfig := config.toInternalConfig()
-
-	baseLLM, err := llm.NewLLM(internalConfig, logger, providers.NewProviderRegistry())
+	baseLLM, err := llm.NewLLM(cfg, logger, providers.NewProviderRegistry())
 	if err != nil {
 		logger.Error("Failed to create internal LLM", "error", err)
 		return nil, fmt.Errorf("failed to create internal LLM: %w", err)
 	}
 
-	provider, err := providers.NewProviderRegistry().Get(config.Provider, config.APIKey, config.Model, config.ExtraHeaders)
+	provider, err := providers.NewProviderRegistry().Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, cfg.ExtraHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider: %w", err)
 	}
@@ -162,12 +148,12 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		LLM:      baseLLM,
 		provider: provider,
 		logger:   logger,
-		model:    config.Model,
-		config:   config,
+		model:    cfg.Model,
+		config:   cfg,
 	}
 
-	if config.MemoryOption != nil {
-		llmWithMemory, err := llm.NewLLMWithMemory(baseLLM, config.MemoryOption.MaxTokens, config.Model, logger)
+	if cfg.MemoryOption != nil {
+		llmWithMemory, err := llm.NewLLMWithMemory(baseLLM, cfg.MemoryOption.MaxTokens, cfg.Model, logger)
 		if err != nil {
 			logger.Error("Failed to create LLM with memory", "error", err)
 			return nil, fmt.Errorf("failed to create LLM with memory: %w", err)

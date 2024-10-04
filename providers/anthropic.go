@@ -17,12 +17,24 @@ type AnthropicProvider struct {
 }
 
 func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) Provider {
-	return &AnthropicProvider{
+	provider := &AnthropicProvider{
 		apiKey:       apiKey,
 		model:        model,
-		extraHeaders: extraHeaders,
+		extraHeaders: make(map[string]string), // Initialize the map
 		options:      make(map[string]interface{}),
 	}
+
+	// Copy the provided extraHeaders
+	for k, v := range extraHeaders {
+		provider.extraHeaders[k] = v
+	}
+
+	// Add the caching header if it's not already present
+	if _, exists := provider.extraHeaders["anthropic-beta"]; !exists {
+		provider.extraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
+	}
+
+	return provider
 }
 
 func (p *AnthropicProvider) Name() string {
@@ -54,32 +66,98 @@ func (p *AnthropicProvider) Headers() map[string]string {
 		"Content-Type":      "application/json",
 		"x-api-key":         p.apiKey,
 		"anthropic-version": "2023-06-01",
-	}
-	for k, v := range p.extraHeaders {
-		headers[k] = v
+		"anthropic-beta":    "prompt-caching-2024-07-31",
 	}
 	return headers
 }
 
 func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
 	requestBody := map[string]interface{}{
-		"model": p.model,
-		"messages": []map[string]string{
-			{"role": "user", "content": prompt},
+		"model":      p.model,
+		"max_tokens": p.options["max_tokens"],
+		"system":     []map[string]interface{}{},
+		"messages":   []map[string]interface{}{},
+	}
+
+	// Handle system prompt
+	if systemPrompt, ok := options["system_prompt"]; ok {
+		if sp, ok := systemPrompt.(string); ok && sp != "" {
+			parts := splitSystemPrompt(sp, 3)
+			for i, part := range parts {
+				systemMessage := map[string]interface{}{
+					"type": "text",
+					"text": part,
+				}
+				if i > 0 {
+					systemMessage["cache_control"] = map[string]string{"type": "ephemeral"}
+				}
+				requestBody["system"] = append(requestBody["system"].([]map[string]interface{}), systemMessage)
+			}
+		}
+	}
+
+	// Handle user message
+	userMessage := map[string]interface{}{
+		"role": "user",
+		"content": []map[string]interface{}{
+			{
+				"type":          "text",
+				"text":          prompt,
+				"cache_control": map[string]string{"type": "ephemeral"},
+			},
 		},
 	}
+	requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), userMessage)
 
-	// First, add the default options
-	for k, v := range p.options {
-		requestBody[k] = v
+	// Add tools if provided
+	if tools, ok := options["tools"].([]interface{}); ok && len(tools) > 0 {
+		requestBody["tools"] = tools
 	}
 
-	// Then, add any additional options (which may override defaults)
-	for k, v := range options {
-		requestBody[k] = v
+	// Add tool_choice if provided
+	if toolChoice, ok := options["tool_choice"].(string); ok {
+		requestBody["tool_choice"] = toolChoice
+	}
+
+	// Add other options
+	for k, v := range p.options {
+		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" {
+			requestBody[k] = v
+		}
 	}
 
 	return json.Marshal(requestBody)
+}
+
+// Helper function to split the system prompt into a maximum of n parts
+func splitSystemPrompt(prompt string, n int) []string {
+	if n <= 1 {
+		return []string{prompt}
+	}
+
+	// Split the prompt into paragraphs
+	paragraphs := strings.Split(prompt, "\n\n")
+
+	if len(paragraphs) <= n {
+		return paragraphs
+	}
+
+	// If we have more paragraphs than allowed parts, we need to combine some
+	result := make([]string, n)
+	paragraphsPerPart := len(paragraphs) / n
+	extraParagraphs := len(paragraphs) % n
+
+	currentIndex := 0
+	for i := 0; i < n; i++ {
+		end := currentIndex + paragraphsPerPart
+		if i < extraParagraphs {
+			end++
+		}
+		result[i] = strings.Join(paragraphs[currentIndex:end], "\n\n")
+		currentIndex = end
+	}
+
+	return result
 }
 
 func (p *AnthropicProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
@@ -110,8 +188,12 @@ func (p *AnthropicProvider) PrepareRequestWithSchema(prompt string, options map[
 func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 	var response struct {
 		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
+			Type    string `json:"type"`
+			Text    string `json:"text"`
+			ToolUse *struct {
+				Name  string          `json:"name"`
+				Input json.RawMessage `json:"input"`
+			} `json:"tool_use,omitempty"`
 		} `json:"content"`
 	}
 
@@ -123,44 +205,34 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 		return "", fmt.Errorf("empty response from LLM")
 	}
 
-	// Initialize the final response
-	var finalResponse string
+	var finalResponse strings.Builder
 
 	for _, content := range response.Content {
-		if content.Type == "text" {
-			finalResponse += content.Text
-		} else if content.Type == "tool_call" {
-			// Extract the function call from the text
-			start := strings.Index(content.Text, "<function_call>")
-			end := strings.Index(content.Text, "</function_call>")
-			if start != -1 && end != -1 {
-				functionCall := content.Text[start+len("<function_call>") : end]
-				var function struct {
-					Name      string          `json:"name"`
-					Arguments json.RawMessage `json:"arguments"`
-				}
-				if err := json.Unmarshal([]byte(functionCall), &function); err != nil {
-					return "", fmt.Errorf("failed to parse function call: %w", err)
-				}
-				// Append the function call to the final response
-				finalResponse += fmt.Sprintf("<function_call>%s</function_call>", functionCall)
+		switch content.Type {
+		case "text":
+			finalResponse.WriteString(content.Text)
+		case "tool_use":
+			if content.ToolUse != nil {
+				functionCall, _ := json.Marshal(map[string]interface{}{
+					"name":      content.ToolUse.Name,
+					"arguments": string(content.ToolUse.Input),
+				})
+				finalResponse.WriteString(fmt.Sprintf("<function_call>%s</function_call>", functionCall))
 			}
 		}
 	}
 
-	return finalResponse, nil
+	return finalResponse.String(), nil
 }
 
 func (p *AnthropicProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	var response struct {
 		Content []struct {
-			Text      string `json:"text"`
-			ToolCalls []struct {
-				Function struct {
-					Name      string          `json:"name"`
-					Arguments json.RawMessage `json:"arguments"`
-				} `json:"function"`
-			} `json:"tool_calls"`
+			Type    string `json:"type"`
+			ToolUse *struct {
+				Name  string          `json:"name"`
+				Input json.RawMessage `json:"input"`
+			} `json:"tool_use,omitempty"`
 		} `json:"content"`
 	}
 
@@ -168,24 +240,16 @@ func (p *AnthropicProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 		return nil, fmt.Errorf("error parsing response: %w", err)
 	}
 
-	if len(response.Content) == 0 || len(response.Content[0].ToolCalls) == 0 {
-		return nil, nil // No function call
+	for _, content := range response.Content {
+		if content.Type == "tool_use" && content.ToolUse != nil {
+			return json.Marshal(map[string]interface{}{
+				"name":      content.ToolUse.Name,
+				"arguments": json.RawMessage(content.ToolUse.Input),
+			})
+		}
 	}
 
-	// Extract the first function call
-	firstFunctionCall := response.Content[0].ToolCalls[0].Function
-
-	// Parse the arguments
-	var argsMap map[string]interface{}
-	if err := json.Unmarshal(firstFunctionCall.Arguments, &argsMap); err != nil {
-		return nil, fmt.Errorf("failed to parse arguments: %w", err)
-	}
-
-	// Return the parsed function call
-	return json.Marshal(map[string]interface{}{
-		"name":      firstFunctionCall.Name,
-		"arguments": argsMap,
-	})
+	return nil, nil // No function call
 }
 
 func (p *AnthropicProvider) SetExtraHeaders(headers map[string]string) {

@@ -13,7 +13,7 @@ func main() {
 	llm, err := gollm.NewLLM(
 		gollm.SetProvider("ollama"),
 		gollm.SetModel("llama3.1"),
-		gollm.SetDebugLevel(gollm.LogLevelInfo),
+		gollm.SetLogLevel(gollm.LogLevelInfo),
 		gollm.SetOllamaEndpoint("http://localhost:11434"), // Set initial endpoint
 	)
 	if err != nil {
@@ -46,4 +46,3 @@ func main() {
 		}
 	}
 }
-

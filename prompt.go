@@ -70,4 +70,3 @@ func CleanResponse(response string) string {
 	}
 	return strings.TrimSpace(response)
 }
-

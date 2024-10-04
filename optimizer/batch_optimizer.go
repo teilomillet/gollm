@@ -5,22 +5,30 @@ package optimizer
 import (
 	"context"
 	"fmt"
+	"golang.org/x/time/rate"
 	"sync"
+	"time"
 
 	"github.com/teilomillet/gollm/llm"
 )
 
 // BatchPromptOptimizer handles batch optimization of prompts
 type BatchPromptOptimizer struct {
-	LLM     llm.LLM
-	Verbose bool
+	LLM         llm.LLM
+	Verbose     bool
+	rateLimiter *rate.Limiter
 }
 
 // NewBatchPromptOptimizer creates a new BatchPromptOptimizer
 func NewBatchPromptOptimizer(llm llm.LLM) *BatchPromptOptimizer {
 	return &BatchPromptOptimizer{
-		LLM: llm,
+		LLM:         llm,
+		rateLimiter: rate.NewLimiter(rate.Every(3*time.Second), 1), // Adjust these values as needed
 	}
+}
+
+func (bpo *BatchPromptOptimizer) SetRateLimit(r rate.Limit, b int) {
+	bpo.rateLimiter = rate.NewLimiter(r, b)
 }
 
 type PromptExample struct {
@@ -47,6 +55,18 @@ func (bpo *BatchPromptOptimizer) OptimizePrompts(ctx context.Context, examples [
 		wg.Add(1)
 		go func(i int, example PromptExample) {
 			defer wg.Done()
+
+			// Wait for rate limiter
+			err := bpo.rateLimiter.Wait(ctx)
+			if err != nil {
+				results[i] = OptimizationResult{
+					Name:           example.Name,
+					OriginalPrompt: example.Prompt,
+					Error:          fmt.Errorf("rate limiter error: %w", err),
+				}
+				return
+			}
+
 			config := OptimizationConfig{
 				Prompt:       example.Prompt,
 				Description:  example.Description,

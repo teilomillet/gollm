@@ -28,7 +28,7 @@ func main() {
 		gollm.SetTimeout(30 * time.Second),
 		gollm.SetMaxRetries(3),
 		gollm.SetRetryDelay(2 * time.Second),
-		gollm.SetDebugLevel(gollm.LogLevelInfo),
+		gollm.SetLogLevel(gollm.LogLevelInfo),
 		gollm.SetAPIKey(apiKey),
 	}
 

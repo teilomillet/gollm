@@ -1,4 +1,4 @@
-package tools
+package gollm
 
 import (
 	"context"
@@ -15,9 +15,9 @@ import (
 // MOAConfig represents the configuration for the Mixture of Agents
 type MOAConfig struct {
 	Iterations   int
-	Models       []*config.Config // Each config represents a model's configuration
-	MaxParallel  int              // Maximum number of parallel requests per layer (0 for sequential processing)
-	AgentTimeout time.Duration    // Timeout for each agent's request (0 for no timeout)
+	Models       []ConfigOption // Change this to ConfigOption
+	MaxParallel  int
+	AgentTimeout time.Duration
 }
 
 // MOALayer represents a single layer in the Mixture of Agents
@@ -33,10 +33,13 @@ type MOA struct {
 }
 
 // NewMOA creates a new Mixture of Agents instance
-func NewMOA(moaConfig MOAConfig, aggregatorConfig *config.Config, registry *providers.ProviderRegistry, logger utils.Logger) (*MOA, error) {
+func NewMOA(moaConfig MOAConfig, aggregatorOpts ...ConfigOption) (*MOA, error) {
 	if len(moaConfig.Models) == 0 {
 		return nil, fmt.Errorf("invalid model configuration: at least one model must be specified")
 	}
+
+	registry := providers.NewProviderRegistry()
+	logger := utils.NewLogger(utils.LogLevelInfo)
 
 	moa := &MOA{
 		Config: moaConfig,
@@ -44,8 +47,10 @@ func NewMOA(moaConfig MOAConfig, aggregatorConfig *config.Config, registry *prov
 	}
 
 	// Initialize each layer with its corresponding model
-	for i, modelConfig := range moaConfig.Models {
-		llmInstance, err := llm.NewLLM(modelConfig, logger, registry)
+	for i, modelOpt := range moaConfig.Models {
+		cfg := &config.Config{}
+		modelOpt(cfg)
+		llmInstance, err := llm.NewLLM(cfg, logger, registry)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LLM for model %d: %w", i, err)
 		}
@@ -55,6 +60,10 @@ func NewMOA(moaConfig MOAConfig, aggregatorConfig *config.Config, registry *prov
 	}
 
 	// Create the aggregator LLM
+	aggregatorConfig := &config.Config{}
+	for _, opt := range aggregatorOpts {
+		opt(aggregatorConfig)
+	}
 	aggregator, err := llm.NewLLM(aggregatorConfig, logger, registry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aggregator LLM: %w", err)
@@ -114,7 +123,7 @@ func (moa *MOA) processLayer(ctx context.Context, layer MOALayer, input string) 
 				defer cancel()
 			}
 
-			output, _, err := llmInstance.Generate(ctx, llm.NewPrompt(input).String())
+			output, err := llmInstance.Generate(ctx, llm.NewPrompt(input))
 			if err != nil {
 				errors[index] = err
 				return
@@ -147,7 +156,7 @@ func (moa *MOA) combineResults(results []string) string {
 // aggregate uses the aggregator LLM to synthesise the final output
 func (moa *MOA) aggregate(ctx context.Context, outputs []string) (string, error) {
 	aggregationPrompt := fmt.Sprintf("Synthesise these responses into a single, high-quality response:\n\n%s", moa.combineResults(outputs))
-	response, _, err := moa.Aggregator.Generate(ctx, llm.NewPrompt(aggregationPrompt).String())
+	response, err := moa.Aggregator.Generate(ctx, llm.NewPrompt(aggregationPrompt))
+
 	return response, err
 }
-

@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/teilomillet/gollm"
+	"github.com/teilomillet/gollm/tools"
 )
 
 func main() {
@@ -20,7 +21,7 @@ func main() {
 
 	question := "How might climate change affect global agriculture?"
 
-	response, err := gollm.ChainOfThought(ctx, llmClient, question,
+	response, err := tools.ChainOfThought(ctx, llmClient, question,
 		gollm.WithMaxLength(300),
 		gollm.WithContext("Climate change is causing global temperature increases and changing precipitation patterns."),
 		gollm.WithExamples("Effect: Shifting growing seasons, Adaptation: Developing heat-resistant crops"),

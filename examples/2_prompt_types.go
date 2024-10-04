@@ -24,7 +24,7 @@ func main() {
 		gollm.SetAPIKey(apiKey),
 		gollm.SetMaxTokens(300),
 		gollm.SetMaxRetries(3),
-		gollm.SetDebugLevel(gollm.LogLevelInfo),
+		gollm.SetLogLevel(gollm.LogLevelInfo),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/teilomillet/gollm"
+	"github.com/teilomillet/gollm/tools"
 	"log"
 	"os"
 	"strings"
@@ -58,14 +59,14 @@ func main() {
 			continue
 		}
 
-		config := &gollm.Config{}
+		config := gollm.NewConfig() // Use NewConfig to create a properly initialized Config struct
 		gollm.SetProvider(m.provider)(config)
 		gollm.SetModel(m.model)(config)
 		gollm.SetAPIKey(apiKey)(config)
 		gollm.SetMaxTokens(500)(config)
 		gollm.SetMaxRetries(3)(config)
 		gollm.SetRetryDelay(time.Second * 2)(config)
-		gollm.SetDebugLevel(debugLevel)(config)
+		gollm.SetLogLevel(debugLevel)(config)
 
 		configs = append(configs, config)
 		debugLog(debugLevel, "Created configuration for %s %s", m.provider, m.model)
@@ -111,7 +112,7 @@ Return the data as a JSON object that adheres to this schema:
 
 	// Compare model outputs
 	fmt.Println("Starting model comparison...")
-	results, err := gollm.CompareModels(ctx, promptText, validateComplexPerson, configs...)
+	results, err := tools.CompareModels(ctx, promptText, validateComplexPerson, configs...)
 	if err != nil {
 		log.Fatalf("Error comparing models: %v", err)
 	}
@@ -144,7 +145,7 @@ Return the data as a JSON object that adheres to this schema:
 
 	// Print the final analysis
 	fmt.Println("\nFinal Analysis of Results:")
-	analysis := gollm.AnalyzeComparisonResults(results)
+	analysis := tools.AnalyzeComparisonResults(results)
 	fmt.Println(analysis)
 
 	debugLog(debugLevel, "Structured output comparison completed")

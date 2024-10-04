@@ -6,24 +6,25 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/teilomillet/gollm"
 )
 
 func main() {
 	fmt.Println("Starting the function calling example...")
-	apiKey := os.Getenv("OPENAI_API_KEY")
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
 		log.Fatalf("ANTHROPIC_API_KEY environment variable is not set")
 	}
 
 	llm, err := gollm.NewLLM(
-		gollm.SetProvider("openai"),
-		gollm.SetModel("gpt-4o-mini"), // Use a valid model name
+		gollm.SetProvider("anthropic"),
+		gollm.SetModel("claude-3-5-sonnet-20240620"),
 		gollm.SetAPIKey(apiKey),
 		gollm.SetMaxTokens(300),
 		gollm.SetMaxRetries(3),
-		gollm.SetDebugLevel(gollm.LogLevelDebug),
+		gollm.SetLogLevel(gollm.LogLevelDebug),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
@@ -53,10 +54,7 @@ func main() {
 
 	// Create a prompt with function calling
 	prompt := gollm.NewPrompt(
-		"",
-		gollm.WithMessages([]gollm.Message{
-			{Role: "user", Content: "What's the weather like in New York?"},
-		}),
+		"What's the weather like in New York?",
 		gollm.WithTools([]gollm.Tool{{
 			Type:     "function",
 			Function: getWeatherFunction,
@@ -70,38 +68,20 @@ func main() {
 	}
 
 	// Parse the response
-	var fullResponse struct {
-		Choices []struct {
-			Message struct {
-				ToolCalls []struct {
-					Function struct {
-						Name      string `json:"name"`
-						Arguments string `json:"arguments"`
-					} `json:"function"`
-				} `json:"tool_calls"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	err = json.Unmarshal([]byte(response), &fullResponse)
-	if err != nil {
-		log.Printf("Failed to unmarshal response: %v", err)
-		fmt.Printf("Regular response: %s\n", response)
-	} else if len(fullResponse.Choices) > 0 && len(fullResponse.Choices[0].Message.ToolCalls) > 0 {
+	if strings.Contains(response, "<function_call>") {
 		fmt.Println("Function call detected:")
-		for _, call := range fullResponse.Choices[0].Message.ToolCalls {
-			fmt.Printf("Function: %s\n", call.Function.Name)
-			fmt.Printf("Raw Arguments: %s\n", call.Function.Arguments)
+		start := strings.Index(response, "<function_call>") + len("<function_call>")
+		end := strings.Index(response, "</function_call>")
+		functionCallJSON := response[start:end]
 
-			// Parse the arguments string into a map
-			var args map[string]interface{}
-			err = json.Unmarshal([]byte(call.Function.Arguments), &args)
-			if err != nil {
-				log.Printf("Failed to parse arguments: %v", err)
-			} else {
-				fmt.Printf("Parsed Arguments: %v\n", args)
-			}
+		var functionCall struct {
+			Name      string          `json:"name"`
+			Arguments json.RawMessage `json:"arguments"`
 		}
+		json.Unmarshal([]byte(functionCallJSON), &functionCall)
+
+		fmt.Printf("Function: %s\n", functionCall.Name)
+		fmt.Printf("Arguments: %s\n", string(functionCall.Arguments))
 
 		// Simulate function execution
 		weatherData := map[string]interface{}{
@@ -112,9 +92,9 @@ func main() {
 		weatherResponse, _ := json.Marshal(weatherData)
 
 		// Generate follow-up response
-		finalResponse, err := llm.(interface {
-			GenerateFunctionCallFollowUp(context.Context, *gollm.Prompt, string, string) (string, error)
-		}).GenerateFunctionCallFollowUp(ctx, prompt, response, string(weatherResponse))
+		finalResponse, err := llm.Generate(ctx, gollm.NewPrompt(
+			fmt.Sprintf("The weather data for New York is: %s. Please provide a human-readable summary.", string(weatherResponse)),
+		))
 		if err != nil {
 			log.Fatalf("Failed to generate final response: %v", err)
 		}
@@ -122,21 +102,4 @@ func main() {
 	} else {
 		fmt.Printf("Regular response: %s\n", response)
 	}
-
-	// Example with forced function calling
-	fmt.Println("\nExample with forced function calling:")
-	forcedPrompt := gollm.NewPrompt(
-		"What's the weather like in London?",
-		gollm.WithTools([]gollm.Tool{{
-			Type:     "function",
-			Function: getWeatherFunction,
-		}}),
-		gollm.WithToolChoice("auto"), // Force the model to call the get_weather function
-	)
-
-	forcedResponse, err := llm.Generate(ctx, forcedPrompt)
-	if err != nil {
-		log.Fatalf("Failed to generate forced response: %v", err)
-	}
-	fmt.Printf("Forced function call response:\n%s\n", forcedResponse)
 }

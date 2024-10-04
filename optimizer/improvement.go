@@ -65,7 +65,7 @@ func (po *PromptOptimizer) generateImprovedPrompt(ctx context.Context, prevEntry
 
 	po.debugManager.LogPrompt(improvePrompt.String())
 
-	response, _, err := po.llm.Generate(ctx, improvePrompt.String())
+	response, err := po.llm.Generate(ctx, improvePrompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate improved prompt: %w", err)
 	}

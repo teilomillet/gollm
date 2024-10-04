@@ -92,7 +92,7 @@ func createLLM(provider, model, apiKey string) (gollm.LLM, error) {
 		gollm.SetAPIKey(apiKey),
 		gollm.SetMaxTokens(300),
 		gollm.SetMaxRetries(3),
-		gollm.SetDebugLevel(gollm.LogLevelInfo),
+		gollm.SetLogLevel(gollm.LogLevelInfo),
 	)
 }
 

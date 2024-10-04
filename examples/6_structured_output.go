@@ -31,7 +31,7 @@ func main() {
 		gollm.SetMaxTokens(300),
 		gollm.SetMaxRetries(3),
 		gollm.SetRetryDelay(time.Second*2),
-		gollm.SetDebugLevel(gollm.LogLevelWarn),
+		gollm.SetLogLevel(gollm.LogLevelWarn),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)

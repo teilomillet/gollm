@@ -22,6 +22,11 @@ func Validate(s interface{}) error {
 	return validate.Struct(s)
 }
 
+// RegisterCustomValidation registers a custom validation function with the validator
+func RegisterCustomValidation(tag string, fn validator.Func) error {
+	return validate.RegisterValidation(tag, fn)
+}
+
 // GenerateJSONSchema generates a JSON schema for the given struct
 func GenerateJSONSchema(v interface{}) ([]byte, error) {
 	schema := make(map[string]interface{})

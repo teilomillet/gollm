@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/teilomillet/gollm"
+	"github.com/teilomillet/gollm/tools"
 )
 
 // MovieReview without validation tags
@@ -42,7 +43,7 @@ func extractReview[T any](ctx context.Context, llm gollm.LLM, text string, withV
 	}
 
 	fmt.Printf("Extracting movie review %s validation...\n", validationMsg)
-	review, err := gollm.ExtractStructuredData[T](ctx, llm, text)
+	review, err := tools.ExtractStructuredData[T](ctx, llm, text)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract movie review %s validation: %v", validationMsg, err)
 	}
@@ -63,7 +64,7 @@ func main() {
 		gollm.SetAPIKey(apiKey),
 		gollm.SetMaxRetries(3),
 		gollm.SetMaxTokens(2048),
-		gollm.SetDebugLevel(gollm.LogLevelWarn),
+		gollm.SetLogLevel(gollm.LogLevelWarn),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
@@ -176,4 +177,3 @@ func printReview(review interface{}) {
 		}
 	}
 }
-

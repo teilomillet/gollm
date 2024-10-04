@@ -11,6 +11,10 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+type MemoryOption struct {
+	MaxTokens int
+}
+
 type Config struct {
 	Provider              string        `env:"LLM_PROVIDER" envDefault:"anthropic"`
 	Model                 string        `env:"LLM_MODEL" envDefault:"claude-3-opus-20240229"`
@@ -37,6 +41,7 @@ type Config struct {
 	SystemPromptCacheType string
 	ExtraHeaders          map[string]string
 	EnableCaching         bool `env:"LLM_ENABLE_CACHING" envDefault:"false"`
+	MemoryOption          *MemoryOption
 }
 
 func LoadConfig() (*Config, error) {
@@ -47,15 +52,16 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	// Manually parse API keys from environment variables
+	loadAPIKeys(cfg)
+	return cfg, nil
+}
+
+func loadAPIKeys(cfg *Config) {
 	for _, envVar := range os.Environ() {
-		parts := strings.SplitN(envVar, "=", 2)
-		if len(parts) == 2 {
-			key, value := parts[0], parts[1]
-			if strings.HasSuffix(strings.ToUpper(key), "_API_KEY") {
-				provider := strings.TrimSuffix(strings.ToUpper(key), "_API_KEY")
-				cfg.APIKeys[provider] = value
-			}
+		key, value, found := strings.Cut(envVar, "=")
+		if found && strings.HasSuffix(strings.ToUpper(key), "_API_KEY") {
+			provider := strings.TrimSuffix(strings.ToUpper(key), "_API_KEY")
+			cfg.APIKeys[strings.ToLower(provider)] = value
 		}
 	}
 
@@ -63,6 +69,184 @@ func LoadConfig() (*Config, error) {
 	if apiKey, exists := cfg.APIKeys[strings.ToUpper(cfg.Provider)]; exists {
 		cfg.APIKeys[cfg.Provider] = apiKey
 	}
+}
 
-	return cfg, nil
+type ConfigOption func(*Config)
+
+func NewConfig() *Config {
+	return &Config{
+		Provider:     "openai",
+		Model:        "gpt-4o-mini",
+		Temperature:  0.7,
+		MaxTokens:    300,
+		Timeout:      30 * time.Second,
+		MaxRetries:   3,
+		RetryDelay:   2 * time.Second,
+		APIKeys:      make(map[string]string),
+		LogLevel:     utils.LogLevelWarn,
+		ExtraHeaders: make(map[string]string),
+	}
+}
+
+func SetEnableCaching(enableCaching bool) ConfigOption {
+	return func(c *Config) {
+		c.EnableCaching = enableCaching
+	}
+}
+
+func SetProvider(provider string) ConfigOption {
+	return func(c *Config) {
+		c.Provider = provider
+	}
+}
+
+func SetModel(model string) ConfigOption {
+	return func(c *Config) {
+		c.Model = model
+	}
+}
+
+func SetOllamaEndpoint(endpoint string) ConfigOption {
+	return func(c *Config) {
+		c.OllamaEndpoint = endpoint
+	}
+}
+
+func SetTemperature(temperature float64) ConfigOption {
+	return func(c *Config) {
+		c.Temperature = temperature
+	}
+}
+
+func SetMaxTokens(maxTokens int) ConfigOption {
+	return func(c *Config) {
+		if maxTokens < 1 {
+			maxTokens = 1
+		}
+		c.MaxTokens = maxTokens
+	}
+}
+
+func SetTimeout(timeout time.Duration) ConfigOption {
+	return func(c *Config) {
+		c.Timeout = timeout
+	}
+}
+
+func SetAPIKey(apiKey string) ConfigOption {
+	return func(c *Config) {
+		if c.APIKeys == nil {
+			c.APIKeys = make(map[string]string)
+		}
+		c.APIKeys[c.Provider] = apiKey
+	}
+}
+
+func SetMaxRetries(maxRetries int) ConfigOption {
+	return func(c *Config) {
+		c.MaxRetries = maxRetries
+	}
+}
+
+func SetRetryDelay(retryDelay time.Duration) ConfigOption {
+	return func(c *Config) {
+		c.RetryDelay = retryDelay
+	}
+}
+
+func SetLogLevel(level utils.LogLevel) ConfigOption {
+	return func(c *Config) {
+		c.LogLevel = level
+	}
+}
+
+func SetMemory(maxTokens int) ConfigOption {
+	return func(c *Config) {
+		c.MemoryOption = &MemoryOption{
+			MaxTokens: maxTokens,
+		}
+	}
+}
+
+func SetExtraHeaders(headers map[string]string) ConfigOption {
+	return func(c *Config) {
+		if c.ExtraHeaders == nil {
+			c.ExtraHeaders = make(map[string]string)
+		}
+		for k, v := range headers {
+			c.ExtraHeaders[k] = v
+		}
+	}
+}
+
+func SetTopP(topP float64) ConfigOption {
+	return func(c *Config) {
+		c.TopP = topP
+	}
+}
+
+func SetFrequencyPenalty(penalty float64) ConfigOption {
+	return func(c *Config) {
+		c.FrequencyPenalty = penalty
+	}
+}
+
+func SetPresencePenalty(penalty float64) ConfigOption {
+	return func(c *Config) {
+		c.PresencePenalty = penalty
+	}
+}
+
+func SetSeed(seed int) ConfigOption {
+	return func(c *Config) {
+		c.Seed = &seed
+	}
+}
+
+func SetMinP(minP float64) ConfigOption {
+	return func(c *Config) {
+		c.MinP = &minP
+	}
+}
+
+func SetRepeatPenalty(penalty float64) ConfigOption {
+	return func(c *Config) {
+		c.RepeatPenalty = &penalty
+	}
+}
+
+func SetRepeatLastN(n int) ConfigOption {
+	return func(c *Config) {
+		c.RepeatLastN = &n
+	}
+}
+
+func SetMirostat(mode int) ConfigOption {
+	return func(c *Config) {
+		c.Mirostat = &mode
+	}
+}
+
+func SetMirostatEta(eta float64) ConfigOption {
+	return func(c *Config) {
+		c.MirostatEta = &eta
+	}
+}
+
+func SetMirostatTau(tau float64) ConfigOption {
+	return func(c *Config) {
+		c.MirostatTau = &tau
+	}
+}
+
+func SetTfsZ(z float64) ConfigOption {
+	return func(c *Config) {
+		c.TfsZ = &z
+	}
+}
+
+func ApplyOptions(cfg *Config, options ...ConfigOption) {
+	for _, option := range options {
+		option(cfg)
+	}
 }
