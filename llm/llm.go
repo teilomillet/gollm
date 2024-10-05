@@ -52,6 +52,7 @@ func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.Provide
 	}
 
 	provider, err := registry.Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, extraHeaders)
+
 	if err != nil {
 		return nil, err
 	}
@@ -136,8 +137,22 @@ func (l *LLMImpl) wait(ctx context.Context) error {
 }
 
 func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, error) {
-	// Prepare the request with both the user prompt and the options (which include the system prompt)
-	reqBody, err := l.Provider.PrepareRequest(prompt.Input, l.Options)
+	// Create a new options map that includes both l.Options and prompt-specific options
+	options := make(map[string]interface{})
+	for k, v := range l.Options {
+		options[k] = v
+	}
+
+	// Add Tools and ToolChoice to options
+	if len(prompt.Tools) > 0 {
+		options["tools"] = prompt.Tools
+	}
+	if prompt.ToolChoice != nil && len(prompt.ToolChoice) > 0 {
+		options["tool_choice"] = prompt.ToolChoice
+	}
+
+	// Prepare the request with both the user prompt and the combined options
+	reqBody, err := l.Provider.PrepareRequest(prompt.Input, options)
 	if err != nil {
 		return "", NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
 	}
@@ -179,9 +194,9 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 				"cache_creation_input_tokens": usage["cache_creation_input_tokens"],
 				"cache_read_input_tokens":     usage["cache_read_input_tokens"],
 			}
-			l.logger.Info("Cache information", "info", cacheInfo)
+			l.logger.Debug("Cache information", "info", cacheInfo)
 		} else {
-			l.logger.Info("Cache information not available in the response")
+			l.logger.Debug("Cache information not available in the response")
 		}
 	} else {
 		l.logger.Warn("Failed to parse response for cache information", "error", err)

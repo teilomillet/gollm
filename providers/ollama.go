@@ -1,5 +1,3 @@
-// File: internal/llm/ollama.go
-
 package providers
 
 import (
@@ -7,15 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/utils"
 	"io"
 	"net/http"
 	"strings"
-
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/utils"
 )
 
-// OllamaProvider implements both the Provider and LLM interfaces for Ollama
 type OllamaProvider struct {
 	model        string
 	endpoint     string
@@ -24,7 +20,6 @@ type OllamaProvider struct {
 	options      map[string]interface{}
 }
 
-// NewOllamaProvider creates a new OllamaProvider
 func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
@@ -34,7 +29,12 @@ func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Pro
 		endpoint:     "http://localhost:11434", // Default endpoint
 		extraHeaders: extraHeaders,
 		options:      make(map[string]interface{}),
+		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
+}
+
+func (p *OllamaProvider) SetLogger(logger utils.Logger) {
+	p.logger = logger
 }
 
 func (p *OllamaProvider) SetDefaultOptions(config *config.Config) {

@@ -3,21 +3,16 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/utils"
 )
 
-// RegisterMistralProvider registers the Mistral provider with the provider registry.
-func RegisterMistralProvider(registry *ProviderRegistry) {
-	registry.Register("mistral", NewMistralProvider)
-}
-
-// MistralProvider implements the Provider interface for Mistral-AI
 type MistralProvider struct {
 	apiKey       string
 	model        string
 	extraHeaders map[string]string
 	options      map[string]interface{}
+	logger       utils.Logger
 }
 
 func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) Provider {
@@ -29,7 +24,12 @@ func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) Pr
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]interface{}),
+		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
+}
+
+func (p *MistralProvider) SetLogger(logger utils.Logger) {
+	p.logger = logger
 }
 
 func (p *MistralProvider) SetOption(key string, value interface{}) {

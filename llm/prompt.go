@@ -34,31 +34,19 @@ type ToolCall struct {
 	} `json:"function"`
 }
 
-type Function struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
-	Strict      bool                   `json:"strict,omitempty"`
-}
-
-type Tool struct {
-	Type     string   `json:"type"`
-	Function Function `json:"function"`
-}
-
 // Prompt represents a structured prompt for an LLM
 type Prompt struct {
-	Input           string          `json:"input" jsonschema:"required,description=The main input text for the LLM" validate:"required"`
-	Output          string          `json:"output,omitempty" jsonschema:"description=Specification for the expected output format"`
-	Directives      []string        `json:"directives,omitempty" jsonschema:"description=List of directives to guide the LLM"`
-	Context         string          `json:"context,omitempty" jsonschema:"description=Additional context for the LLM"`
-	MaxLength       int             `json:"maxLength,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
-	Examples        []string        `json:"examples,omitempty" jsonschema:"description=List of examples to guide the LLM"`
-	SystemPrompt    string          `json:"systemPrompt,omitempty" jsonschema:"description=System prompt for the LLM"`
-	SystemCacheType CacheType       `json:"systemCacheType,omitempty" jsonschema:"description=Cache type for the system prompt"`
-	Messages        []PromptMessage `json:"messages,omitempty" jsonschema:"description=List of messages for the conversation"`
-	Tools           []Tool          `json:"tools,omitempty"`
-	ToolChoice      string          `json:"toolChoice,omitempty"`
+	Input           string                 `json:"input" jsonschema:"required,description=The main input text for the LLM" validate:"required"`
+	Output          string                 `json:"output,omitempty" jsonschema:"description=Specification for the expected output format"`
+	Directives      []string               `json:"directives,omitempty" jsonschema:"description=List of directives to guide the LLM"`
+	Context         string                 `json:"context,omitempty" jsonschema:"description=Additional context for the LLM"`
+	MaxLength       int                    `json:"maxLength,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
+	Examples        []string               `json:"examples,omitempty" jsonschema:"description=List of examples to guide the LLM"`
+	SystemPrompt    string                 `json:"systemPrompt,omitempty" jsonschema:"description=System prompt for the LLM"`
+	SystemCacheType CacheType              `json:"systemCacheType,omitempty" jsonschema:"description=Cache type for the system prompt"`
+	Messages        []PromptMessage        `json:"messages,omitempty" jsonschema:"description=List of messages for the conversation"`
+	Tools           []utils.Tool           `json:"tools,omitempty"`
+	ToolChoice      map[string]interface{} `json:"tool_choice,omitempty"`
 }
 
 // PromptOption is a function type that modifies a Prompt
@@ -101,7 +89,7 @@ func WithMessage(role, content string, cacheType CacheType) PromptOption {
 }
 
 // WithTools adds tools to the Prompt
-func WithTools(tools []Tool) PromptOption {
+func WithTools(tools []utils.Tool) PromptOption {
 	return func(p *Prompt) {
 		p.Tools = tools
 	}
@@ -110,7 +98,9 @@ func WithTools(tools []Tool) PromptOption {
 // WithToolChoice sets the tool choice for the Prompt
 func WithToolChoice(choice string) PromptOption {
 	return func(p *Prompt) {
-		p.ToolChoice = choice
+		p.ToolChoice = map[string]interface{}{
+			"type": choice,
+		}
 	}
 }
 
@@ -146,6 +136,12 @@ func WithContext(context string) PromptOption {
 func WithMaxLength(length int) PromptOption {
 	return func(p *Prompt) {
 		p.MaxLength = length
+	}
+}
+
+func WithJSONSchemaValidation() GenerateOption {
+	return func(c *GenerateConfig) {
+		c.UseJSONSchema = true
 	}
 }
 

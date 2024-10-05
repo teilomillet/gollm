@@ -3,12 +3,10 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/utils"
 )
 
-// OpenAIProvider implements the Provider interface for OpenAI's API
 type OpenAIProvider struct {
 	apiKey       string
 	model        string
@@ -17,7 +15,6 @@ type OpenAIProvider struct {
 	logger       utils.Logger
 }
 
-// NewOpenAIProvider creates a new OpenAI provider instance
 func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
@@ -27,8 +24,12 @@ func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) Pro
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]interface{}),
-		logger:       utils.NewLogger(utils.LogLevelInfo), // Default to INFO level
+		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
+}
+
+func (p *OpenAIProvider) SetLogger(logger utils.Logger) {
+	p.logger = logger
 }
 
 // SetOption sets a specific option for the provider
@@ -79,19 +80,51 @@ func (p *OpenAIProvider) Headers() map[string]string {
 
 // PrepareRequest prepares the request body for the API call
 func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
-	p.logger.Debug("Preparing request", "prompt", prompt)
-	request := p.createBaseRequest(prompt)
-	p.processMessages(request)
-	p.addOptions(request, options)
-
-	reqJSON, err := json.Marshal(request)
-	if err != nil {
-		p.logger.Error("Failed to marshal request", "error", err)
-		return nil, err
+	request := map[string]interface{}{
+		"model": p.model,
+		"messages": []map[string]interface{}{
+			{
+				"role":    "user",
+				"content": prompt,
+			},
+		},
 	}
 
-	p.logger.Debug("Request prepared", "request", string(reqJSON))
-	return reqJSON, nil
+	// Handle tool_choice
+	if toolChoice, ok := options["tool_choice"].(string); ok {
+		request["tool_choice"] = toolChoice
+	}
+
+	// Handle tools
+	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
+		openAITools := make([]map[string]interface{}, len(tools))
+		for i, tool := range tools {
+			openAITools[i] = map[string]interface{}{
+				"type": "function",
+				"function": map[string]interface{}{
+					"name":        tool.Function.Name,
+					"description": tool.Function.Description,
+					"parameters":  tool.Function.Parameters,
+				},
+				"strict": true, // Add this if you want strict mode
+			}
+		}
+		request["tools"] = openAITools
+	}
+
+	// Add other options
+	for k, v := range p.options {
+		if k != "tools" && k != "tool_choice" {
+			request[k] = v
+		}
+	}
+	for k, v := range options {
+		if k != "tools" && k != "tool_choice" {
+			request[k] = v
+		}
+	}
+
+	return json.Marshal(request)
 }
 
 // createBaseRequest creates the base request structure
@@ -225,30 +258,47 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 	var response struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Content   string `json:"content"`
+				ToolCalls []struct {
+					ID       string `json:"id"`
+					Type     string `json:"type"`
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
 			} `json:"message"`
 		} `json:"choices"`
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
-		// If it's not JSON, return the raw body as a string
-		return string(body), nil
+		return "", err
 	}
 
 	if len(response.Choices) == 0 {
 		return "", fmt.Errorf("empty response from API")
 	}
 
-	return response.Choices[0].Message.Content, nil
+	message := response.Choices[0].Message
+	if message.Content != "" {
+		return message.Content, nil
+	}
+
+	if len(message.ToolCalls) > 0 {
+		toolCallJSON, err := json.Marshal(message.ToolCalls)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("<function_call>%s</function_call>", toolCallJSON), nil
+	}
+
+	return "", fmt.Errorf("no content or tool calls in response")
 }
 
-// HandleFunctionCalls processes function calls in the response
 func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	p.logger.Debug("Handling function calls", "body", string(body))
 	var response struct {
 		Choices []struct {
 			Message struct {
-				Content   string `json:"content"`
 				ToolCalls []struct {
 					Function struct {
 						Name      string `json:"name"`
@@ -260,32 +310,27 @@ func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
-		p.logger.Error("Failed to parse response for function calls", "error", err)
 		return nil, fmt.Errorf("error parsing response: %w", err)
 	}
 
-	if len(response.Choices) == 0 {
-		p.logger.Warn("Empty response from API")
-		return nil, fmt.Errorf("empty response from API")
+	if len(response.Choices) == 0 || len(response.Choices[0].Message.ToolCalls) == 0 {
+		return nil, fmt.Errorf("no tool calls found in response")
 	}
 
-	message := response.Choices[0].Message
-
-	if len(message.ToolCalls) > 0 {
-		for i, toolCall := range message.ToolCalls {
-			var argsMap map[string]interface{}
-			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &argsMap); err != nil {
-				p.logger.Error("Failed to unmarshal function call arguments", "error", err)
-				return nil, fmt.Errorf("failed to unmarshal arguments for tool call %d: %w", i, err)
-			}
-			message.ToolCalls[i].Function.Arguments = string(mustMarshal(argsMap))
-			p.logger.Debug("Function call processed", "functionName", toolCall.Function.Name, "arguments", argsMap)
+	toolCalls := response.Choices[0].Message.ToolCalls
+	result := make([]map[string]interface{}, len(toolCalls))
+	for i, call := range toolCalls {
+		var args map[string]interface{}
+		if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
+			return nil, fmt.Errorf("error parsing arguments: %w", err)
 		}
-		return json.Marshal(message.ToolCalls)
+		result[i] = map[string]interface{}{
+			"name":      call.Function.Name,
+			"arguments": args,
+		}
 	}
 
-	p.logger.Debug("No function calls found, returning content", "content", message.Content)
-	return []byte(message.Content), nil
+	return json.Marshal(result)
 }
 
 // mustMarshal is a helper function to marshal JSON and panic on error

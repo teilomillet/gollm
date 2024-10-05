@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/utils"
 )
 
 type Provider interface {
@@ -19,6 +20,7 @@ type Provider interface {
 	SupportsJSONSchema() bool
 	SetDefaultOptions(config *config.Config)
 	SetOption(key string, value interface{})
+	SetLogger(logger utils.Logger)
 }
 
 type ProviderConstructor func(apiKey, model string, extraHeaders map[string]string) Provider

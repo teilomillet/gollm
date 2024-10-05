@@ -3,9 +3,11 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/utils"
 )
 
 // AnthropicProvider implements the Provider interface for Anthropic
@@ -14,14 +16,20 @@ type AnthropicProvider struct {
 	model        string
 	extraHeaders map[string]string
 	options      map[string]interface{}
+	logger       utils.Logger
+}
+
+func (p *AnthropicProvider) SetLogger(logger utils.Logger) {
+	p.logger = logger
 }
 
 func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	provider := &AnthropicProvider{
 		apiKey:       apiKey,
 		model:        model,
-		extraHeaders: make(map[string]string), // Initialize the map
+		extraHeaders: make(map[string]string),
 		options:      make(map[string]interface{}),
+		logger:       utils.NewLogger(utils.LogLevelInfo), // Default logger
 	}
 
 	// Copy the provided extraHeaders
@@ -96,32 +104,47 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]int
 		}
 	}
 
-	// Handle user message
+	// Handle user message with potential caching
 	userMessage := map[string]interface{}{
 		"role": "user",
 		"content": []map[string]interface{}{
 			{
-				"type":          "text",
-				"text":          prompt,
-				"cache_control": map[string]string{"type": "ephemeral"},
+				"type": "text",
+				"text": prompt,
 			},
 		},
 	}
-	requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), userMessage)
 
-	// Add tools if provided
-	if tools, ok := options["tools"].([]interface{}); ok && len(tools) > 0 {
-		requestBody["tools"] = tools
+	// Add cache_control only if caching is enabled
+	if caching, ok := options["enable_caching"].(bool); ok && caching {
+		userMessage["content"].([]map[string]interface{})[0]["cache_control"] = map[string]string{"type": "ephemeral"}
 	}
 
-	// Add tool_choice if provided
+	requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), userMessage)
+
+	// Handle tools
+	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
+		anthropicTools := make([]map[string]interface{}, len(tools))
+		for i, tool := range tools {
+			anthropicTools[i] = map[string]interface{}{
+				"name":         tool.Function.Name,
+				"description":  tool.Function.Description,
+				"input_schema": tool.Function.Parameters,
+			}
+		}
+		requestBody["tools"] = anthropicTools
+	}
+
+	// Handle tool_choice
 	if toolChoice, ok := options["tool_choice"].(string); ok {
-		requestBody["tool_choice"] = toolChoice
+		requestBody["tool_choice"] = map[string]interface{}{
+			"type": toolChoice,
+		}
 	}
 
 	// Add other options
-	for k, v := range p.options {
-		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" {
+	for k, v := range options {
+		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" && k != "enable_caching" {
 			requestBody[k] = v
 		}
 	}
@@ -186,70 +209,107 @@ func (p *AnthropicProvider) PrepareRequestWithSchema(prompt string, options map[
 }
 
 func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
+	p.logger.Debug("Raw API response: %s", string(body))
+
 	var response struct {
+		ID      string `json:"id"`
+		Type    string `json:"type"`
+		Role    string `json:"role"`
+		Model   string `json:"model"`
 		Content []struct {
 			Type    string `json:"type"`
 			Text    string `json:"text"`
 			ToolUse *struct {
+				ID    string          `json:"id,omitempty"`
 				Name  string          `json:"name"`
 				Input json.RawMessage `json:"input"`
-			} `json:"tool_use,omitempty"`
+			} `json:"tool_use"`
 		} `json:"content"`
+		StopReason string  `json:"stop_reason"`
+		StopSeq    *string `json:"stop_sequence"`
+		Usage      struct {
+			InputTokens              int `json:"input_tokens"`
+			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+			OutputTokens             int `json:"output_tokens"`
+		} `json:"usage"`
 	}
-
 	if err := json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("error parsing response: %w", err)
 	}
-
 	if len(response.Content) == 0 {
 		return "", fmt.Errorf("empty response from LLM")
 	}
 
 	var finalResponse strings.Builder
+	var functionCalls []string
 
 	for _, content := range response.Content {
 		switch content.Type {
 		case "text":
 			finalResponse.WriteString(content.Text)
+			p.logger.Debug("Text content: %s", content.Text)
 		case "tool_use":
 			if content.ToolUse != nil {
-				functionCall, _ := json.Marshal(map[string]interface{}{
+				functionCall, err := json.Marshal(map[string]interface{}{
 					"name":      content.ToolUse.Name,
-					"arguments": string(content.ToolUse.Input),
+					"arguments": json.RawMessage(content.ToolUse.Input),
 				})
-				finalResponse.WriteString(fmt.Sprintf("<function_call>%s</function_call>", functionCall))
+				if err != nil {
+					return "", fmt.Errorf("error marshaling function call: %w", err)
+				}
+				functionCalls = append(functionCalls, string(functionCall))
+				p.logger.Debug("Function call detected: %s", string(functionCall))
 			}
 		}
 	}
 
+	// If there are function calls, append them to the response
+	if len(functionCalls) > 0 {
+		for _, call := range functionCalls {
+			finalResponse.WriteString(fmt.Sprintf("\n<function_call>%s</function_call>", call))
+			p.logger.Debug("Appending function call to response: %s", call)
+		}
+	}
+
+	p.logger.Debug("Final response: %s", finalResponse.String())
 	return finalResponse.String(), nil
 }
 
 func (p *AnthropicProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	var response struct {
-		Content []struct {
-			Type    string `json:"type"`
-			ToolUse *struct {
-				Name  string          `json:"name"`
-				Input json.RawMessage `json:"input"`
-			} `json:"tool_use,omitempty"`
-		} `json:"content"`
+	p.logger.Debug("Handling function calls from response")
+	var response string
+	err := json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
 	}
 
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
-	}
+	p.logger.Debug("Response body: %s", response)
 
-	for _, content := range response.Content {
-		if content.Type == "tool_use" && content.ToolUse != nil {
-			return json.Marshal(map[string]interface{}{
-				"name":      content.ToolUse.Name,
-				"arguments": json.RawMessage(content.ToolUse.Input),
-			})
+	// Extract function calls from the response
+	var functionCalls []map[string]interface{}
+	functionCallRegex := regexp.MustCompile(`<function_call>(.*?)</function_call>`)
+	matches := functionCallRegex.FindAllStringSubmatch(response, -1)
+
+	for _, match := range matches {
+		if len(match) > 1 {
+			var functionCall map[string]interface{}
+			err := json.Unmarshal([]byte(match[1]), &functionCall)
+			if err != nil {
+				return nil, fmt.Errorf("error unmarshaling function call: %w", err)
+			}
+			functionCalls = append(functionCalls, functionCall)
+			p.logger.Debug("Extracted function call: %v", functionCall)
 		}
 	}
 
-	return nil, nil // No function call
+	if len(functionCalls) == 0 {
+		p.logger.Debug("No function calls found in the response")
+		return nil, nil // No function calls
+	}
+
+	p.logger.Debug("Function calls to handle: %v", functionCalls)
+	return json.Marshal(functionCalls)
 }
 
 func (p *AnthropicProvider) SetExtraHeaders(headers map[string]string) {

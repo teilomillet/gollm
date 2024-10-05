@@ -3,16 +3,16 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/utils"
 )
 
-// GroqProvider implements the Provider interface for Groq
 type GroqProvider struct {
 	apiKey       string
 	model        string
 	extraHeaders map[string]string
 	options      map[string]interface{}
+	logger       utils.Logger
 }
 
 func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provider {
@@ -24,7 +24,12 @@ func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provi
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]interface{}),
+		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
+}
+
+func (p *GroqProvider) SetLogger(logger utils.Logger) {
+	p.logger = logger
 }
 
 func (p *GroqProvider) Name() string {
