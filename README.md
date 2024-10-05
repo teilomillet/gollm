@@ -40,28 +40,28 @@
 
 ## Key Features
 
-- **Unified API for Multiple LLM Providers:** Shape your golem's mind using various providers, including OpenAI, Anthropic, Groq, and Ollama. Seamlessly switch between models like GPT-4, GPT-4o-mini, Claude, and Llama-3.1.
-- **Easy Provider and Model Switching:** Mold your golem's capabilities by configuring preferred providers and models with simple configuration options.
-- **Flexible Configuration Options:** Customize your golem's essence using environment variables, code-based configuration, or configuration files to suit your project's needs.
-- **Advanced Prompt Engineering:** Craft sophisticated instructions to guide your golem's responses effectively.
-- **PromptOptimizer:** Automatically refine and improve your prompts for better results, with support for custom metrics and different rating systems.
+- **Unified API for Multiple LLM Providers:** Interact seamlessly with various providers, including OpenAI, Anthropic, Groq, and Ollama. Easily switch between models like GPT-4, GPT-4o-mini, Claude, and Llama-3.1.
+- **Easy Provider and Model Switching:** Configure preferred providers and models with simple options.
+- **Flexible Configuration Options:** Customize using environment variables, code-based configuration, or configuration files.
+- **Advanced Prompt Engineering:** Craft sophisticated instructions to guide your AI's responses effectively.
+- **Prompt Optimizer:** Automatically refine and improve your prompts for better results, with support for custom metrics and different rating systems.
 - **Memory Retention:** Maintain context across multiple interactions for more coherent conversations.
-- **Structured Output and Validation:** Ensure your golem's outputs are consistent and reliable with JSON schema generation and validation.
-- **Provider Comparison Tools:** Test your golem's performance across different LLM providers and models for the same task.
-- **High-Level AI Functions:** Empower your golem with pre-built functions like `ChainOfThought` for complex reasoning tasks.
-- **Robust Error Handling and Retries:** Build resilience into your golem with built-in retry mechanisms to handle API rate limits and transient errors.
-- **Extensible Architecture:** Easily expand your golem's capabilities by extending support for new LLM providers and features.
+- **Structured Output and Validation:** Ensure outputs are consistent and reliable with JSON schema generation and validation.
+- **Provider Comparison Tools:** Test performance across different LLM providers and models for the same task.
+- **High-Level AI Functions:** Use pre-built functions like `ChainOfThought` for complex reasoning tasks.
+- **Robust Error Handling and Retries:** Built-in retry mechanisms to handle API rate limits and transient errors.
+- **Extensible Architecture:** Easily expand support for new LLM providers and features.
 
 ## Real-World Applications
 
-Your gollm-powered golems can handle a wide range of AI-powered tasks, including:
+`gollm` can handle a wide range of AI-powered tasks, including:
 
-- **Content Creation Workflows:** Generate research summaries, article ideas, and refined paragraphs for writing projects.
-- **Complex Reasoning Tasks:** Use the `ChainOfThought` function to break down and analyze complex problems step-by-step.
+- **Content Creation Workflows:** Generate research summaries, article ideas, and refined paragraphs.
+- **Complex Reasoning Tasks:** Use the `ChainOfThought` function to analyze complex problems step-by-step.
 - **Structured Data Generation:** Create and validate complex data structures with customizable JSON schemas.
-- **Model Performance Analysis:** Compare different models' performance for specific tasks to optimize your AI pipeline.
-- **Prompt Optimization:** Automatically improve prompts for various tasks, from creative writing to technical documentation.
-- **Mixture of Agents:** Combine responses from multiple LLM providers to create diverse and robust AI agents.
+- **Model Performance Analysis:** Compare different models' performance for specific tasks.
+- **Prompt Optimization:** Automatically improve prompts for various tasks.
+- **Mixture of Agents:** Combine responses from multiple LLM providers.
 
 ## Installation
 
@@ -77,41 +77,48 @@ go get github.com/teilomillet/gollm
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"os"
+    "context"
+    "fmt"
+    "log"
+    "os"
 
-	"github.com/teilomillet/gollm"
+    "github.com/teilomillet/gollm"
 )
 
 func main() {
-	// Create a new LLM instance with configuration options
-	llmInstance, err := gollm.NewLLM(
-		gollm.WithProvider("openai"),
-		gollm.WithModel("gpt-4o-mini"),
-		gollm.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
-		gollm.WithMaxTokens(100),
-	)
-	if err != nil {
-		log.Fatalf("Failed to create LLM: %v", err)
-	}
+    // Load API key from environment variable
+    apiKey := os.Getenv("OPENAI_API_KEY")
+    if apiKey == "" {
+        log.Fatalf("OPENAI_API_KEY environment variable is not set")
+    }
 
-	ctx := context.Background()
+    // Create a new LLM instance with custom configuration
+    llm, err := gollm.NewLLM(
+        gollm.SetProvider("openai"),
+        gollm.SetModel("gpt-4o-mini"),
+        gollm.SetAPIKey(apiKey),
+        gollm.SetMaxTokens(200),
+        gollm.SetMaxRetries(3),
+        gollm.SetRetryDelay(time.Second*2),
+        gollm.SetLogLevel(gollm.LogLevelInfo),
+    )
+    if err != nil {
+        log.Fatalf("Failed to create LLM: %v", err)
+    }
 
-	// Create a new prompt
-	prompt := gollm.NewPrompt("Tell me a short joke about programming.")
+    ctx := context.Background()
 
-	// Generate a response
-	response, err := llmInstance.Generate(ctx, prompt)
-	if err != nil {
-		log.Fatalf("Failed to generate text: %v", err)
-	}
-	fmt.Printf("Response: %s\n", response)
+    // Create a basic prompt
+    prompt := gollm.NewPrompt("Explain the concept of 'recursion' in programming.")
+
+    // Generate a response
+    response, err := llm.Generate(ctx, prompt)
+    if err != nil {
+        log.Fatalf("Failed to generate text: %v", err)
+    }
+    fmt.Printf("Response:\n%s\n", response)
 }
 ```
-
-For more advanced usage, including research and content refinement, check out the examples directory.
 
 ## Quick Reference
 
@@ -120,13 +127,13 @@ Here's a quick reference guide for the most commonly used functions and options 
 ### LLM Creation and Configuration
 
 ```go
-llmInstance, err := gollm.NewLLM(
-    gollm.WithProvider("openai"),
-    gollm.WithModel("gpt-4"),
-    gollm.WithAPIKey("your-api-key"),
-    gollm.WithMaxTokens(100),
-    gollm.WithTemperature(0.7),
-    gollm.WithMemory(4096),
+llm, err := gollm.NewLLM(
+    gollm.SetProvider("openai"),
+    gollm.SetModel("gpt-4"),
+    gollm.SetAPIKey("your-api-key"),
+    gollm.SetMaxTokens(100),
+    gollm.SetTemperature(0.7),
+    gollm.SetMemory(4096),
 )
 ```
 
@@ -144,22 +151,22 @@ prompt := gollm.NewPrompt("Your prompt text here",
 ### Generate Response
 
 ```go
-response, err := llmInstance.Generate(ctx, prompt)
+response, err := llm.Generate(ctx, prompt)
 ```
 
 ### Chain of Thought
 
 ```go
-response, err := gollm.ChainOfThought(ctx, llmInstance, "Your question here")
+response, err := tools.ChainOfThought(ctx, llm, "Your question here")
 ```
 
 ### Prompt Optimization
 
 ```go
-optimizer := gollm.NewPromptOptimizer(llmInstance, initialPrompt, taskDescription,
-    gollm.WithCustomMetrics(/* custom metrics */),
-    gollm.WithRatingSystem("numerical"),
-    gollm.WithThreshold(0.8),
+optimizer := optimizer.NewPromptOptimizer(llm, initialPrompt, taskDescription,
+    optimizer.WithCustomMetrics(/* custom metrics */),
+    optimizer.WithRatingSystem("numerical"),
+    optimizer.WithThreshold(0.8),
 )
 optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
 ```
@@ -167,23 +174,12 @@ optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
 ### Model Comparison
 
 ```go
-results, err := gollm.CompareModels(ctx, prompt, validateFunc, config1, config2, config3)
+results, err := tools.CompareModels(ctx, promptText, validateFunc, configs...)
 ```
 
 ## Advanced Usage
 
 The `gollm` package offers a range of advanced features to enhance your AI applications:
-
-- Prompt Engineering
-- Pre-built Functions (e.g., Chain of Thought)
-- Working with Examples
-- Prompt Templates
-- Structured Output (JSON output validation)
-- Prompt Optimizer
-- Model Comparison
-- Memory Retention
-
-Here are examples of how to use these advanced features:
 
 ### Prompt Engineering
 
@@ -201,7 +197,7 @@ prompt := gollm.NewPrompt("Explain the concept of recursion in programming.",
     gollm.WithMaxLength(300),
 )
 
-response, err := llmInstance.Generate(ctx, prompt)
+response, err := llm.Generate(ctx, prompt)
 if err != nil {
     log.Fatalf("Failed to generate explanation: %v", err)
 }
@@ -215,7 +211,7 @@ Use the `ChainOfThought` function for step-by-step reasoning:
 
 ```go
 question := "What is the result of 15 * 7 + 22?"
-response, err := gollm.ChainOfThought(ctx, llmInstance, question)
+response, err := tools.ChainOfThought(ctx, llm, question)
 if err != nil {
     log.Fatalf("Failed to perform chain of thought: %v", err)
 }
@@ -227,7 +223,7 @@ fmt.Printf("Chain of Thought:\n%s\n", response)
 Load examples directly from files:
 
 ```go
-examples, err := gollm.ReadExamplesFromFile("examples.txt")
+examples, err := utils.ReadExamplesFromFile("examples.txt")
 if err != nil {
     log.Fatalf("Failed to read examples: %v", err)
 }
@@ -236,7 +232,7 @@ prompt := gollm.NewPrompt("Generate a similar example:",
     gollm.WithExamples(examples...),
 )
 
-response, err := llmInstance.Generate(ctx, prompt)
+response, err := llm.Generate(ctx, prompt)
 if err != nil {
     log.Fatalf("Failed to generate example: %v", err)
 }
@@ -275,7 +271,7 @@ if err != nil {
 }
 
 // Generate a response using the created prompt
-response, err := llmInstance.Generate(ctx, prompt)
+response, err := llm.Generate(ctx, prompt)
 if err != nil {
     log.Fatalf("Failed to generate response: %v", err)
 }
@@ -292,7 +288,7 @@ prompt := gollm.NewPrompt("Analyze the pros and cons of remote work.",
     gollm.WithOutput("Respond in JSON format with 'topic', 'pros', 'cons', and 'conclusion' fields."),
 )
 
-response, err := llmInstance.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
+response, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
 if err != nil {
     log.Fatalf("Failed to generate valid analysis: %v", err)
 }
@@ -307,28 +303,31 @@ fmt.Printf("Analysis: %+v\n", result)
 
 ### Prompt Optimizer
 
-Use the PromptOptimizer to automatically refine and improve your prompts:
+Use the `PromptOptimizer` to automatically refine and improve your prompts:
 
 ```go
-initialPrompt := "Write a short story about a robot learning to love."
+initialPrompt := gollm.NewPrompt("Write a short story about a robot learning to love.")
 taskDescription := "Generate a compelling short story that explores the theme of artificial intelligence developing emotions."
 
-optimizer := gollm.NewPromptOptimizer(llmInstance, initialPrompt, taskDescription,
-    gollm.WithCustomMetrics(
-        gollm.Metric{Name: "Creativity", Description: "How original and imaginative the story is"},
-        gollm.Metric{Name: "Emotional Impact", Description: "How well the story evokes feelings in the reader"},
+optimizerInstance := optimizer.NewPromptOptimizer(
+    llm,
+    initialPrompt,
+    taskDescription,
+    optimizer.WithCustomMetrics(
+        optimizer.Metric{Name: "Creativity", Description: "How original and imaginative the story is"},
+        optimizer.Metric{Name: "Emotional Impact", Description: "How well the story evokes feelings in the reader"},
     ),
-    gollm.WithRatingSystem("numerical"),
-    gollm.WithThreshold(0.8),
-    gollm.WithVerbose(),
+    optimizer.WithRatingSystem("numerical"),
+    optimizer.WithThreshold(0.8),
+    optimizer.WithVerbose(),
 )
 
-optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
+optimizedPrompt, err := optimizerInstance.OptimizePrompt(ctx)
 if err != nil {
     log.Fatalf("Optimization failed: %v", err)
 }
 
-fmt.Printf("Optimized Prompt: %s\n", optimizedPrompt)
+fmt.Printf("Optimized Prompt: %s\n", optimizedPrompt.Input)
 ```
 
 ### Model Comparison
@@ -337,31 +336,41 @@ Compare responses from different LLM providers or models:
 
 ```go
 configs := []*gollm.Config{
-    gollm.NewConfig(
-        gollm.WithProvider("openai"),
-        gollm.WithModel("gpt-4o-mini"),
-        gollm.WithAPIKey("your-openai-api-key"),
-    ),
-    gollm.NewConfig(
-        gollm.WithProvider("anthropic"),
-        gollm.WithModel("claude-3-5-sonnet-20240620"),
-        gollm.WithAPIKey("your-anthropic-api-key"),
-    ),
-    gollm.NewConfig(
-        gollm.WithProvider("groq"),
-        gollm.WithModel("llama-3.1-70b-versatile"),
-        gollm.WithAPIKey("your-groq-api-key"),
-    ),
+    {
+        Provider:  "openai",
+        Model:     "gpt-4o-mini",
+        APIKey:    os.Getenv("OPENAI_API_KEY"),
+        MaxTokens: 500,
+    },
+    {
+        Provider:  "anthropic",
+        Model:     "claude-3-5-sonnet-20240620",
+        APIKey:    os.Getenv("ANTHROPIC_API_KEY"),
+        MaxTokens: 500,
+    },
+    {
+        Provider:  "groq",
+        Model:     "llama-3.1-70b-versatile",
+        APIKey:    os.Getenv("GROQ_API_KEY"),
+        MaxTokens: 500,
+    },
 }
 
-prompt := "Tell me a joke about programming. Respond in JSON format with 'setup' and 'punchline' fields."
+promptText := "Tell me a joke about programming. Respond in JSON format with 'setup' and 'punchline' fields."
 
-results, err := gollm.CompareModels(context.Background(), prompt, validateJoke, configs...)
+validateJoke := func(joke map[string]interface{}) error {
+    if joke["setup"] == "" || joke["punchline"] == "" {
+        return fmt.Errorf("joke must have both a setup and a punchline")
+    }
+    return nil
+}
+
+results, err := tools.CompareModels(context.Background(), promptText, validateJoke, configs...)
 if err != nil {
     log.Fatalf("Error comparing models: %v", err)
 }
 
-fmt.Println(gollm.AnalyzeComparisonResults(results))
+fmt.Println(tools.AnalyzeComparisonResults(results))
 ```
 
 ### Memory Retention
@@ -369,11 +378,11 @@ fmt.Println(gollm.AnalyzeComparisonResults(results))
 Enable memory to maintain context across multiple interactions:
 
 ```go
-llmInstance, err := gollm.NewLLM(
-    gollm.WithProvider("openai"),
-    gollm.WithModel("gpt-3.5-turbo"),
-    gollm.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
-    gollm.WithMemory(4096), // Enable memory with a 4096 token limit
+llm, err := gollm.NewLLM(
+    gollm.SetProvider("openai"),
+    gollm.SetModel("gpt-3.5-turbo"),
+    gollm.SetAPIKey(os.Getenv("OPENAI_API_KEY")),
+    gollm.SetMemory(4096), // Enable memory with a 4096 token limit
 )
 if err != nil {
     log.Fatalf("Failed to create LLM: %v", err)
@@ -383,7 +392,7 @@ ctx := context.Background()
 
 // First interaction
 prompt1 := gollm.NewPrompt("What's the capital of France?")
-response1, err := llmInstance.Generate(ctx, prompt1)
+response1, err := llm.Generate(ctx, prompt1)
 if err != nil {
     log.Fatalf("Failed to generate response: %v", err)
 }
@@ -391,7 +400,7 @@ fmt.Printf("Response 1: %s\n", response1)
 
 // Second interaction, referencing the first
 prompt2 := gollm.NewPrompt("What's the population of that city?")
-response2, err := llmInstance.Generate(ctx, prompt2)
+response2, err := llm.Generate(ctx, prompt2)
 if err != nil {
     log.Fatalf("Failed to generate response: %v", err)
 }
@@ -401,7 +410,7 @@ fmt.Printf("Response 2: %s\n", response2)
 ## Best Practices
 
 1. **Prompt Engineering**:
-   - Use the `NewPrompt()` function with options like `WithContext()`, `WithDirectives()`, and `WithOutput()` to create well-structured prompts.
+   - Use `NewPrompt()` with options like `WithContext()`, `WithDirectives()`, and `WithOutput()` to create well-structured prompts.
    - Example:
      ```go
      prompt := gollm.NewPrompt("Your main prompt here",
@@ -430,79 +439,75 @@ fmt.Printf("Response 2: %s\n", response2)
    - Use provided functions like `ChainOfThought()` for complex reasoning tasks.
    - Example:
      ```go
-     response, err := gollm.ChainOfThought(ctx, llmInstance, "Your complex question here")
+     response, err := tools.ChainOfThought(ctx, llm, "Your complex question here")
      ```
 
 4. **Work with Examples**:
-   - Use the `ReadExamplesFromFile()` function to load examples from files for more consistent and varied outputs.
+   - Use `ReadExamplesFromFile()` to load examples from files for consistent outputs.
    - Example:
      ```go
-     examples, err := gollm.ReadExamplesFromFile("examples.txt")
+     examples, err := utils.ReadExamplesFromFile("examples.txt")
      if err != nil {
          log.Fatalf("Failed to read examples: %v", err)
      }
      ```
 
 5. **Implement Structured Output**:
-   - Use the `WithJSONSchemaValidation()` option when generating responses to ensure valid JSON outputs.
+   - Use `WithJSONSchemaValidation()` to ensure valid JSON outputs.
    - Example:
      ```go
-     response, err := llmInstance.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
+     response, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
      ```
 
 6. **Optimize Prompts**:
-   - Utilize the `PromptOptimizer` to refine and improve your prompts automatically.
+   - Utilize `PromptOptimizer` to refine prompts automatically.
    - Example:
      ```go
-     optimizer := gollm.NewPromptOptimizer(llmInstance, initialPrompt, taskDescription,
-         gollm.WithCustomMetrics(
-             gollm.Metric{Name: "Relevance", Description: "How relevant the response is to the task"},
+     optimizer := optimizer.NewPromptOptimizer(llm, initialPrompt, taskDescription,
+         optimizer.WithCustomMetrics(
+             optimizer.Metric{Name: "Relevance", Description: "How relevant the response is to the task"},
          ),
-         gollm.WithRatingSystem("numerical"),
-         gollm.WithThreshold(0.8),
+         optimizer.WithRatingSystem("numerical"),
+         optimizer.WithThreshold(0.8),
      )
-     optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
      ```
 
 7. **Compare Model Performances**:
-   - Use the `CompareModels()` function to evaluate different models or providers for specific tasks.
+   - Use `CompareModels()` to evaluate different models or providers.
    - Example:
      ```go
-     results, err := gollm.CompareModels(ctx, prompt, validateFunc, config1, config2, config3)
+     results, err := tools.CompareModels(ctx, promptText, validateFunc, configs...)
      ```
 
 8. **Implement Memory for Contextual Interactions**:
-   - Enable memory retention for maintaining context across multiple interactions.
+   - Enable memory retention for maintaining context across interactions.
    - Example:
      ```go
-     llmInstance, err := gollm.NewLLM(
-         gollm.WithProvider("openai"),
-         gollm.WithModel("gpt-3.5-turbo"),
-         gollm.WithMemory(4096), // Enable memory with a 4096 token limit
+     llm, err := gollm.NewLLM(
+         gollm.SetProvider("openai"),
+         gollm.SetModel("gpt-3.5-turbo"),
+         gollm.SetMemory(4096),
      )
      ```
 
 9. **Error Handling and Retries**:
-   - Always check for errors returned by gollm functions.
-   - Configure retry mechanisms to handle transient errors and rate limits.
+   - Always check for errors and configure retry mechanisms.
    - Example:
      ```go
-     llmInstance, err := gollm.NewLLM(
-         gollm.WithMaxRetries(3),
-         gollm.WithRetryDelay(time.Second * 2),
+     llm, err := gollm.NewLLM(
+         gollm.SetMaxRetries(3),
+         gollm.SetRetryDelay(time.Second * 2),
      )
      ```
 
 10. **Secure API Key Handling**:
-    - Use environment variables or secure configuration management to handle API keys.
+    - Use environment variables for API keys.
     - Example:
       ```go
-      llmInstance, err := gollm.NewLLM(
-          gollm.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
+      llm, err := gollm.NewLLM(
+          gollm.SetAPIKey(os.Getenv("OPENAI_API_KEY")),
       )
       ```
-
-By following these best practices, you can make the most effective use of the `gollm` package, creating more robust, efficient, and maintainable AI-powered applications.
 
 ## Examples and Tutorials
 
@@ -518,23 +523,21 @@ Check out our [examples directory](https://github.com/teilomillet/gollm/tree/mai
 
 ## Project Status
 
-`gollm` is actively maintained and under continuous development. With the recent refactoring in version 0.1.0, we've streamlined the codebase to make it simpler and more accessible for new contributors. We welcome contributions and feedback from the community.
+`gollm` is actively maintained and under continuous development. With the recent refactoring, we've streamlined the codebase to make it simpler and more accessible for new contributors. We welcome contributions and feedback from the community.
 
 ## Philosophy
 
 `gollm` is built on a philosophy of pragmatic minimalism and forward-thinking simplicity:
 
-1. **Build what's necessary**: We add features and capabilities as they become needed, avoiding speculative development.
+1. **Build what's necessary**: We add features as they become needed, avoiding speculative development.
 
-2. **Simplicity first**: Every addition should be as simple and straightforward as possible while fulfilling its purpose.
+2. **Simplicity first**: Additions should be straightforward while fulfilling their purpose.
 
-3. **Future-compatible**: While we don't build for hypothetical future needs, we carefully consider how current changes might impact future development.
+3. **Future-compatible**: We consider how current changes might impact future development.
 
-4. **Readability counts**: Code should be clear and self-explanatory. If it's not, we improve it or document it thoroughly.
+4. **Readability counts**: Code should be clear and self-explanatory.
 
-5. **Modular design**: Each component should do one thing well, allowing for easy understanding, testing, and future modification.
-
-This philosophy guides our development process and helps us maintain a lean, efficient, and adaptable codebase. We encourage all contributors to keep these principles in mind when proposing changes or new features.
+5. **Modular design**: Each component should do one thing well.
 
 ## Contributing
 
@@ -542,19 +545,14 @@ We welcome contributions that align with our philosophy! Whether you're fixing a
 
 To get started:
 
-1. Familiarize yourself with our [philosophy](#philosophy) and development approach.
-2. Check out our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute.
-3. Look through our [issues](https://github.com/teilomillet/gollm/issues) for something that interests you.
+1. Familiarize yourself with our [philosophy](#philosophy).
+2. Check out our [CONTRIBUTING.md](CONTRIBUTING.md).
+3. Look through our [issues](https://github.com/teilomillet/gollm/issues).
 4. Fork the repository, make your changes, and submit a pull request.
-
-Remember, the best contributions are those that adhere to our philosophy of pragmatic minimalism and readability. We encourage you to include examples and clear comments with your code.
-
-If you have any questions or ideas, feel free to open an issue or join our community chat. We're always excited to discuss how we can improve `gollm` while staying true to our core principles.
 
 Thank you for helping make `gollm` better!
 
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
 
