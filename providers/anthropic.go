@@ -217,13 +217,11 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 		Role    string `json:"role"`
 		Model   string `json:"model"`
 		Content []struct {
-			Type    string `json:"type"`
-			Text    string `json:"text"`
-			ToolUse *struct {
-				ID    string          `json:"id,omitempty"`
-				Name  string          `json:"name"`
-				Input json.RawMessage `json:"input"`
-			} `json:"tool_use"`
+			Type  string          `json:"type"`
+			Text  string          `json:"text,omitempty"`
+			ID    string          `json:"id,omitempty"`
+			Name  string          `json:"name,omitempty"`
+			Input json.RawMessage `json:"input,omitempty"`
 		} `json:"content"`
 		StopReason string  `json:"stop_reason"`
 		StopSeq    *string `json:"stop_sequence"`
@@ -250,25 +248,25 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 			finalResponse.WriteString(content.Text)
 			p.logger.Debug("Text content: %s", content.Text)
 		case "tool_use":
-			if content.ToolUse != nil {
-				functionCall, err := json.Marshal(map[string]interface{}{
-					"name":      content.ToolUse.Name,
-					"arguments": json.RawMessage(content.ToolUse.Input),
-				})
-				if err != nil {
-					return "", fmt.Errorf("error marshaling function call: %w", err)
-				}
-				functionCalls = append(functionCalls, string(functionCall))
-				p.logger.Debug("Function call detected: %s", string(functionCall))
+			functionCall, err := json.Marshal(map[string]interface{}{
+				"name":      content.Name,
+				"arguments": content.Input,
+			})
+			if err != nil {
+				return "", fmt.Errorf("error marshaling function call: %w", err)
 			}
+			functionCalls = append(functionCalls, string(functionCall))
+			p.logger.Debug("Function call detected: %s", string(functionCall))
 		}
 	}
 
 	// If there are function calls, append them to the response
 	if len(functionCalls) > 0 {
 		for _, call := range functionCalls {
-			finalResponse.WriteString(fmt.Sprintf("\n<function_call>%s</function_call>", call))
-			p.logger.Debug("Appending function call to response: %s", call)
+			finalResponse.WriteString("\n<function_call>")
+			finalResponse.WriteString(call)
+			finalResponse.WriteString("</function_call>")
+			p.logger.Debug("Appending function call to response")
 		}
 	}
 
