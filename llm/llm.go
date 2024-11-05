@@ -110,7 +110,7 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 		l.SetOption("system_prompt", prompt.SystemPrompt)
 	}
 	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
-		l.logger.Debug("Generating text", "provider", l.Provider.Name(), "prompt", prompt.Input, "system_prompt", prompt.SystemPrompt, "attempt", attempt+1)
+		l.logger.Debug("Generating text", "provider", l.Provider.Name(), "prompt", prompt.String(), "system_prompt", prompt.SystemPrompt, "attempt", attempt+1)
 		// Pass the entire Prompt struct to attemptGenerate
 		result, err := l.attemptGenerate(ctx, prompt)
 		if err == nil {
@@ -152,7 +152,7 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 	}
 
 	// Prepare the request with both the user prompt and the combined options
-	reqBody, err := l.Provider.PrepareRequest(prompt.Input, options)
+	reqBody, err := l.Provider.PrepareRequest(prompt.String(), options)
 	if err != nil {
 		return "", NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
 	}
@@ -220,9 +220,9 @@ func (l *LLMImpl) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema
 	var lastErr error
 
 	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
-		l.logger.Debug("Generating text with schema", "provider", l.Provider.Name(), "prompt", prompt.Input, "attempt", attempt+1)
+		l.logger.Debug("Generating text with schema", "provider", l.Provider.Name(), "prompt", prompt.String(), "attempt", attempt+1)
 
-		result, _, lastErr = l.attemptGenerateWithSchema(ctx, prompt.Input, schema)
+		result, _, lastErr = l.attemptGenerateWithSchema(ctx, prompt.String(), schema)
 		if lastErr == nil {
 			return result, nil
 		}
