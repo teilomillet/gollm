@@ -6,6 +6,8 @@
 
 `gollm` is a Go package designed to help you build your own AI golems. Just as the mystical golem of legend was brought to life with sacred words, `gollm` empowers you to breathe life into your AI creations using the power of Large Language Models (LLMs). This package simplifies and streamlines interactions with various LLM providers, offering a unified, flexible, and powerful interface for AI engineers and developers to craft their own digital servants.
 
+[![Ed Zynda's Video](https://img.youtube.com/vi/679U9tzXDw4/0.jpg)](https://www.youtube.com/watch?v=679U9tzXDw4)
+
 [Documentation](https://docs.gollm.co)
 
 ## Table of Contents
