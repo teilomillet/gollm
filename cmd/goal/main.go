@@ -12,13 +12,14 @@ import (
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/optimizer"
 	"github.com/teilomillet/gollm/tools"
+	"github.com/teilomillet/gollm/utils"
 )
 
 func main() {
 	// Existing flags
 	promptType := flag.String("type", "raw", "Prompt type (raw, qa, cot, summarize, optimize)")
 	verbose := flag.Bool("verbose", false, "Display verbose output including full prompt")
-	provider := flag.String("provider", "", "LLM provider (anthropic, openai, groq, mistral)")
+	provider := flag.String("provider", "", "LLM provider (anthropic, openai, groq, mistral, ollama)")
 	model := flag.String("model", "", "LLM model")
 	temperature := flag.Float64("temperature", -1, "LLM temperature")
 	maxTokens := flag.Int("max-tokens", 0, "LLM max tokens")
@@ -68,14 +69,17 @@ func main() {
 	case "optimize":
 		optimizer := optimizer.NewPromptOptimizer(
 			llmClient,
-			rawPrompt,
+			utils.NewDebugManager(
+				llmClient.GetLogger(),
+				utils.DebugOptions{LogPrompts: true, LogResponses: true}),
+			llmClient.NewPrompt(rawPrompt),
 			*optimizeGoal,
 			optimizer.WithIterations(*optimizeIterations),
 			optimizer.WithMemorySize(*optimizeMemory),
 		)
 		optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
 		if err == nil {
-			response = optimizedPrompt
+			response = optimizedPrompt.Input
 			fullPrompt = fmt.Sprintf("Initial Prompt: %s\nOptimization Goal: %s\nMemory Size: %d", rawPrompt, *optimizeGoal, *optimizeMemory)
 		}
 	default:
