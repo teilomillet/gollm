@@ -1,3 +1,4 @@
+// Package llm provides a unified interface for interacting with various Language Learning Model providers.
 package llm
 
 import (
@@ -11,23 +12,77 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// validate is the shared validator instance used across the package.
 var validate *validator.Validate
 
 func init() {
 	validate = validator.New()
 }
 
-// Validate checks if the given struct is valid according to its validation rules
+// Validate checks if the given struct is valid according to its validation rules.
+// It uses the go-playground/validator package to perform validation based on struct tags.
+//
+// Parameters:
+//   - s: The struct to validate. Must be a pointer to a struct.
+//
+// Returns:
+//   - error: nil if validation passes, otherwise returns validation errors
+//
+// Example:
+//
+//	type Config struct {
+//	    Model     string `validate:"required"`
+//	    MaxTokens int    `validate:"min=1,max=4096"`
+//	}
+//	
+//	config := Config{Model: "gpt-4", MaxTokens: 2048}
+//	if err := Validate(&config); err != nil {
+//	    log.Fatal(err)
+//	}
 func Validate(s interface{}) error {
 	return validate.Struct(s)
 }
 
-// RegisterCustomValidation registers a custom validation function with the validator
+// RegisterCustomValidation registers a custom validation function with the validator.
+// This allows adding domain-specific validation rules beyond the standard ones.
+//
+// Parameters:
+//   - tag: The validation tag to register (e.g., "customcheck")
+//   - fn: The validation function to register
+//
+// Returns:
+//   - error: nil if registration succeeds, otherwise returns an error
+//
+// Example:
+//
+//	func validateModel(fl validator.FieldLevel) bool {
+//	    return strings.HasPrefix(fl.Field().String(), "gpt-")
+//	}
+//	
+//	err := RegisterCustomValidation("model", validateModel)
 func RegisterCustomValidation(tag string, fn validator.Func) error {
 	return validate.RegisterValidation(tag, fn)
 }
 
-// GenerateJSONSchema generates a JSON schema for the given struct
+// GenerateJSONSchema generates a JSON schema for the given struct.
+// The schema includes type information, validation rules, and nested structures.
+//
+// Parameters:
+//   - v: The struct to generate schema for
+//
+// Returns:
+//   - []byte: The generated JSON schema
+//   - error: Any error encountered during generation
+//
+// Example:
+//
+//	type Prompt struct {
+//	    Text      string   `json:"text" validate:"required"`
+//	    MaxTokens int      `json:"max_tokens" validate:"min=1"`
+//	    Stop      []string `json:"stop,omitempty"`
+//	}
+//	
+//	schema, err := GenerateJSONSchema(&Prompt{})
 func GenerateJSONSchema(v interface{}) ([]byte, error) {
 	schema := make(map[string]interface{})
 	schema["type"] = "object"
@@ -42,6 +97,16 @@ func GenerateJSONSchema(v interface{}) ([]byte, error) {
 	return json.MarshalIndent(schema, "", "  ")
 }
 
+// getStructProperties analyzes a struct type and returns its JSON schema properties.
+// It processes struct fields, their types, and validation rules to build the schema.
+//
+// Parameters:
+//   - t: The reflect.Type of the struct to analyze
+//
+// Returns:
+//   - map[string]interface{}: Schema properties
+//   - []string: List of required fields
+//   - error: Any error encountered during analysis
 func getStructProperties(t reflect.Type) (map[string]interface{}, []string, error) {
 	properties := make(map[string]interface{})
 	var required []string
@@ -71,6 +136,15 @@ func getStructProperties(t reflect.Type) (map[string]interface{}, []string, erro
 	return properties, required, nil
 }
 
+// getFieldSchema generates a JSON schema for a single struct field.
+// It handles various Go types and their corresponding JSON schema representations.
+//
+// Parameters:
+//   - field: The reflect.StructField to generate schema for
+//
+// Returns:
+//   - map[string]interface{}: Field schema
+//   - error: Any error encountered during generation
 func getFieldSchema(field reflect.StructField) (map[string]interface{}, error) {
 	schema := make(map[string]interface{})
 
@@ -110,6 +184,12 @@ func getFieldSchema(field reflect.StructField) (map[string]interface{}, error) {
 	return schema, nil
 }
 
+// addValidationToSchema adds validation rules from struct tags to the JSON schema.
+// It converts Go validation rules to their JSON Schema equivalents.
+//
+// Parameters:
+//   - schema: The schema to add validation rules to
+//   - validateTag: The validation tag string to process
 func addValidationToSchema(schema map[string]interface{}, validateTag string) {
 	rules := strings.Split(validateTag, ",")
 	for _, rule := range rules {
@@ -197,6 +277,28 @@ func addValidationToSchema(schema map[string]interface{}, validateTag string) {
 	}
 }
 
+// ValidateAgainstSchema validates a JSON response against a JSON schema.
+// It ensures the response matches the expected structure and constraints.
+//
+// Parameters:
+//   - response: The JSON response string to validate
+//   - schema: The schema to validate against
+//
+// Returns:
+//   - error: nil if validation passes, otherwise returns validation errors
+//
+// Example:
+//
+//	schema := map[string]interface{}{
+//	    "type": "object",
+//	    "properties": map[string]interface{}{
+//	        "text": map[string]interface{}{
+//	            "type": "string",
+//	        },
+//	    },
+//	}
+//	
+//	err := ValidateAgainstSchema(`{"text": "Hello"}`, schema)
 func ValidateAgainstSchema(response string, schema interface{}) error {
 	var responseData interface{}
 	if err := json.Unmarshal([]byte(response), &responseData); err != nil {
@@ -220,6 +322,15 @@ func ValidateAgainstSchema(response string, schema interface{}) error {
 	return nil
 }
 
+// validateJSONAgainstSchema performs the actual JSON schema validation.
+// It recursively validates complex data structures against their schema.
+//
+// Parameters:
+//   - data: The data to validate
+//   - schema: The schema to validate against
+//
+// Returns:
+//   - error: nil if validation passes, otherwise returns validation errors
 func validateJSONAgainstSchema(data interface{}, schema map[string]interface{}) error {
 	schemaType, ok := schema["type"].(string)
 	if !ok {
@@ -238,6 +349,15 @@ func validateJSONAgainstSchema(data interface{}, schema map[string]interface{}) 
 	}
 }
 
+// validateObject validates an object against its schema.
+// It checks object properties and their types according to the schema.
+//
+// Parameters:
+//   - data: The object to validate
+//   - schema: The schema to validate against
+//
+// Returns:
+//   - error: nil if validation passes, otherwise returns validation errors
 func validateObject(data interface{}, schema map[string]interface{}) error {
 	dataMap, ok := data.(map[string]interface{})
 	if !ok {
@@ -270,6 +390,15 @@ func validateObject(data interface{}, schema map[string]interface{}) error {
 	return nil
 }
 
+// validateArray validates an array against its schema.
+// It checks array items and their types according to the schema.
+//
+// Parameters:
+//   - data: The array to validate
+//   - schema: The schema to validate against
+//
+// Returns:
+//   - error: nil if validation passes, otherwise returns validation errors
 func validateArray(data interface{}, schema map[string]interface{}) error {
 	dataSlice, ok := data.([]interface{})
 	if !ok {
@@ -290,6 +419,15 @@ func validateArray(data interface{}, schema map[string]interface{}) error {
 	return nil
 }
 
+// validatePrimitive validates a primitive value against its expected type.
+// It ensures the value matches the type specified in the schema.
+//
+// Parameters:
+//   - data: The value to validate
+//   - expectedType: The expected JSON Schema type
+//
+// Returns:
+//   - error: nil if validation passes, otherwise returns validation errors
 func validatePrimitive(data interface{}, expectedType string) error {
 	switch expectedType {
 	case "string":

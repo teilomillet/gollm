@@ -1,5 +1,4 @@
-// File: optimizer/improvement.go
-
+// Package optimizer provides prompt optimization capabilities for Language Learning Models.
 package optimizer
 
 import (
@@ -10,6 +9,52 @@ import (
 	"github.com/teilomillet/gollm/llm"
 )
 
+// generateImprovedPrompt creates an enhanced version of a prompt based on its assessment
+// and optimization history. It employs a dual-strategy approach, generating both
+// incremental improvements and bold redesigns.
+//
+// The improvement process:
+// 1. Analyzes previous assessment and optimization history
+// 2. Generates two alternative improvements:
+//    - Incremental: Refines existing approach
+//    - Bold: Reimagines prompt structure
+// 3. Evaluates expected impact of each version
+// 4. Selects the version with higher potential impact
+//
+// The function considers:
+// - Identified strengths and weaknesses
+// - Historical optimization attempts
+// - Task description and goals
+// - Efficiency and clarity
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout
+//   - prevEntry: Previous optimization entry containing prompt and assessment
+//
+// Returns:
+//   - Improved prompt object
+//   - Error if improvement generation fails
+//
+// Example improvement structure:
+//
+//	{
+//	    "incrementalImprovement": {
+//	        "input": "Refined prompt text...",
+//	        "directives": ["Be more specific", "Add examples"],
+//	        "examples": ["Example usage 1", "Example usage 2"],
+//	        "reasoning": "Changes address clarity issues while maintaining strengths"
+//	    },
+//	    "boldRedesign": {
+//	        "input": "Completely restructured prompt...",
+//	        "directives": ["New approach", "Different perspective"],
+//	        "examples": ["New example 1", "New example 2"],
+//	        "reasoning": "Novel approach potentially offers better results"
+//	    },
+//	    "expectedImpact": {
+//	        "incremental": 16.5,
+//	        "bold": 18.0
+//	    }
+//	}
 func (po *PromptOptimizer) generateImprovedPrompt(ctx context.Context, prevEntry OptimizationEntry) (*llm.Prompt, error) {
 	recentHistory := po.recentHistory()
 	improvePrompt := llm.NewPrompt(fmt.Sprintf(`
@@ -63,15 +108,19 @@ func (po *PromptOptimizer) generateImprovedPrompt(ctx context.Context, prevEntry
 		Double-check that your response is valid JSON before submitting.
 	`, prevEntry.Prompt, prevEntry.Assessment, recentHistory, po.taskDesc, po.optimizationGoal))
 
+	// Log the improvement request for debugging
 	po.debugManager.LogPrompt(improvePrompt.String())
 
+	// Generate improvements using LLM
 	response, err := po.llm.Generate(ctx, improvePrompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate improved prompt: %w", err)
 	}
 
+	// Log the raw response for debugging
 	po.debugManager.LogResponse(response)
 
+	// Extract and parse JSON response
 	cleanedResponse := cleanJSONResponse(response)
 
 	var improvedPrompts struct {
@@ -88,6 +137,7 @@ func (po *PromptOptimizer) generateImprovedPrompt(ctx context.Context, prevEntry
 		return nil, fmt.Errorf("failed to parse improved prompts: %w", err)
 	}
 
+	// Select the improvement with higher expected impact
 	if improvedPrompts.ExpectedImpact.Bold > improvedPrompts.ExpectedImpact.Incremental {
 		return &improvedPrompts.BoldRedesign, nil
 	}

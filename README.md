@@ -46,7 +46,7 @@
 
 ## Key Features
 
-- **Unified API for Multiple LLM Providers:** Interact seamlessly with various providers, including OpenAI, Anthropic, Groq, and Ollama. Easily switch between models like GPT-4, GPT-4o-mini, Claude, and Llama-3.1.
+- **Unified API for Multiple LLM Providers:** Interact seamlessly with various providers, including OpenAI, Anthropic, Groq, and Ollama. Easily switch between models like GPT-4, Claude, and Llama-3.1.
 - **Easy Provider and Model Switching:** Configure preferred providers and models with simple options.
 - **Flexible Configuration Options:** Customize using environment variables, code-based configuration, or configuration files.
 - **Advanced Prompt Engineering:** Craft sophisticated instructions to guide your AI's responses effectively.
@@ -124,7 +124,6 @@ func main() {
     }
     fmt.Printf("Response:\n%s\n", response)
 }
-```
 
 ## Quick Reference
 
@@ -561,4 +560,3 @@ Thank you for helping make `gollm` better!
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-

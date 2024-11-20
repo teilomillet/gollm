@@ -1,5 +1,6 @@
-// llm/llm.go
-
+// Package llm provides a unified interface for interacting with various Language Learning Model providers.
+// It abstracts away provider-specific implementations and provides a consistent API for text generation,
+// prompt management, and error handling.
 package llm
 
 import (
@@ -16,35 +17,68 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
-// LLM interface defines the methods that our internal language model should implement
+// LLM interface defines the methods that our internal language model should implement.
+// It provides a unified way to interact with different LLM providers while abstracting
+// away provider-specific details.
 type LLM interface {
+	// Generate produces text based on the given prompt and options.
+	// Returns ErrorTypeRequest for request preparation failures,
+	// ErrorTypeAPI for provider API errors, or ErrorTypeResponse for response processing issues.
 	Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (response string, err error)
+
+	// GenerateWithSchema generates text that conforms to a specific JSON schema.
+	// Returns ErrorTypeInvalidInput for schema validation failures,
+	// or other error types as per Generate.
 	GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (string, error)
+
+	// SetOption configures a provider-specific option.
+	// Returns ErrorTypeInvalidInput if the option is not supported.
 	SetOption(key string, value interface{})
+
+	// SetLogLevel adjusts the logging verbosity.
 	SetLogLevel(level utils.LogLevel)
+
+	// SetEndpoint updates the API endpoint (primarily for local models).
+	// Returns ErrorTypeProvider if the provider doesn't support endpoint configuration.
 	SetEndpoint(endpoint string)
+
+	// NewPrompt creates a new prompt instance.
 	NewPrompt(input string) *Prompt
+
+	// GetLogger returns the current logger instance.
 	GetLogger() utils.Logger
+
+	// SupportsJSONSchema checks if the provider supports JSON schema validation.
 	SupportsJSONSchema() bool
 }
 
-// LLMImpl is our implementation of the internal LLM interface
+// LLMImpl implements the LLM interface and manages interactions with specific providers.
+// It handles provider communication, error management, and logging.
 type LLMImpl struct {
-	Provider   providers.Provider
-	Options    map[string]interface{}
-	client     *http.Client
-	logger     utils.Logger
-	config     *config.Config
-	MaxRetries int
-	RetryDelay time.Duration
+	Provider   providers.Provider          // The underlying LLM provider
+	Options    map[string]interface{}      // Provider-specific options
+	client     *http.Client               // HTTP client for API requests
+	logger     utils.Logger               // Logger for debugging and monitoring
+	config     *config.Config             // Configuration settings
+	MaxRetries int                        // Maximum number of retry attempts
+	RetryDelay time.Duration             // Delay between retry attempts
 }
 
+// GenerateOption is a function type for configuring generation behavior.
 type GenerateOption func(*GenerateConfig)
 
+// GenerateConfig holds configuration options for text generation.
 type GenerateConfig struct {
-	UseJSONSchema bool
+	UseJSONSchema bool // Whether to use JSON schema validation
 }
 
+// NewLLM creates a new LLM instance with the specified configuration.
+// It initializes the appropriate provider and sets up logging and HTTP clients.
+//
+// Returns:
+//   - Configured LLM instance
+//   - ErrorTypeProvider if provider initialization fails
+//   - ErrorTypeAuthentication if API key validation fails
 func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.ProviderRegistry) (LLM, error) {
 	extraHeaders := make(map[string]string)
 	if cfg.Provider == "anthropic" && cfg.EnableCaching {
@@ -72,34 +106,50 @@ func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.Provide
 	return llmClient, nil
 }
 
+// SetOption sets a provider-specific option with the given key and value.
+// The option is logged at debug level for troubleshooting.
 func (l *LLMImpl) SetOption(key string, value interface{}) {
 	l.Options[key] = value
 	l.logger.Debug("Option set", key, value)
 }
 
+// SetEndpoint updates the API endpoint for the provider.
+// This is primarily used for local models like Ollama.
 func (l *LLMImpl) SetEndpoint(endpoint string) {
 	// This is a no-op for non-Ollama providers
 	l.logger.Debug("SetEndpoint called on non-Ollama provider", "endpoint", endpoint)
 }
 
-// SetDebugLevel updates the debug level for the internal LLM
+// SetLogLevel updates the logging verbosity level.
 func (l *LLMImpl) SetLogLevel(level utils.LogLevel) {
 	l.logger.Debug("Setting internal LLM log level", "new_level", level)
 	l.logger.SetLevel(level)
 }
 
+// GetLogger returns the current logger instance.
 func (l *LLMImpl) GetLogger() utils.Logger {
 	return l.logger
 }
 
+// NewPrompt creates a new prompt instance with the given input text.
 func (l *LLMImpl) NewPrompt(prompt string) *Prompt {
 	return &Prompt{Input: prompt}
 }
 
+// SupportsJSONSchema checks if the current provider supports JSON schema validation.
 func (l *LLMImpl) SupportsJSONSchema() bool {
 	return l.Provider.SupportsJSONSchema()
 }
 
+// Generate produces text based on the given prompt and options.
+// It handles retries, logging, and error management.
+//
+// Returns:
+//   - Generated text response
+//   - ErrorTypeRequest for request preparation failures
+//   - ErrorTypeAPI for provider API errors
+//   - ErrorTypeResponse for response processing issues
+//   - ErrorTypeRateLimit if provider rate limit is exceeded
 func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error) {
 	config := &GenerateConfig{}
 	for _, opt := range opts {
@@ -127,6 +177,8 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 	return "", fmt.Errorf("failed to generate after %d attempts", l.MaxRetries+1)
 }
 
+// wait implements a cancellable delay between retry attempts.
+// Returns context.Canceled if the context is cancelled during the wait.
 func (l *LLMImpl) wait(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
@@ -136,6 +188,15 @@ func (l *LLMImpl) wait(ctx context.Context) error {
 	}
 }
 
+// attemptGenerate makes a single attempt to generate text using the provider.
+// It handles request preparation, API communication, and response processing.
+//
+// Returns:
+//   - Generated text response
+//   - ErrorTypeRequest for request preparation failures
+//   - ErrorTypeAPI for provider API errors
+//   - ErrorTypeResponse for response processing issues
+//   - ErrorTypeRateLimit if provider rate limit is exceeded
 func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, error) {
 	// Create a new options map that includes both l.Options and prompt-specific options
 	options := make(map[string]interface{})
@@ -210,6 +271,13 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 	return result, nil
 }
 
+// GenerateWithSchema generates text that conforms to a specific JSON schema.
+// It handles retries, logging, and error management.
+//
+// Returns:
+//   - Generated text response
+//   - ErrorTypeInvalidInput for schema validation failures
+//   - Other error types as per Generate
 func (l *LLMImpl) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (string, error) {
 	config := &GenerateConfig{}
 	for _, opt := range opts {
@@ -243,6 +311,14 @@ func (l *LLMImpl) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema
 	return "", fmt.Errorf("failed to generate with schema after %d attempts: %w", l.MaxRetries+1, lastErr)
 }
 
+// attemptGenerateWithSchema makes a single attempt to generate text using the provider and a JSON schema.
+// It handles request preparation, API communication, and response processing.
+//
+// Returns:
+//   - Generated text response
+//   - Full prompt used for generation
+//   - ErrorTypeInvalidInput for schema validation failures
+//   - Other error types as per attemptGenerate
 func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, schema interface{}) (string, string, error) {
 	var reqBody []byte
 	var err error
@@ -301,6 +377,8 @@ func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, 
 	return result, fullPrompt, nil
 }
 
+// preparePromptWithSchema prepares a prompt with a JSON schema for providers that do not support JSON schema validation.
+// Returns the original prompt if schema marshaling fails (with a warning log).
 func (l *LLMImpl) preparePromptWithSchema(prompt string, schema interface{}) string {
 	schemaJSON, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {

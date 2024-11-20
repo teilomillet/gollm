@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -82,30 +83,50 @@ func main() {
 
 	// Example 4: JSON Schema Generation and Validation
 	fmt.Println("\nExample 4: JSON Schema Generation and Validation")
+	fmt.Println("This example demonstrates how gollm validates prompts using JSON Schema.")
+	fmt.Println("A valid prompt must have input text and can optionally have other properties.")
+	
+	// First, let's look at the JSON Schema that defines a valid prompt
 	schemaBytes, err := llm.GetPromptJSONSchema()
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema: %v", err)
 	}
-	fmt.Printf("JSON Schema for Advanced Prompt:\n%s\n", string(schemaBytes))
+	fmt.Println("\nPrompt JSON Schema (defines what makes a valid prompt):")
+	fmt.Printf("%s\n", string(schemaBytes))
 
-	// Create a valid prompt with a non-empty input
+	// Now let's test a valid prompt
+	fmt.Println("\n1. Testing a Valid Prompt:")
+	fmt.Println("Creating a prompt with input text: 'Provide an overview of Go language'")
 	validPrompt := gollm.NewPrompt("Provide an overview of Go language.")
-	fmt.Printf("Valid prompt created: %+v\n", validPrompt)
+	
+	// Print the prompt contents so we can see what we're validating
+	validPromptJSON, _ := json.MarshalIndent(validPrompt, "", "  ")
+	fmt.Printf("\nPrompt contents:\n%s\n", string(validPromptJSON))
 
 	// Validate the prompt
 	err = validPrompt.Validate()
 	if err != nil {
-		fmt.Printf("Validation error: %v\n", err)
+		fmt.Printf("\n❌ Unexpected validation error: %v\n", err)
 	} else {
-		fmt.Println("Prompt validation succeeded.")
+		fmt.Println("\n✓ Validation passed: Prompt is valid because it has the required input text")
 	}
 
-	// Create an invalid prompt to test validation
-	invalidPrompt := gollm.NewPrompt("") // Invalid because Input is required
-	fmt.Printf("Invalid prompt created: %+v\n", invalidPrompt)
+	// Now let's test an invalid prompt
+	fmt.Println("\n2. Testing an Invalid Prompt:")
+	fmt.Println("Creating a prompt with NO input text (empty string)")
+	invalidPrompt := gollm.NewPrompt("")
+	
+	// Print the prompt contents so we can see what we're validating
+	invalidPromptJSON, _ := json.MarshalIndent(invalidPrompt, "", "  ")
+	fmt.Printf("\nPrompt contents:\n%s\n", string(invalidPromptJSON))
+
+	// Validate the prompt
 	err = invalidPrompt.Validate()
 	if err != nil {
-		fmt.Printf("Validation error (expected): %v\n", err)
+		fmt.Printf("\n✓ Validation failed as expected: %v\n", err)
+		fmt.Println("   This is correct because a prompt must have input text")
+	} else {
+		fmt.Println("\n❌ Error: Invalid prompt unexpectedly passed validation!")
 	}
 
 	// Example 5: Using Chain of Thought

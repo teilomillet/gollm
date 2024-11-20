@@ -1,3 +1,4 @@
+// Package providers implements LLM provider interfaces and implementations.
 package providers
 
 import (
@@ -10,19 +11,27 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
-// AnthropicProvider implements the Provider interface for Anthropic
+// AnthropicProvider implements the Provider interface for Anthropic's Claude API.
+// It supports Claude models and provides access to Anthropic's language model capabilities,
+// including structured output and system prompts.
 type AnthropicProvider struct {
-	apiKey       string
-	model        string
-	extraHeaders map[string]string
-	options      map[string]interface{}
-	logger       utils.Logger
+	apiKey       string           // API key for authentication
+	model        string           // Model identifier (e.g., "claude-3-opus", "claude-3-sonnet")
+	extraHeaders map[string]string // Additional HTTP headers
+	options      map[string]interface{} // Model-specific options
+	logger       utils.Logger     // Logger instance
 }
 
-func (p *AnthropicProvider) SetLogger(logger utils.Logger) {
-	p.logger = logger
-}
-
+// NewAnthropicProvider creates a new Anthropic provider instance.
+// It initializes the provider with the given API key, model, and optional headers.
+//
+// Parameters:
+//   - apiKey: Anthropic API key for authentication
+//   - model: The model to use (e.g., "claude-3-opus", "claude-3-sonnet")
+//   - extraHeaders: Additional HTTP headers for requests
+//
+// Returns:
+//   - A configured Anthropic Provider instance
 func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	provider := &AnthropicProvider{
 		apiKey:       apiKey,
@@ -45,18 +54,25 @@ func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) 
 	return provider
 }
 
-func (p *AnthropicProvider) Name() string {
-	return "anthropic"
+// SetLogger configures the logger for the Anthropic provider.
+// This is used for debugging and monitoring API interactions.
+func (p *AnthropicProvider) SetLogger(logger utils.Logger) {
+	p.logger = logger
 }
 
-func (p *AnthropicProvider) Endpoint() string {
-	return "https://api.anthropic.com/v1/messages"
-}
-
+// SetOption sets a specific option for the Anthropic provider.
+// Supported options include:
+//   - temperature: Controls randomness (0.0 to 1.0)
+//   - max_tokens: Maximum tokens in the response
+//   - top_p: Nucleus sampling parameter
+//   - top_k: Top-k sampling parameter
+//   - stop_sequences: Custom stop sequences
 func (p *AnthropicProvider) SetOption(key string, value interface{}) {
 	p.options[key] = value
 }
 
+// SetDefaultOptions configures standard options from the global configuration.
+// This includes temperature, max tokens, and sampling parameters.
 func (p *AnthropicProvider) SetDefaultOptions(config *config.Config) {
 	p.SetOption("temperature", config.Temperature)
 	p.SetOption("max_tokens", config.MaxTokens)
@@ -65,10 +81,29 @@ func (p *AnthropicProvider) SetDefaultOptions(config *config.Config) {
 	}
 }
 
-func (p *AnthropicProvider) SupportsJSONSchema() bool {
-	return false
+// Name returns "anthropic" as the provider identifier.
+func (p *AnthropicProvider) Name() string {
+	return "anthropic"
 }
 
+// Endpoint returns the Anthropic API endpoint URL.
+// For API version 2024-02-15, this is "https://api.anthropic.com/v1/messages".
+func (p *AnthropicProvider) Endpoint() string {
+	return "https://api.anthropic.com/v1/messages"
+}
+
+// SupportsJSONSchema indicates that Anthropic supports structured output
+// through its system prompts and response formatting capabilities.
+func (p *AnthropicProvider) SupportsJSONSchema() bool {
+	return true
+}
+
+// Headers returns the required HTTP headers for Anthropic API requests.
+// This includes:
+//   - x-api-key: API key for authentication
+//   - anthropic-version: API version identifier
+//   - Content-Type: application/json
+//   - Any additional headers specified via SetExtraHeaders
 func (p *AnthropicProvider) Headers() map[string]string {
 	headers := map[string]string{
 		"Content-Type":      "application/json",
@@ -79,6 +114,20 @@ func (p *AnthropicProvider) Headers() map[string]string {
 	return headers
 }
 
+// PrepareRequest creates the request body for an Anthropic API call.
+// It handles:
+//   - Message formatting
+//   - System prompts
+//   - Response formatting
+//   - Model-specific options
+//
+// Parameters:
+//   - prompt: The input text or conversation
+//   - options: Additional parameters for the request
+//
+// Returns:
+//   - Serialized JSON request body
+//   - Any error encountered during preparation
 func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
 	requestBody := map[string]interface{}{
 		"model":      p.model,
@@ -183,6 +232,17 @@ func splitSystemPrompt(prompt string, n int) []string {
 	return result
 }
 
+// PrepareRequestWithSchema creates a request that includes structured output formatting.
+// This uses Anthropic's system prompts to enforce response structure.
+//
+// Parameters:
+//   - prompt: The input text or conversation
+//   - options: Additional request parameters
+//   - schema: JSON schema for response validation
+//
+// Returns:
+//   - Serialized JSON request body
+//   - Any error encountered during preparation
 func (p *AnthropicProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
 	requestBody := map[string]interface{}{
 		"model": p.model,
@@ -208,6 +268,15 @@ func (p *AnthropicProvider) PrepareRequestWithSchema(prompt string, options map[
 	return json.Marshal(requestBody)
 }
 
+// ParseResponse extracts the generated text from the Anthropic API response.
+// It handles various response formats and error cases.
+//
+// Parameters:
+//   - body: Raw API response body
+//
+// Returns:
+//   - Generated text content
+//   - Any error encountered during parsing
 func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 	p.logger.Debug("Raw API response: %s", string(body))
 
@@ -274,6 +343,8 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 	return finalResponse.String(), nil
 }
 
+// HandleFunctionCalls processes structured output in the response.
+// This supports Anthropic's response formatting capabilities.
 func (p *AnthropicProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	p.logger.Debug("Handling function calls from response")
 	var response string
@@ -310,6 +381,8 @@ func (p *AnthropicProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	return json.Marshal(functionCalls)
 }
 
-func (p *AnthropicProvider) SetExtraHeaders(headers map[string]string) {
-	p.extraHeaders = headers
+// SetExtraHeaders configures additional HTTP headers for API requests.
+// This allows for custom headers needed for specific features or requirements.
+func (p *AnthropicProvider) SetExtraHeaders(extraHeaders map[string]string) {
+	p.extraHeaders = extraHeaders
 }

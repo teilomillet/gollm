@@ -1,5 +1,4 @@
-// File: optimizer/prompt_optimizer.go
-
+// Package optimizer provides prompt optimization capabilities for Language Learning Models.
 package optimizer
 
 import (
@@ -13,6 +12,7 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+// init registers custom validation functions for the optimizer package.
 func init() {
 	err := llm.RegisterCustomValidation("validGrade", validGrade)
 	if err != nil {
@@ -20,72 +20,98 @@ func init() {
 	}
 }
 
+// OptimizationRating defines the interface for different rating systems used in prompt optimization.
+// Implementations can provide different ways to evaluate if an optimization goal has been met.
 type OptimizationRating interface {
+	// IsGoalMet determines if the optimization goal has been achieved
 	IsGoalMet() bool
+	// String returns a string representation of the rating
 	String() string
 }
 
+// NumericalRating implements OptimizationRating using a numerical score system.
+// It evaluates prompts on a scale from 0 to Max.
 type NumericalRating struct {
-	Score float64
-	Max   float64
+	Score float64 // Current score
+	Max   float64 // Maximum possible score
 }
 
+// IsGoalMet checks if the numerical score meets the optimization goal.
+// Returns true if the score is 90% or higher of the maximum possible score.
 func (nr NumericalRating) IsGoalMet() bool {
 	return nr.Score >= nr.Max*0.9 // Consider goal met if score is 90% or higher
 }
 
+// String formats the numerical rating as a string in the form "score/max".
 func (nr NumericalRating) String() string {
 	return fmt.Sprintf("%.1f/%.1f", nr.Score, nr.Max)
 }
 
+// LetterRating implements OptimizationRating using a letter grade system.
+// It evaluates prompts using traditional academic grades (A+, A, B, etc.).
 type LetterRating struct {
-	Grade string
+	Grade string // Letter grade (A+, A, B, etc.)
 }
 
+// IsGoalMet checks if the letter grade meets the optimization goal.
+// Returns true for grades A, A+, or S.
 func (lr LetterRating) IsGoalMet() bool {
 	return lr.Grade == "A" || lr.Grade == "A+" || lr.Grade == "S"
 }
 
+// String returns the letter grade as a string.
 func (lr LetterRating) String() string {
 	return lr.Grade
 }
 
+// Configuration methods for PromptOptimizer
+
+// WithCustomMetrics sets custom evaluation metrics for the optimizer.
 func (po *PromptOptimizer) WithCustomMetrics(metrics ...Metric) {
 	po.customMetrics = metrics
 }
 
+// WithOptimizationGoal sets the target goal for optimization.
 func (po *PromptOptimizer) WithOptimizationGoal(goal string) {
 	po.optimizationGoal = goal
 }
 
+// WithRatingSystem sets the rating system to use (numerical or letter grades).
 func (po *PromptOptimizer) WithRatingSystem(system string) {
 	po.ratingSystem = system
 }
 
+// WithThreshold sets the minimum acceptable score threshold.
 func (po *PromptOptimizer) WithThreshold(threshold float64) {
 	po.threshold = threshold
 }
 
+// WithIterationCallback sets a callback function to be called after each iteration.
 func (po *PromptOptimizer) WithIterationCallback(callback IterationCallback) {
 	po.iterationCallback = callback
 }
 
+// WithIterations sets the maximum number of optimization iterations.
 func (po *PromptOptimizer) WithIterations(iterations int) {
 	po.iterations = iterations
 }
 
+// WithMaxRetries sets the maximum number of retry attempts per iteration.
 func (po *PromptOptimizer) WithMaxRetries(maxRetries int) {
 	po.maxRetries = maxRetries
 }
 
+// WithRetryDelay sets the delay duration between retry attempts.
 func (po *PromptOptimizer) WithRetryDelay(delay time.Duration) {
 	po.retryDelay = delay
 }
 
+// WithMemorySize sets the number of recent optimization entries to keep in memory.
 func (po *PromptOptimizer) WithMemorySize(size int) {
 	po.memorySize = size
 }
 
+// recentHistory returns the most recent optimization entries based on memory size.
 func (po *PromptOptimizer) recentHistory() []OptimizationEntry {
 	if len(po.history) <= po.memorySize {
 		return po.history
@@ -93,6 +119,7 @@ func (po *PromptOptimizer) recentHistory() []OptimizationEntry {
 	return po.history[len(po.history)-po.memorySize:]
 }
 
+// validGrade validates if a given grade string is a valid letter grade.
 func validGrade(fl validator.FieldLevel) bool {
 	grade := fl.Field().String()
 	validGrades := map[string]bool{
@@ -105,6 +132,17 @@ func validGrade(fl validator.FieldLevel) bool {
 	return validGrades[grade]
 }
 
+// NewPromptOptimizer creates a new instance of PromptOptimizer with the given configuration.
+//
+// Parameters:
+//   - llm: Language Learning Model interface for generating and evaluating prompts
+//   - debugManager: Debug manager for logging and debugging
+//   - initialPrompt: Starting prompt to optimize
+//   - taskDesc: Description of the optimization task
+//   - opts: Optional configuration options
+//
+// Returns:
+//   - Configured PromptOptimizer instance
 func NewPromptOptimizer(llm llm.LLM, debugManager *utils.DebugManager, initialPrompt *llm.Prompt, taskDesc string, opts ...OptimizerOption) *PromptOptimizer {
 	optimizer := &PromptOptimizer{
 		llm:           llm,
@@ -126,6 +164,21 @@ func NewPromptOptimizer(llm llm.LLM, debugManager *utils.DebugManager, initialPr
 	return optimizer
 }
 
+// OptimizePrompt performs iterative optimization of the initial prompt to meet the specified goal.
+//
+// The optimization process:
+// 1. Assesses the current prompt
+// 2. Records assessment in history
+// 3. Checks if optimization goal is met
+// 4. Generates improved prompt if goal not met
+// 5. Repeats until goal is met or max iterations reached
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout
+//
+// Returns:
+//   - Optimized prompt
+//   - Error if optimization fails
 func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, error) {
 	currentPrompt := po.initialPrompt
 	var bestPrompt *llm.Prompt
@@ -135,6 +188,7 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 		var entry OptimizationEntry
 		var err error
 
+		// Retry loop for assessment
 		for attempt := 0; attempt < po.maxRetries; attempt++ {
 			entry, err = po.assessPrompt(ctx, currentPrompt)
 			if err == nil {
@@ -154,16 +208,18 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 
 		po.history = append(po.history, entry)
 
-		// Call the iteration callback if set
+		// Execute iteration callback if set
 		if po.iterationCallback != nil {
 			po.iterationCallback(i+1, entry)
 		}
 
+		// Update best prompt if current score is higher
 		if entry.Assessment.OverallScore > bestScore {
 			bestScore = entry.Assessment.OverallScore
 			bestPrompt = currentPrompt
 		}
 
+		// Check if optimization goal is met
 		goalMet, err := po.isOptimizationGoalMet(entry.Assessment)
 		if err != nil {
 			po.debugManager.LogResponse(fmt.Sprintf("Error checking optimization goal: %v", err))
@@ -172,6 +228,7 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 			return currentPrompt, nil
 		}
 
+		// Generate improved prompt
 		improvedPrompt, err := po.generateImprovedPrompt(ctx, entry)
 		if err != nil {
 			po.debugManager.LogResponse(fmt.Sprintf("Failed to generate improved prompt at iteration %d: %v", i+1, err))
@@ -185,6 +242,7 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 	return bestPrompt, nil
 }
 
+// GetOptimizationHistory returns the complete history of optimization attempts.
 func (po *PromptOptimizer) GetOptimizationHistory() []OptimizationEntry {
 	return po.history
 }

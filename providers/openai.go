@@ -1,20 +1,35 @@
+// Package providers implements LLM provider interfaces and implementations.
 package providers
 
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/utils"
 )
 
+// OpenAIProvider implements the Provider interface for OpenAI's API.
+// It supports GPT models and provides access to OpenAI's language model capabilities,
+// including function calling, JSON mode, and structured output validation.
 type OpenAIProvider struct {
-	apiKey       string
-	model        string
-	extraHeaders map[string]string
-	options      map[string]interface{}
-	logger       utils.Logger
+	apiKey       string                 // API key for authentication
+	model        string                 // Model identifier (e.g., "gpt-4", "gpt-4o-mini")
+	extraHeaders map[string]string      // Additional HTTP headers
+	options      map[string]interface{} // Model-specific options
+	logger       utils.Logger           // Logger instance
 }
 
+// NewOpenAIProvider creates a new OpenAI provider instance.
+// It initializes the provider with the given API key, model, and optional headers.
+//
+// Parameters:
+//   - apiKey: OpenAI API key for authentication
+//   - model: The model to use (e.g., "gpt-4", "gpt-3.5-turbo")
+//   - extraHeaders: Additional HTTP headers for requests
+//
+// Returns:
+//   - A configured OpenAI Provider instance
 func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
@@ -28,17 +43,27 @@ func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) Pro
 	}
 }
 
+// SetLogger configures the logger for the OpenAI provider.
+// This is used for debugging and monitoring API interactions.
 func (p *OpenAIProvider) SetLogger(logger utils.Logger) {
 	p.logger = logger
 }
 
-// SetOption sets a specific option for the provider
+// SetOption sets a specific option for the OpenAI provider.
+// Supported options include:
+//   - temperature: Controls randomness (0.0 to 2.0)
+//   - max_tokens: Maximum tokens in the response
+//   - top_p: Nucleus sampling parameter
+//   - frequency_penalty: Repetition reduction
+//   - presence_penalty: Topic steering
+//   - seed: Deterministic sampling seed
 func (p *OpenAIProvider) SetOption(key string, value interface{}) {
 	p.options[key] = value
 	p.logger.Debug("Option set", "key", key, "value", value)
 }
 
-// SetDefaultOptions sets default options based on the provided configuration
+// SetDefaultOptions configures standard options from the global configuration.
+// This includes temperature, max tokens, and sampling parameters.
 func (p *OpenAIProvider) SetDefaultOptions(config *config.Config) {
 	p.SetOption("temperature", config.Temperature)
 	p.SetOption("max_tokens", config.MaxTokens)
@@ -48,22 +73,28 @@ func (p *OpenAIProvider) SetDefaultOptions(config *config.Config) {
 	p.logger.Debug("Default options set", "temperature", config.Temperature, "max_tokens", config.MaxTokens, "seed", config.Seed)
 }
 
-// Name returns the provider's name
+// Name returns "openai" as the provider identifier.
 func (p *OpenAIProvider) Name() string {
 	return "openai"
 }
 
-// Endpoint returns the API endpoint for OpenAI
+// Endpoint returns the OpenAI API endpoint URL.
+// For API version 1, this is "https://api.openai.com/v1/chat/completions".
 func (p *OpenAIProvider) Endpoint() string {
 	return "https://api.openai.com/v1/chat/completions"
 }
 
-// SupportsJSONSchema indicates whether this provider supports JSON schema
+// SupportsJSONSchema indicates that OpenAI supports native JSON schema validation
+// through its function calling and JSON mode capabilities.
 func (p *OpenAIProvider) SupportsJSONSchema() bool {
 	return true
 }
 
-// Headers returns the necessary headers for API requests
+// Headers returns the required HTTP headers for OpenAI API requests.
+// This includes:
+//   - Authorization: Bearer token using the API key
+//   - Content-Type: application/json
+//   - Any additional headers specified via SetExtraHeaders
 func (p *OpenAIProvider) Headers() map[string]string {
 	headers := map[string]string{
 		"Content-Type":  "application/json",
@@ -78,7 +109,20 @@ func (p *OpenAIProvider) Headers() map[string]string {
 	return headers
 }
 
-// PrepareRequest prepares the request body for the API call
+// PrepareRequest creates the request body for an OpenAI API call.
+// It handles:
+//   - Message formatting
+//   - System messages
+//   - Function/tool definitions
+//   - Model-specific options
+//
+// Parameters:
+//   - prompt: The input text or conversation
+//   - options: Additional parameters for the request
+//
+// Returns:
+//   - Serialized JSON request body
+//   - Any error encountered during preparation
 func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
 	request := map[string]interface{}{
 		"model": p.model,
@@ -127,7 +171,8 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 	return json.Marshal(request)
 }
 
-// createBaseRequest creates the base request structure
+// createBaseRequest initializes the basic request structure.
+// This includes the model selection and basic message format.
 func (p *OpenAIProvider) createBaseRequest(prompt string) map[string]interface{} {
 	var request map[string]interface{}
 	if err := json.Unmarshal([]byte(prompt), &request); err != nil {
@@ -145,7 +190,8 @@ func (p *OpenAIProvider) createBaseRequest(prompt string) map[string]interface{}
 	return request
 }
 
-// processMessages processes the messages in the request
+// processMessages handles message formatting and structure.
+// It processes system messages, user inputs, and assistant responses.
 func (p *OpenAIProvider) processMessages(request map[string]interface{}) {
 	p.logger.Debug("Processing messages")
 	if messages, ok := request["messages"]; ok {
@@ -177,7 +223,8 @@ func (p *OpenAIProvider) processMessages(request map[string]interface{}) {
 	p.logger.Debug("Messages processed", "messageCount", len(request["messages"].([]interface{})))
 }
 
-// processFunctionMessage handles function messages
+// processFunctionMessage handles function call responses.
+// This is used when the model has executed a function and needs to process the result.
 func (p *OpenAIProvider) processFunctionMessage(msgMap map[string]interface{}) {
 	if msgMap["role"] == "function" && msgMap["name"] == nil {
 		if content, ok := msgMap["content"].(string); ok {
@@ -192,7 +239,8 @@ func (p *OpenAIProvider) processFunctionMessage(msgMap map[string]interface{}) {
 	}
 }
 
-// processToolCalls handles tool calls in messages
+// processToolCalls handles tool/function definitions and responses.
+// This supports OpenAI's function calling capability.
 func (p *OpenAIProvider) processToolCalls(msgMap map[string]interface{}) {
 	if toolCalls, ok := msgMap["tool_calls"].([]interface{}); ok {
 		for j, call := range toolCalls {
@@ -214,7 +262,8 @@ func (p *OpenAIProvider) processToolCalls(msgMap map[string]interface{}) {
 	}
 }
 
-// addOptions adds options to the request
+// addOptions incorporates additional options into the request.
+// This includes model parameters and any provider-specific settings.
 func (p *OpenAIProvider) addOptions(request map[string]interface{}, options map[string]interface{}) {
 	for k, v := range p.options {
 		request[k] = v
@@ -225,7 +274,17 @@ func (p *OpenAIProvider) addOptions(request map[string]interface{}, options map[
 	p.logger.Debug("Options added to request", "options", options)
 }
 
-// PrepareRequestWithSchema prepares a request with a JSON schema
+// PrepareRequestWithSchema creates a request that includes JSON schema validation.
+// This uses OpenAI's function calling feature to enforce response structure.
+//
+// Parameters:
+//   - prompt: The input text or conversation
+//   - options: Additional request parameters
+//   - schema: JSON schema for response validation
+//
+// Returns:
+//   - Serialized JSON request body
+//   - Any error encountered during preparation
 func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
 	p.logger.Debug("Preparing request with schema", "prompt", prompt, "schema", schema)
 	request := map[string]interface{}{
@@ -253,7 +312,15 @@ func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[str
 	return reqJSON, nil
 }
 
-// ParseResponse parses the API response
+// ParseResponse extracts the generated text from the OpenAI API response.
+// It handles various response formats and error cases.
+//
+// Parameters:
+//   - body: Raw API response body
+//
+// Returns:
+//   - Generated text content
+//   - Any error encountered during parsing
 func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 	var response struct {
 		Choices []struct {
@@ -295,6 +362,8 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 	return "", fmt.Errorf("no content or tool calls in response")
 }
 
+// HandleFunctionCalls processes function calling in the response.
+// This supports OpenAI's function calling and JSON mode features.
 func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	var response struct {
 		Choices []struct {
@@ -333,7 +402,8 @@ func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	return json.Marshal(result)
 }
 
-// mustMarshal is a helper function to marshal JSON and panic on error
+// mustMarshal is a helper that panics on JSON marshaling errors.
+// This is used internally where marshaling errors indicate a programming error.
 func mustMarshal(v interface{}) []byte {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -342,7 +412,8 @@ func mustMarshal(v interface{}) []byte {
 	return b
 }
 
-// SetExtraHeaders sets additional headers for the API request
+// SetExtraHeaders configures additional HTTP headers for API requests.
+// This allows for custom headers needed for specific features or requirements.
 func (p *OpenAIProvider) SetExtraHeaders(extraHeaders map[string]string) {
 	p.extraHeaders = extraHeaders
 	p.logger.Debug("Extra headers set", "headers", extraHeaders)

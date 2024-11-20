@@ -1,20 +1,35 @@
+// Package providers implements LLM provider interfaces and implementations.
 package providers
 
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/utils"
 )
 
+// GroqProvider implements the Provider interface for Groq's API.
+// It supports Groq's optimized language models and provides access to their
+// high-performance inference capabilities.
 type GroqProvider struct {
-	apiKey       string
-	model        string
-	extraHeaders map[string]string
-	options      map[string]interface{}
-	logger       utils.Logger
+	apiKey       string                 // API key for authentication
+	model        string                 // Model identifier (e.g., "llama2-70b", "mixtral-8x7b")
+	extraHeaders map[string]string      // Additional HTTP headers
+	options      map[string]interface{} // Model-specific options
+	logger       utils.Logger           // Logger instance
 }
 
+// NewGroqProvider creates a new Groq provider instance.
+// It initializes the provider with the given API key, model, and optional headers.
+//
+// Parameters:
+//   - apiKey: Groq API key for authentication
+//   - model: The model to use (e.g., "llama2-70b", "mixtral-8x7b")
+//   - extraHeaders: Additional HTTP headers for requests
+//
+// Returns:
+//   - A configured Groq Provider instance
 func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
@@ -28,22 +43,35 @@ func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provi
 	}
 }
 
+// SetLogger configures the logger for the Groq provider.
+// This is used for debugging and monitoring API interactions.
 func (p *GroqProvider) SetLogger(logger utils.Logger) {
 	p.logger = logger
 }
 
+// Name returns the identifier for this provider ("groq").
 func (p *GroqProvider) Name() string {
 	return "groq"
 }
 
+// Endpoint returns the Groq API endpoint URL.
+// This is "https://api.groq.com/openai/v1/chat/completions".
 func (p *GroqProvider) Endpoint() string {
 	return "https://api.groq.com/openai/v1/chat/completions"
 }
 
+// SetOption sets a model-specific option for the Groq provider.
+// Supported options include:
+//   - temperature: Controls randomness (0.0 to 1.0)
+//   - max_tokens: Maximum tokens in the response
+//   - top_p: Nucleus sampling parameter
+//   - top_k: Top-k sampling parameter
 func (p *GroqProvider) SetOption(key string, value interface{}) {
 	p.options[key] = value
 }
 
+// SetDefaultOptions configures standard options from the global configuration.
+// This includes temperature, max tokens, and sampling parameters.
 func (p *GroqProvider) SetDefaultOptions(config *config.Config) {
 	p.SetOption("temperature", config.Temperature)
 	p.SetOption("max_tokens", config.MaxTokens)
@@ -52,10 +80,14 @@ func (p *GroqProvider) SetDefaultOptions(config *config.Config) {
 	}
 }
 
+// SupportsJSONSchema indicates whether this provider supports JSON schema validation.
+// Currently, Groq does not natively support JSON schema validation.
 func (p *GroqProvider) SupportsJSONSchema() bool {
 	return false
 }
 
+// Headers returns the HTTP headers required for Groq API requests.
+// This includes the authorization token and content type headers.
 func (p *GroqProvider) Headers() map[string]string {
 	headers := map[string]string{
 		"Content-Type":  "application/json",
@@ -69,6 +101,16 @@ func (p *GroqProvider) Headers() map[string]string {
 	return headers
 }
 
+// PrepareRequest creates the request body for a Groq API call.
+// It formats the prompt and options according to Groq's API requirements.
+//
+// Parameters:
+//   - prompt: The input text or conversation
+//   - options: Additional parameters for the request
+//
+// Returns:
+//   - Serialized JSON request body
+//   - Any error encountered during preparation
 func (p *GroqProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
 	requestBody := map[string]interface{}{
 		"model": p.model,
@@ -90,6 +132,9 @@ func (p *GroqProvider) PrepareRequest(prompt string, options map[string]interfac
 	return json.Marshal(requestBody)
 }
 
+// PrepareRequestWithSchema creates a request with JSON schema validation.
+// Since Groq doesn't support schema validation natively, this falls back to
+// standard request preparation.
 func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
 	requestBody := map[string]interface{}{
 		"model": p.model,
@@ -115,6 +160,15 @@ func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[strin
 	return json.Marshal(requestBody)
 }
 
+// ParseResponse extracts the generated text from the Groq API response.
+// It handles Groq's response format and extracts the content.
+//
+// Parameters:
+//   - body: Raw API response body
+//
+// Returns:
+//   - Generated text content
+//   - Any error encountered during parsing
 func (p *GroqProvider) ParseResponse(body []byte) (string, error) {
 	var response struct {
 		Choices []struct {
@@ -136,6 +190,8 @@ func (p *GroqProvider) ParseResponse(body []byte) (string, error) {
 	return response.Choices[0].Message.Content, nil
 }
 
+// HandleFunctionCalls processes function calling capabilities.
+// Since Groq doesn't support function calling natively, this returns nil.
 func (p *GroqProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	var response struct {
 		Choices []struct {
@@ -159,6 +215,8 @@ func (p *GroqProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	return json.Marshal(response.Choices[0].Message.FunctionCall)
 }
 
+// SetExtraHeaders configures additional HTTP headers for API requests.
+// This allows for custom headers needed for specific features or requirements.
 func (p *GroqProvider) SetExtraHeaders(extraHeaders map[string]string) {
 	p.extraHeaders = extraHeaders
 }

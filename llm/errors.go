@@ -6,27 +6,47 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
-// ErrorType represents the type of an error
+// ErrorType represents the category of an LLM error.
+// It helps classify errors for appropriate handling and logging.
 type ErrorType int
 
 const (
+	// ErrorTypeUnknown represents an unclassified error
 	ErrorTypeUnknown ErrorType = iota
+
+	// ErrorTypeProvider indicates an error from the LLM provider
 	ErrorTypeProvider
+
+	// ErrorTypeRequest indicates an error in preparing or sending the request
 	ErrorTypeRequest
+
+	// ErrorTypeResponse indicates an error in processing the response
 	ErrorTypeResponse
+
+	// ErrorTypeAPI indicates an error returned by the provider's API
 	ErrorTypeAPI
+
+	// ErrorTypeRateLimit indicates the provider's rate limit has been exceeded
 	ErrorTypeRateLimit
+
+	// ErrorTypeAuthentication indicates an authentication or authorization failure
 	ErrorTypeAuthentication
+
+	// ErrorTypeInvalidInput indicates invalid input parameters or prompt
 	ErrorTypeInvalidInput
 )
 
-// LLMError represents an error in the LLM package
+// LLMError represents a structured error in the LLM package.
+// It implements the error interface and provides additional context
+// about the error type and underlying cause.
 type LLMError struct {
-	Type    ErrorType
-	Message string
-	Err     error
+	Type    ErrorType // The category of the error
+	Message string    // A human-readable error message
+	Err     error    // The underlying error, if any
 }
 
+// LoggableFields returns a slice of interface{} containing error information
+// in a format suitable for structured logging.
 func (e *LLMError) LoggableFields() []interface{} {
 	return []interface{}{
 		"error_type", e.TypeString(),
@@ -35,6 +55,9 @@ func (e *LLMError) LoggableFields() []interface{} {
 	}
 }
 
+// Error implements the error interface.
+// It returns a formatted string containing the error type, message,
+// and underlying error (if present).
 func (e *LLMError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s (%s): %v", e.TypeString(), e.Message, e.Err)
@@ -42,10 +65,14 @@ func (e *LLMError) Error() string {
 	return fmt.Sprintf("%s: %s", e.TypeString(), e.Message)
 }
 
+// Unwrap returns the underlying error.
+// This implements the Go 1.13+ error unwrapping interface.
 func (e *LLMError) Unwrap() error {
 	return e.Err
 }
 
+// TypeString returns a string representation of the error type.
+// This is used for logging and error messages.
 func (e *LLMError) TypeString() string {
 	switch e.Type {
 	case ErrorTypeProvider:
@@ -67,7 +94,16 @@ func (e *LLMError) TypeString() string {
 	}
 }
 
-// NewLLMError creates a new LLMError
+// NewLLMError creates a new LLMError with the specified type, message,
+// and underlying error.
+//
+// Parameters:
+//   - errType: The category of the error
+//   - message: A human-readable error message
+//   - err: The underlying error, if any
+//
+// Returns:
+//   - A new LLMError instance
 func NewLLMError(errType ErrorType, message string, err error) *LLMError {
 	return &LLMError{
 		Type:    errType,
@@ -76,7 +112,14 @@ func NewLLMError(errType ErrorType, message string, err error) *LLMError {
 	}
 }
 
-// HandleError logs the error and exits the program if it's a fatal error
+// HandleError processes an error based on its severity.
+// It logs the error appropriately and can optionally terminate the program
+// if the error is considered fatal.
+//
+// Parameters:
+//   - err: The error to handle
+//   - fatal: If true, the program will panic after logging
+//   - logger: The logger to use for error reporting
 func HandleError(err error, fatal bool, logger utils.Logger) {
 	if err == nil {
 		return

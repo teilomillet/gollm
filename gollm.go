@@ -1,3 +1,6 @@
+// Package gollm provides a high-level interface for interacting with various Language Learning Models (LLMs).
+// It supports multiple providers including OpenAI, Anthropic, Ollama, and others, with features
+// like prompt optimization, caching, and structured output handling.
 package gollm
 
 import (
@@ -10,21 +13,35 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
-// LLM is the interface that wraps the basic LLM operations
+// LLM is the interface that wraps the basic LLM operations.
+// It extends the base llm.LLM interface with additional functionality specific to gollm,
+// providing a comprehensive set of methods for LLM interaction, configuration, and management.
 type LLM interface {
 	llm.LLM // Embed the base interface
-	// Additional methods specific to gollm
+	// GetPromptJSONSchema returns the JSON schema for prompt validation in byte format.
+	// The schema can be customized using SchemaOption parameters.
 	GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error)
+	// GetProvider returns the name of the current LLM provider (e.g., "openai", "anthropic").
 	GetProvider() string
+	// GetModel returns the name of the current model being used.
 	GetModel() string
+	// UpdateLogLevel changes the logging verbosity for both gollm and internal LLM operations.
 	UpdateLogLevel(level LogLevel)
+	// Debug logs a debug message with optional key-value pairs for detailed logging.
 	Debug(msg string, keysAndValues ...interface{})
+	// GetLogLevel returns the current logging verbosity level.
 	GetLogLevel() LogLevel
+	// SetOllamaEndpoint configures a custom endpoint for Ollama provider.
+	// Returns an error if the current provider doesn't support endpoint configuration.
 	SetOllamaEndpoint(endpoint string) error
+	// SetSystemPrompt updates the system prompt with caching configuration.
+	// The cacheType parameter determines how the prompt should be cached.
 	SetSystemPrompt(prompt string, cacheType CacheType)
 }
 
-// llmImpl is the concrete implementation of the LLM interface
+// llmImpl is the concrete implementation of the LLM interface.
+// It wraps the base LLM implementation and adds provider-specific functionality,
+// logging capabilities, and configuration management.
 type llmImpl struct {
 	llm.LLM
 	provider providers.Provider
@@ -33,33 +50,33 @@ type llmImpl struct {
 	config   *config.Config
 }
 
-// SetSystemPrompt sets the system prompt for the LLM
+// SetSystemPrompt sets the system prompt for the LLM.
 func (l *llmImpl) SetSystemPrompt(prompt string, cacheType CacheType) {
 	newPrompt := NewPrompt(prompt, WithSystemPrompt(prompt, cacheType))
 	l.SetOption("system_prompt", newPrompt)
 }
 
-// GetProvider returns the provider of the LLM
+// GetProvider returns the provider of the LLM.
 func (l *llmImpl) GetProvider() string {
 	return l.provider.Name()
 }
 
-// GetModel returns the model of the LLM
+// GetModel returns the model of the LLM.
 func (l *llmImpl) GetModel() string {
 	return l.model
 }
 
-// Debug logs a debug message with optional key-value pairs
+// Debug logs a debug message with optional key-value pairs.
 func (l *llmImpl) Debug(msg string, keysAndValues ...interface{}) {
 	l.logger.Debug(msg, keysAndValues...)
 }
 
-// GetLogLevel returns the current log level of the LLM
+// GetLogLevel returns the current log level of the LLM.
 func (l *llmImpl) GetLogLevel() LogLevel {
 	return LogLevel(l.config.LogLevel)
 }
 
-// SetOption sets an option for the LLM with the given key and value
+// SetOption sets an option for the LLM with the given key and value.
 func (l *llmImpl) SetOption(key string, value interface{}) {
 	l.logger.Debug("Setting option", "key", key, "value", value)
 	l.LLM.SetOption(key, value)
@@ -74,13 +91,13 @@ func (l *llmImpl) SetOllamaEndpoint(endpoint string) error {
 	return fmt.Errorf("current provider does not support setting custom endpoint")
 }
 
-// GetPromptJSONSchema generates and returns the JSON schema for the Prompt
+// GetPromptJSONSchema generates and returns the JSON schema for the Prompt.
 func (l *llmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
 	p := &Prompt{}
 	return p.GenerateJSONSchema(opts...)
 }
 
-// UpdateLogLevel updates the log level for both the gollm package and the internal llm package
+// UpdateLogLevel updates the log level for both the gollm package and the internal llm package.
 func (l *llmImpl) UpdateLogLevel(level LogLevel) {
 	l.config.LogLevel = utils.LogLevel(level)
 	l.logger.SetLevel(utils.LogLevel(level))
@@ -113,7 +130,21 @@ func (l *llmImpl) Generate(ctx context.Context, prompt *llm.Prompt, opts ...llm.
 	return response, nil
 }
 
-// NewLLM creates a new LLM instance, potentially with memory if the option is set
+// NewLLM creates a new LLM instance with the specified configuration options.
+// It supports memory management, caching, and provider-specific optimizations.
+// If memory options are provided, it creates an LLM instance with conversation memory.
+//
+// The function performs the following setup:
+// 1. Loads and applies configuration from both default and provided options
+// 2. Initializes logging system with appropriate verbosity
+// 3. Sets up provider-specific optimizations (e.g., Anthropic caching headers)
+// 4. Creates and configures the base LLM instance
+// 5. Optionally enables conversation memory if specified in config
+//
+// Returns an error if:
+// - Configuration loading fails
+// - Provider initialization fails
+// - Memory setup fails (if memory option is enabled)
 func NewLLM(opts ...ConfigOption) (LLM, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
