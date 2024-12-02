@@ -80,6 +80,7 @@ type ProviderRegistry struct {
 //   - "groq": Groq's LLM services
 //   - "ollama": Local LLM deployment
 //   - "mistral": Mistral AI's models
+//   - "mock": Mock provider for testing
 //
 // Example usage:
 //
@@ -100,6 +101,7 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"groq":      NewGroqProvider,
 		"ollama":    NewOllamaProvider,
 		"mistral":   NewMistralProvider,
+		"mock":      NewMockProvider,
 		// Add other providers here as they are implemented
 	}
 
