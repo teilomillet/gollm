@@ -16,6 +16,7 @@ Welcome to gollm! We're excited that you're interested in contributing. This gui
    - Ensure your code is readable and well-commented.
    - Add examples for new features.
 3. **Test your changes** to make sure everything works as expected.
+   - `go test -v (go list ./... | grep -v /examples)`
 4. **Submit a pull request** with a clear title and description.
 
 ## Best Practices
