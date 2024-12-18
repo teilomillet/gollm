@@ -55,13 +55,13 @@ type LLM interface {
 // LLMImpl implements the LLM interface and manages interactions with specific providers.
 // It handles provider communication, error management, and logging.
 type LLMImpl struct {
-	Provider   providers.Provider          // The underlying LLM provider
-	Options    map[string]interface{}      // Provider-specific options
-	client     *http.Client               // HTTP client for API requests
-	logger     utils.Logger               // Logger for debugging and monitoring
-	config     *config.Config             // Configuration settings
-	MaxRetries int                        // Maximum number of retry attempts
-	RetryDelay time.Duration             // Delay between retry attempts
+	Provider   providers.Provider     // The underlying LLM provider
+	Options    map[string]interface{} // Provider-specific options
+	client     *http.Client           // HTTP client for API requests
+	logger     utils.Logger           // Logger for debugging and monitoring
+	config     *config.Config         // Configuration settings
+	MaxRetries int                    // Maximum number of retry attempts
+	RetryDelay time.Duration          // Delay between retry attempts
 }
 
 // GenerateOption is a function type for configuring generation behavior.
@@ -248,19 +248,27 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 
 	// Extract and log caching information
 	var fullResponse map[string]interface{}
-	if err := json.Unmarshal(body, &fullResponse); err == nil {
-		if usage, ok := fullResponse["usage"].(map[string]interface{}); ok {
-			l.logger.Debug("Usage information", "usage", usage)
-			cacheInfo := map[string]interface{}{
-				"cache_creation_input_tokens": usage["cache_creation_input_tokens"],
-				"cache_read_input_tokens":     usage["cache_read_input_tokens"],
+	if err := json.Unmarshal(body, &fullResponse); err != nil {
+		// Try parsing as JSONL if JSON parsing fails
+		lines := bytes.Split(bytes.TrimSpace(body), []byte("\n"))
+		if len(lines) > 0 {
+			// the last line is *usually* the full response
+			if err := json.Unmarshal(lines[len(lines)-1], &fullResponse); err != nil {
+				l.logger.Warn("Failed to parse response as both JSON and JSONL", "error", err)
 			}
-			l.logger.Debug("Cache information", "info", cacheInfo)
-		} else {
-			l.logger.Debug("Cache information not available in the response")
 		}
+	}
+
+	// Process usage information regardless of format
+	if usage, ok := fullResponse["usage"].(map[string]interface{}); ok {
+		l.logger.Debug("Usage information", "usage", usage)
+		cacheInfo := map[string]interface{}{
+			"cache_creation_input_tokens": usage["cache_creation_input_tokens"],
+			"cache_read_input_tokens":     usage["cache_read_input_tokens"],
+		}
+		l.logger.Debug("Cache information", "info", cacheInfo)
 	} else {
-		l.logger.Warn("Failed to parse response for cache information", "error", err)
+		l.logger.Debug("Cache information not available in the response")
 	}
 
 	result, err := l.Provider.ParseResponse(body)

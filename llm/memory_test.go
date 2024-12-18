@@ -53,6 +53,9 @@ func (m *MockLLM) SupportsJSONSchema() bool {
 
 func TestMemory(t *testing.T) {
 	logger := &utils.MockLogger{}
+	logger.On("Debug", "Added message to memory", mock.Anything).Return()
+	logger.On("Debug", "Removed message from memory", mock.Anything).Return()
+	logger.On("Debug", "Cleared memory", mock.Anything).Return()
 
 	t.Run("NewMemory", func(t *testing.T) {
 		memory, err := NewMemory(100, "gpt-4o-mini", logger)
@@ -88,12 +91,16 @@ func TestMemory(t *testing.T) {
 
 		assert.Empty(t, memory.GetMessages())
 	})
+
+	logger.AssertExpectations(t)
 }
 
 func TestLLMWithMemory(t *testing.T) {
 	logger := &utils.MockLogger{}
+	logger.On("Debug", "Added message to memory", mock.Anything).Return()
+	logger.On("Debug", "Cleared memory", mock.Anything).Return()
+
 	mockLLM := new(MockLLM)
-	mockLLM.On("GetLogger").Return(logger)
 	llmWithMemory, err := NewLLMWithMemory(mockLLM, 100, "gpt-4o-mini", logger)
 	require.NoError(t, err)
 
