@@ -1,7 +1,7 @@
-// Package tools provides a collection of high-level tools and utilities for
+// Package presets provides a collection of high-level tools and utilities for
 // enhancing Language Learning Model interactions with specific reasoning patterns
 // and problem-solving strategies.
-package tools
+package presets
 
 import (
 	"context"

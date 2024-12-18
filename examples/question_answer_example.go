@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/tools"
+	"github.com/teilomillet/gollm/presets"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 	much faster than classical computers, particularly in areas like cryptography, optimization, and 
 	simulation of quantum systems.`
 
-	response, err := tools.QuestionAnswer(ctx, llmClient, question,
+	response, err := presets.QuestionAnswer(ctx, llmClient, question,
 		gollm.WithContext(contextInfo),
 		gollm.WithExamples("Challenge: Decoherence, Solution: Error correction techniques"),
 		gollm.WithMaxLength(200),

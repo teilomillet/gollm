@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/tools"
+	"github.com/teilomillet/gollm/presets"
 )
 
 // AnalysisResult represents the structured output of our analysis
@@ -137,13 +137,13 @@ Please structure your response as a JSON object with the following format:
 		fmt.Printf("  Summary: %s\n\n", result.Summary)
 
 		// Demonstrate additional gollm package features
-		summary, err := tools.Summarize(ctx, llmClient, analysisJSON, gollm.WithMaxLength(50))
+		summary, err := presets.Summarize(ctx, llmClient, analysisJSON, gollm.WithMaxLength(50))
 		if err != nil {
 			log.Fatalf("Failed to generate summary: %v", err)
 		}
 		fmt.Printf("Brief summary (50 words): %s\n", summary)
 
-		keyPoints, err := tools.ChainOfThought(ctx, llmClient, fmt.Sprintf("Extract 3 key points from this analysis:\n%s", analysisJSON))
+		keyPoints, err := presets.ChainOfThought(ctx, llmClient, fmt.Sprintf("Extract 3 key points from this analysis:\n%s", analysisJSON))
 		if err != nil {
 			log.Fatalf("Failed to extract key points: %v", err)
 		}
@@ -151,7 +151,7 @@ Please structure your response as a JSON object with the following format:
 	}
 
 	// Demonstrate error handling and retries
-	_, err = tools.QuestionAnswer(ctx, llmClient, "This is an intentionally long prompt that exceeds the token limit to demonstrate error handling.")
+	_, err = presets.QuestionAnswer(ctx, llmClient, "This is an intentionally long prompt that exceeds the token limit to demonstrate error handling.")
 	if err != nil {
 		fmt.Printf("Expected error occurred: %v\n", err)
 		// Here you would typically implement appropriate error handling or fallback strategies

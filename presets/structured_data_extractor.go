@@ -1,6 +1,6 @@
-// Package tools provides utilities for enhancing Language Learning Model interactions
+// Package presets provides utilities for enhancing Language Learning Model interactions
 // with specific reasoning patterns and structured data extraction capabilities.
-package tools
+package presets
 
 import (
 	"context"

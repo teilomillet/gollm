@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/tools"
+	"github.com/teilomillet/gollm/presets"
 	"log"
 	"os"
 	"strings"
@@ -112,7 +112,7 @@ Return the data as a JSON object that adheres to this schema:
 
 	// Compare model outputs
 	fmt.Println("Starting model comparison...")
-	results, err := tools.CompareModels(ctx, promptText, validateComplexPerson, configs...)
+	results, err := presets.CompareModels(ctx, promptText, validateComplexPerson, configs...)
 	if err != nil {
 		log.Fatalf("Error comparing models: %v", err)
 	}
@@ -145,7 +145,7 @@ Return the data as a JSON object that adheres to this schema:
 
 	// Print the final analysis
 	fmt.Println("\nFinal Analysis of Results:")
-	analysis := tools.AnalyzeComparisonResults(results)
+	analysis := presets.AnalyzeComparisonResults(results)
 	fmt.Println(analysis)
 
 	debugLog(debugLevel, "Structured output comparison completed")

@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/tools"
+	"github.com/teilomillet/gollm/presets"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 	As AI continues to advance, it's crucial to address these challenges and ensure responsible development 
 	and deployment of AI technologies.`
 
-	summary, err := tools.Summarize(ctx, llmClient, text,
+	summary, err := presets.Summarize(ctx, llmClient, text,
 		gollm.WithMaxLength(50),
 		gollm.WithDirectives(
 			"Provide a concise summary",
