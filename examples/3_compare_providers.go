@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Starting the enhanced Goal library example...")
+	fmt.Println("Starting the enhanced GOLLM library example...")
 
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {

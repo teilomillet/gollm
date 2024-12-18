@@ -11,7 +11,7 @@ import (
 
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/optimizer"
-	"github.com/teilomillet/gollm/tools"
+	"github.com/teilomillet/gollm/presets"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -61,11 +61,11 @@ func main() {
 
 	switch *promptType {
 	case "qa":
-		response, err = tools.QuestionAnswer(ctx, llmClient, rawPrompt)
+		response, err = presets.QuestionAnswer(ctx, llmClient, rawPrompt)
 	case "cot":
-		response, err = tools.ChainOfThought(ctx, llmClient, rawPrompt)
+		response, err = presets.ChainOfThought(ctx, llmClient, rawPrompt)
 	case "summarize":
-		response, err = tools.Summarize(ctx, llmClient, rawPrompt)
+		response, err = presets.Summarize(ctx, llmClient, rawPrompt)
 	case "optimize":
 		optimizer := optimizer.NewPromptOptimizer(
 			llmClient,
