@@ -51,7 +51,7 @@ type MemoryOption struct {
 //   - LLM_TFS_Z: Tail-free sampling parameter
 type Config struct {
 	Provider              string        `env:"LLM_PROVIDER" envDefault:"anthropic"`
-	Model                 string        `env:"LLM_MODEL" envDefault:"claude-3-opus-20240229"`
+	Model                 string        `env:"LLM_MODEL" envDefault:"claude-3-5-haiku-latest"`
 	OllamaEndpoint        string        `env:"OLLAMA_ENDPOINT" envDefault:"http://localhost:11434"`
 	Temperature           float64       `env:"LLM_TEMPERATURE" envDefault:"0.7"`
 	MaxTokens             int           `env:"LLM_MAX_TOKENS" envDefault:"100"`

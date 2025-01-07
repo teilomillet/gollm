@@ -125,14 +125,23 @@ func (p *OpenAIProvider) Headers() map[string]string {
 //   - Any error encountered during preparation
 func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
 	request := map[string]interface{}{
-		"model": p.model,
-		"messages": []map[string]interface{}{
-			{
-				"role":    "user",
-				"content": prompt,
-			},
-		},
+		"model":    p.model,
+		"messages": []map[string]interface{}{},
 	}
+
+	// Handle system prompt as developer message
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+			"role":    "developer",
+			"content": systemPrompt,
+		})
+	}
+
+	// Add user message
+	request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+		"role":    "user",
+		"content": prompt,
+	})
 
 	// Handle tool_choice
 	if toolChoice, ok := options["tool_choice"].(string); ok {
@@ -158,12 +167,12 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 
 	// Add other options
 	for k, v := range p.options {
-		if k != "tools" && k != "tool_choice" {
+		if k != "tools" && k != "tool_choice" && k != "system_prompt" {
 			request[k] = v
 		}
 	}
 	for k, v := range options {
-		if k != "tools" && k != "tool_choice" {
+		if k != "tools" && k != "tool_choice" && k != "system_prompt" {
 			request[k] = v
 		}
 	}
@@ -287,19 +296,65 @@ func (p *OpenAIProvider) addOptions(request map[string]interface{}, options map[
 //   - Any error encountered during preparation
 func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
 	p.logger.Debug("Preparing request with schema", "prompt", prompt, "schema", schema)
+
+	// First, ensure we have a proper object for the schema
+	var schemaObj interface{}
+	switch s := schema.(type) {
+	case string:
+		if err := json.Unmarshal([]byte(s), &schemaObj); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal schema string: %w", err)
+		}
+	case []byte:
+		if err := json.Unmarshal(s, &schemaObj); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal schema bytes: %w", err)
+		}
+	case map[string]interface{}:
+		schemaObj = s
+	default:
+		// Try to marshal and unmarshal to ensure we have a proper object
+		schemaBytes, err := json.Marshal(schema)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal schema: %w", err)
+		}
+		if err := json.Unmarshal(schemaBytes, &schemaObj); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal schema: %w", err)
+		}
+	}
+
+	// Clean the schema for OpenAI by removing unsupported validation rules
+	cleanSchema := cleanSchemaForOpenAI(schemaObj)
+
+	// Debug log the cleaned schema
+	cleanSchemaJSON, _ := json.MarshalIndent(cleanSchema, "", "  ")
+	p.logger.Debug("Cleaned schema for OpenAI", "schema", string(cleanSchemaJSON))
+
 	request := map[string]interface{}{
 		"model": p.model,
-		"messages": []map[string]string{
+		"messages": []map[string]interface{}{
 			{"role": "user", "content": prompt},
 		},
 		"response_format": map[string]interface{}{
-			"type":   "json_schema",
-			"schema": schema,
+			"type": "json_schema",
+			"json_schema": map[string]interface{}{
+				"name":   "structured_response",
+				"schema": cleanSchema,
+				"strict": true,
+			},
 		},
 	}
 
+	// Handle system prompt as system message
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		request["messages"] = append([]map[string]interface{}{
+			{"role": "system", "content": systemPrompt},
+		}, request["messages"].([]map[string]interface{})...)
+	}
+
+	// Add other options
 	for k, v := range options {
-		request[k] = v
+		if k != "system_prompt" {
+			request[k] = v
+		}
 	}
 
 	reqJSON, err := json.Marshal(request)
@@ -308,8 +363,39 @@ func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[str
 		return nil, err
 	}
 
-	p.logger.Debug("Request with schema prepared", "request", string(reqJSON))
+	p.logger.Debug("Full request to OpenAI", "request", string(reqJSON))
 	return reqJSON, nil
+}
+
+// cleanSchemaForOpenAI removes validation rules that OpenAI doesn't support
+func cleanSchemaForOpenAI(schema interface{}) interface{} {
+	if schemaMap, ok := schema.(map[string]interface{}); ok {
+		result := make(map[string]interface{})
+		for k, v := range schemaMap {
+			switch k {
+			case "type", "properties", "required", "items":
+				if k == "properties" {
+					props := make(map[string]interface{})
+					if propsMap, ok := v.(map[string]interface{}); ok {
+						for propName, propSchema := range propsMap {
+							props[propName] = cleanSchemaForOpenAI(propSchema)
+						}
+					}
+					result[k] = props
+				} else if k == "items" {
+					result[k] = cleanSchemaForOpenAI(v)
+				} else {
+					result[k] = v
+				}
+			}
+		}
+		// Add additionalProperties: false at each object level
+		if schemaMap["type"] == "object" {
+			result["additionalProperties"] = false
+		}
+		return result
+	}
+	return schema
 }
 
 // ParseResponse extracts the generated text from the OpenAI API response.

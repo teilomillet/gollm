@@ -15,11 +15,11 @@ import (
 // It supports Claude models and provides access to Anthropic's language model capabilities,
 // including structured output and system prompts.
 type AnthropicProvider struct {
-	apiKey       string           // API key for authentication
-	model        string           // Model identifier (e.g., "claude-3-opus", "claude-3-sonnet")
-	extraHeaders map[string]string // Additional HTTP headers
+	apiKey       string                 // API key for authentication
+	model        string                 // Model identifier (e.g., "claude-3-opus", "claude-3-sonnet")
+	extraHeaders map[string]string      // Additional HTTP headers
 	options      map[string]interface{} // Model-specific options
-	logger       utils.Logger     // Logger instance
+	logger       utils.Logger           // Logger instance
 }
 
 // NewAnthropicProvider creates a new Anthropic provider instance.
@@ -244,25 +244,27 @@ func splitSystemPrompt(prompt string, n int) []string {
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
 func (p *AnthropicProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+	schemaJSON, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	// Create a system message that enforces the JSON schema
+	systemMsg := fmt.Sprintf("You must respond with a JSON object that strictly adheres to this schema:\n%s\nDo not include any explanatory text, only output valid JSON.", string(schemaJSON))
+
 	requestBody := map[string]interface{}{
-		"model": p.model,
+		"model":  p.model,
+		"system": systemMsg,
 		"messages": []map[string]string{
 			{"role": "user", "content": prompt},
-		},
-		"response_format": map[string]interface{}{
-			"type":   "json_schema",
-			"schema": schema,
 		},
 	}
 
 	// Add any additional options
 	for k, v := range options {
-		requestBody[k] = v
-	}
-
-	// Add strict option if provided
-	if strict, ok := options["strict"].(bool); ok && strict {
-		requestBody["response_format"].(map[string]interface{})["strict"] = true
+		if k != "system_prompt" { // Skip system_prompt as we're using it for schema
+			requestBody[k] = v
+		}
 	}
 
 	return json.Marshal(requestBody)
