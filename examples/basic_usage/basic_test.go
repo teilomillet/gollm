@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/assess"
 )
 
@@ -16,7 +17,27 @@ func TestBasicUsageExample(t *testing.T) {
 	}
 
 	test := assess.NewTest(t).
-		WithProvider("openai", "gpt-4o-mini")
+		WithProvider("openai", "gpt-4o-mini").
+		WithConfig(&gollm.Config{
+			MaxRetries: 3,
+			RetryDelay: time.Second * 2,
+		})
+
+	// Test retry mechanism
+	test.AddCase("retry_mechanism", "This is a test prompt to verify retry mechanism").
+		WithTimeout(30*time.Second).
+		WithOption("max_tokens", 50).
+		Validate(func(response string) error {
+			metrics := test.GetBatchMetrics()
+			if metrics != nil && len(metrics.Errors) > 0 {
+				// If we have errors but still got a response, it means retries worked
+				if response != "" {
+					return nil
+				}
+				return fmt.Errorf("retry mechanism failed to recover from errors")
+			}
+			return nil
+		})
 
 	// Test basic prompt
 	test.AddCase("basic_prompt", "Explain the concept of 'recursion' in programming.").
@@ -42,7 +63,6 @@ Please structure your response to include:
 			if response == "" {
 				return fmt.Errorf("empty response")
 			}
-			fmt.Printf("\nResponse received:\n%s\n", response)
 			return nil
 		})
 
@@ -56,6 +76,21 @@ Task: Write a concise summary of the main points.`).
 		Validate(func(response string) error {
 			if response == "" {
 				return fmt.Errorf("empty response")
+			}
+			return nil
+		})
+
+	// Test Chain of Thought
+	test.AddCase("chain_of_thought", `Explain the process of photosynthesis step by step.
+Break down your reasoning into clear steps.`).
+		WithTimeout(45*time.Second).
+		WithOption("max_tokens", 300).
+		Validate(func(response string) error {
+			if response == "" {
+				return fmt.Errorf("empty response")
+			}
+			if len(response) < 100 {
+				return fmt.Errorf("response too short for a step-by-step explanation")
 			}
 			return nil
 		})
@@ -77,6 +112,34 @@ Task: Write a concise summary of the main points.`).
 			})
 		}
 	}
+}
+
+func TestJSONSchemaValidation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping JSON schema validation test in short mode")
+	}
+
+	// Create a new LLM instance
+	llm, err := gollm.NewLLM(
+		gollm.SetProvider("openai"),
+		gollm.SetModel("gpt-4o-mini"),
+	)
+	assert.NoError(t, err, "Should create LLM instance")
+
+	// Test JSON Schema generation
+	schema, err := llm.GetPromptJSONSchema()
+	assert.NoError(t, err, "Should get JSON schema")
+	assert.NotEmpty(t, schema, "JSON schema should not be empty")
+
+	// Test valid prompt
+	validPrompt := gollm.NewPrompt("Test prompt")
+	err = validPrompt.Validate()
+	assert.NoError(t, err, "Valid prompt should pass validation")
+
+	// Test invalid prompt
+	invalidPrompt := gollm.NewPrompt("")
+	err = invalidPrompt.Validate()
+	assert.Error(t, err, "Empty prompt should fail validation")
 }
 
 func TestCustomConfigExample(t *testing.T) {
