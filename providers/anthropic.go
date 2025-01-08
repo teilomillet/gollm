@@ -4,7 +4,6 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
@@ -137,19 +136,58 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]int
 	}
 
 	// Handle system prompt
-	if systemPrompt, ok := options["system_prompt"]; ok {
-		if sp, ok := systemPrompt.(string); ok && sp != "" {
-			parts := splitSystemPrompt(sp, 3)
-			for i, part := range parts {
-				systemMessage := map[string]interface{}{
-					"type": "text",
-					"text": part,
-				}
-				if i > 0 {
-					systemMessage["cache_control"] = map[string]string{"type": "ephemeral"}
-				}
-				requestBody["system"] = append(requestBody["system"].([]map[string]interface{}), systemMessage)
+	systemPrompt := ""
+	if sp, ok := options["system_prompt"].(string); ok && sp != "" {
+		systemPrompt = sp
+	}
+
+	// If we have tools, add tool usage instructions to the system prompt
+	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
+		anthropicTools := make([]map[string]interface{}, len(tools))
+		for i, tool := range tools {
+			anthropicTools[i] = map[string]interface{}{
+				"name":         tool.Function.Name,
+				"description":  tool.Function.Description,
+				"input_schema": tool.Function.Parameters,
 			}
+		}
+		requestBody["tools"] = anthropicTools
+
+		// Add tool usage instructions to system prompt
+		if len(tools) > 1 {
+			toolUsagePrompt := "When multiple tools are needed to answer a question, you should identify all required tools upfront and use them all at once in your response, rather than using them sequentially. Do not wait for tool results before calling other tools."
+			if systemPrompt != "" {
+				systemPrompt = toolUsagePrompt + "\n\n" + systemPrompt
+			} else {
+				systemPrompt = toolUsagePrompt
+			}
+		}
+
+		// Only set tool_choice when tools are provided
+		if toolChoice, ok := options["tool_choice"].(string); ok {
+			requestBody["tool_choice"] = map[string]interface{}{
+				"type": toolChoice,
+			}
+		} else {
+			// Default to auto for tool choice when tools are provided
+			requestBody["tool_choice"] = map[string]interface{}{
+				"type": "auto",
+			}
+		}
+	}
+
+	// Add system prompt if we have one
+	if systemPrompt != "" {
+		parts := splitSystemPrompt(systemPrompt, 3)
+		for i, part := range parts {
+			systemMessage := map[string]interface{}{
+				"type": "text",
+				"text": part,
+			}
+			if i > 0 {
+				systemMessage["cache_control"] = map[string]string{"type": "ephemeral"}
+			}
+			requestBody["system"] = append(requestBody["system"].([]map[string]interface{}), systemMessage)
 		}
 	}
 
@@ -170,26 +208,6 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]int
 	}
 
 	requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), userMessage)
-
-	// Handle tools
-	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
-		anthropicTools := make([]map[string]interface{}, len(tools))
-		for i, tool := range tools {
-			anthropicTools[i] = map[string]interface{}{
-				"name":         tool.Function.Name,
-				"description":  tool.Function.Description,
-				"input_schema": tool.Function.Parameters,
-			}
-		}
-		requestBody["tools"] = anthropicTools
-	}
-
-	// Handle tool_choice
-	if toolChoice, ok := options["tool_choice"].(string); ok {
-		requestBody["tool_choice"] = map[string]interface{}{
-			"type": toolChoice,
-		}
-	}
 
 	// Add other options
 	for k, v := range options {
@@ -310,73 +328,95 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 		return "", fmt.Errorf("empty response from LLM")
 	}
 
+	p.logger.Debug("Number of content blocks: %d", len(response.Content))
+	p.logger.Debug("Stop reason: %s", response.StopReason)
+
 	var finalResponse strings.Builder
 	var functionCalls []string
+	var pendingText strings.Builder
+	var lastType string
 
-	for _, content := range response.Content {
+	// First pass: collect all function calls and text
+	for i, content := range response.Content {
+		p.logger.Debug("Processing content block %d: type=%s", i, content.Type)
+
 		switch content.Type {
 		case "text":
-			finalResponse.WriteString(content.Text)
-			p.logger.Debug("Text content: %s", content.Text)
-		case "tool_use":
-			functionCall, err := json.Marshal(map[string]interface{}{
-				"name":      content.Name,
-				"arguments": content.Input,
-			})
-			if err != nil {
-				return "", fmt.Errorf("error marshaling function call: %w", err)
+			// If we have pending text and this is also text, add a space
+			if lastType == "text" && pendingText.Len() > 0 {
+				pendingText.WriteString(" ")
 			}
-			functionCalls = append(functionCalls, string(functionCall))
-			p.logger.Debug("Function call detected: %s", string(functionCall))
+			pendingText.WriteString(content.Text)
+			p.logger.Debug("Added text content: %s", content.Text)
+
+		case "tool_use", "tool_calls":
+			// If we have any pending text, add it to the final response
+			if pendingText.Len() > 0 {
+				if finalResponse.Len() > 0 {
+					finalResponse.WriteString("\n")
+				}
+				finalResponse.WriteString(pendingText.String())
+				pendingText.Reset()
+			}
+
+			// Parse input as raw JSON to preserve the exact format
+			var args interface{}
+			if err := json.Unmarshal(content.Input, &args); err != nil {
+				p.logger.Debug("Error parsing tool input: %v, raw input: %s", err, string(content.Input))
+				return "", fmt.Errorf("error parsing tool input: %w", err)
+			}
+
+			functionCall, err := utils.FormatFunctionCall(content.Name, args)
+			if err != nil {
+				p.logger.Debug("Error formatting function call: %v", err)
+				return "", fmt.Errorf("error formatting function call: %w", err)
+			}
+			functionCalls = append(functionCalls, functionCall)
+			p.logger.Debug("Added function call: %s", functionCall)
 		}
+		lastType = content.Type
 	}
 
-	// If there are function calls, append them to the response
+	// Add any remaining pending text
+	if pendingText.Len() > 0 {
+		if finalResponse.Len() > 0 {
+			finalResponse.WriteString("\n")
+		}
+		finalResponse.WriteString(pendingText.String())
+	}
+
+	p.logger.Debug("Number of function calls collected: %d", len(functionCalls))
+	for i, call := range functionCalls {
+		p.logger.Debug("Function call %d: %s", i, call)
+	}
+
+	// Add all function calls at the end
 	if len(functionCalls) > 0 {
-		for _, call := range functionCalls {
-			finalResponse.WriteString("\n<function_call>")
-			finalResponse.WriteString(call)
-			finalResponse.WriteString("</function_call>")
-			p.logger.Debug("Appending function call to response")
+		if finalResponse.Len() > 0 {
+			finalResponse.WriteString("\n")
 		}
+		finalResponse.WriteString(strings.Join(functionCalls, "\n"))
 	}
 
-	p.logger.Debug("Final response: %s", finalResponse.String())
-	return finalResponse.String(), nil
+	result := finalResponse.String()
+	p.logger.Debug("Final response: %s", result)
+	return result, nil
 }
 
 // HandleFunctionCalls processes structured output in the response.
 // This supports Anthropic's response formatting capabilities.
 func (p *AnthropicProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	p.logger.Debug("Handling function calls from response")
-	var response string
-	err := json.Unmarshal(body, &response)
+	response := string(body)
+
+	functionCalls, err := utils.ExtractFunctionCalls(response)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling response: %w", err)
-	}
-
-	p.logger.Debug("Response body: %s", response)
-
-	// Extract function calls from the response
-	var functionCalls []map[string]interface{}
-	functionCallRegex := regexp.MustCompile(`<function_call>(.*?)</function_call>`)
-	matches := functionCallRegex.FindAllStringSubmatch(response, -1)
-
-	for _, match := range matches {
-		if len(match) > 1 {
-			var functionCall map[string]interface{}
-			err := json.Unmarshal([]byte(match[1]), &functionCall)
-			if err != nil {
-				return nil, fmt.Errorf("error unmarshaling function call: %w", err)
-			}
-			functionCalls = append(functionCalls, functionCall)
-			p.logger.Debug("Extracted function call: %v", functionCall)
-		}
+		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
 
 	if len(functionCalls) == 0 {
 		p.logger.Debug("No function calls found in the response")
-		return nil, nil // No function calls
+		return nil, nil
 	}
 
 	p.logger.Debug("Function calls to handle: %v", functionCalls)

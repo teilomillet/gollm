@@ -4,6 +4,7 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/utils"
@@ -416,8 +417,8 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 					ID       string `json:"id"`
 					Type     string `json:"type"`
 					Function struct {
-						Name      string `json:"name"`
-						Arguments string `json:"arguments"`
+						Name      string          `json:"name"`
+						Arguments json.RawMessage `json:"arguments"`
 					} `json:"function"`
 				} `json:"tool_calls"`
 			} `json:"message"`
@@ -438,11 +439,21 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	if len(message.ToolCalls) > 0 {
-		toolCallJSON, err := json.Marshal(message.ToolCalls)
-		if err != nil {
-			return "", err
+		var functionCalls []string
+		for _, call := range message.ToolCalls {
+			// Parse arguments as raw JSON to preserve the exact format
+			var args interface{}
+			if err := json.Unmarshal(call.Function.Arguments, &args); err != nil {
+				return "", fmt.Errorf("error parsing function arguments: %w", err)
+			}
+
+			functionCall, err := utils.FormatFunctionCall(call.Function.Name, args)
+			if err != nil {
+				return "", fmt.Errorf("error formatting function call: %w", err)
+			}
+			functionCalls = append(functionCalls, functionCall)
 		}
-		return fmt.Sprintf("<function_call>%s</function_call>", toolCallJSON), nil
+		return strings.Join(functionCalls, "\n"), nil
 	}
 
 	return "", fmt.Errorf("no content or tool calls in response")
@@ -451,41 +462,18 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 // HandleFunctionCalls processes function calling in the response.
 // This supports OpenAI's function calling and JSON mode features.
 func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	var response struct {
-		Choices []struct {
-			Message struct {
-				ToolCalls []struct {
-					Function struct {
-						Name      string `json:"name"`
-						Arguments string `json:"arguments"`
-					} `json:"function"`
-				} `json:"tool_calls"`
-			} `json:"message"`
-		} `json:"choices"`
+	response := string(body)
+	functionCalls, err := utils.ExtractFunctionCalls(response)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
 
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
+	if len(functionCalls) == 0 {
+		return nil, fmt.Errorf("no function calls found in response")
 	}
 
-	if len(response.Choices) == 0 || len(response.Choices[0].Message.ToolCalls) == 0 {
-		return nil, fmt.Errorf("no tool calls found in response")
-	}
-
-	toolCalls := response.Choices[0].Message.ToolCalls
-	result := make([]map[string]interface{}, len(toolCalls))
-	for i, call := range toolCalls {
-		var args map[string]interface{}
-		if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
-			return nil, fmt.Errorf("error parsing arguments: %w", err)
-		}
-		result[i] = map[string]interface{}{
-			"name":      call.Function.Name,
-			"arguments": args,
-		}
-	}
-
-	return json.Marshal(result)
+	p.logger.Debug("Function calls to handle", "calls", functionCalls)
+	return json.Marshal(functionCalls)
 }
 
 // mustMarshal is a helper that panics on JSON marshaling errors.
