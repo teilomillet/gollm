@@ -6,6 +6,7 @@ package presets
 import (
 	"context"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/teilomillet/gollm"
 )
@@ -22,13 +23,13 @@ import (
 // Example generated prompt:
 //
 //	Perform a chain of thought reasoning for the following question:
-//	
+//
 //	What is the result of (17 * 6) + (23 * 4)?
-//	
+//
 //	Directives:
 //	- Break down the problem into steps
 //	- Show your reasoning for each step
-//	
+//
 //	Chain of Thought:
 var chainOfThoughtTemplate = gollm.NewPromptTemplate(
 	"ChainOfThought",
@@ -100,20 +101,34 @@ var chainOfThoughtTemplate = gollm.NewPromptTemplate(
 //	   - Rising global temperatures affect crop growth cycles
 //	   - Some regions become too hot for traditional crops
 //	   - New growing zones emerge in previously cold areas
-//	
+//
 //	2. Precipitation Changes:
 //	   - Altered rainfall patterns impact irrigation needs
 //	   - More frequent droughts in some regions
 //	   - Increased flooding in other areas
-//	
+//
 //	3. Adaptation Requirements:
 //	   - Development of heat-resistant crop varieties
 //	   - Implementation of water-efficient farming methods
 //	   - Shifts in planting and harvesting schedules
 func ChainOfThought(ctx context.Context, l gollm.LLM, question string, opts ...gollm.PromptOption) (string, error) {
 	if ctx == nil {
-		ctx = context.Background()
+		return "", fmt.Errorf("context cannot be nil")
 	}
+
+	if l == nil {
+		return "", fmt.Errorf("LLM instance cannot be nil")
+	}
+
+	if question == "" {
+		return "", fmt.Errorf("question cannot be empty")
+	}
+
+	// Validate UTF-8 encoding
+	if !utf8.ValidString(question) {
+		return "", fmt.Errorf("question contains invalid UTF-8 characters")
+	}
+
 	prompt, err := chainOfThoughtTemplate.Execute(map[string]interface{}{
 		"Question": question,
 	})
