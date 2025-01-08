@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
+	"strings"
 
 	"github.com/teilomillet/gollm"
 )
@@ -103,11 +103,42 @@ import (
 //   - JSON parsing errors
 //   - Validation constraint violations
 func ExtractStructuredData[T any](ctx context.Context, l gollm.LLM, text string, opts ...gollm.PromptOption) (*T, error) {
-	structType := reflect.TypeOf((*T)(nil)).Elem()
-	schema, err := gollm.GenerateJSONSchema(reflect.New(structType).Interface())
+	// Validate input
+	if ctx == nil {
+		return nil, fmt.Errorf("context cannot be nil")
+	}
+	if l == nil {
+		return nil, fmt.Errorf("LLM instance cannot be nil")
+	}
+	if strings.TrimSpace(text) == "" {
+		return nil, fmt.Errorf("text cannot be empty")
+	}
+
+	var zero T
+	schema, err := gollm.GenerateJSONSchema(zero)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate JSON schema: %w", err)
 	}
+
+	// First, check if the text contains extractable information
+	validationPrompt := gollm.NewPrompt(fmt.Sprintf("Analyze if the following text contains enough information to extract structured data:\n\n%s\n\nRespond with 'yes' if the text contains extractable information, 'no' if it doesn't.", text))
+	validationPrompt.Apply(
+		gollm.WithDirectives(
+			"Only respond with 'yes' or 'no'",
+			"Respond 'yes' if the text contains enough information to fill most required fields",
+			"Respond 'no' if the text is irrelevant or lacks essential information",
+		),
+		gollm.WithOutput("Single word response: 'yes' or 'no'"),
+	)
+	validationResponse, err := l.Generate(ctx, validationPrompt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate text content: %w", err)
+	}
+	if strings.TrimSpace(strings.ToLower(validationResponse)) != "yes" {
+		return nil, fmt.Errorf("text does not contain enough extractable information")
+	}
+
+	// Proceed with extraction
 	promptText := fmt.Sprintf("Extract the following information from the given text:\n\n%s\n\nRespond with a JSON object matching this schema:\n%s", text, string(schema))
 	prompt := gollm.NewPrompt(promptText)
 	prompt.Apply(append(opts,
@@ -126,7 +157,7 @@ func ExtractStructuredData[T any](ctx context.Context, l gollm.LLM, text string,
 	if err := json.Unmarshal([]byte(response), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
-	if err := gollm.Validate(result); err != nil {
+	if err := gollm.Validate(&result); err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 	return &result, nil
