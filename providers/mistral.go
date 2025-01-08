@@ -4,6 +4,7 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/utils"
 )
@@ -12,11 +13,11 @@ import (
 // It supports Mistral's language models and provides access to their capabilities,
 // including chat completion and structured output.
 type MistralProvider struct {
-	apiKey       string           // API key for authentication
-	model        string           // Model identifier (e.g., "mistral-large", "mistral-medium")
-	extraHeaders map[string]string // Additional HTTP headers
+	apiKey       string                 // API key for authentication
+	model        string                 // Model identifier (e.g., "mistral-large", "mistral-medium")
+	extraHeaders map[string]string      // Additional HTTP headers
 	options      map[string]interface{} // Model-specific options
-	logger       utils.Logger     // Logger instance
+	logger       utils.Logger           // Logger instance
 }
 
 // NewMistralProvider creates a new Mistral provider instance.

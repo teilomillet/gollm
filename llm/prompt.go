@@ -22,11 +22,11 @@ const (
 // It can be a system message, user message, or assistant message, and may include
 // tool calls and caching configuration.
 type PromptMessage struct {
-	Role       string     `json:"role"`        // Role of the message sender (e.g., "system", "user", "assistant")
-	Content    string     `json:"content"`     // The actual message content
-	CacheType  CacheType  `json:"cache_type,omitempty"` // Optional caching strategy for this message
-	Name       string     `json:"name,omitempty"`       // Optional name identifier for the message
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"` // Optional tool calls requested by the LLM
+	Role       string     `json:"role"`                   // Role of the message sender (e.g., "system", "user", "assistant")
+	Content    string     `json:"content"`                // The actual message content
+	CacheType  CacheType  `json:"cache_type,omitempty"`   // Optional caching strategy for this message
+	Name       string     `json:"name,omitempty"`         // Optional name identifier for the message
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   // Optional tool calls requested by the LLM
 	ToolCallID string     `json:"tool_call_id,omitempty"` // ID of the tool call this message responds to
 }
 
