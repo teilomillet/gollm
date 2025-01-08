@@ -1,5 +1,8 @@
 # Test Implementation TODO List
 
+
+Add a test handler, where we can setup gollm and run all the tests with that instance. Could be a single function that runs all the tests. Also can be run in batch mode, with multiple instances of gollm. This would become a higher abstraction layer, and we could run all the tests with a single function call.
+
 ## Basic Functionality Tests (`basic_test.go`)
 - [ ] `TestBasicUsage` (from `1_basic_usage.go`)
   - Basic LLM client creation
