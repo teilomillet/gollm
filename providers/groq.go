@@ -193,26 +193,17 @@ func (p *GroqProvider) ParseResponse(body []byte) (string, error) {
 // HandleFunctionCalls processes function calling capabilities.
 // Since Groq doesn't support function calling natively, this returns nil.
 func (p *GroqProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	var response struct {
-		Choices []struct {
-			Message struct {
-				FunctionCall *struct {
-					Name      string          `json:"name"`
-					Arguments json.RawMessage `json:"arguments"`
-				} `json:"function_call"`
-			} `json:"message"`
-		} `json:"choices"`
+	response := string(body)
+	functionCalls, err := utils.ExtractFunctionCalls(response)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
 
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
+	if len(functionCalls) == 0 {
+		return nil, nil // No function calls found
 	}
 
-	if len(response.Choices) == 0 || response.Choices[0].Message.FunctionCall == nil {
-		return nil, nil // No function call
-	}
-
-	return json.Marshal(response.Choices[0].Message.FunctionCall)
+	return json.Marshal(functionCalls)
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.
