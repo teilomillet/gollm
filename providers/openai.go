@@ -4,6 +4,7 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/utils"
@@ -125,14 +126,23 @@ func (p *OpenAIProvider) Headers() map[string]string {
 //   - Any error encountered during preparation
 func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
 	request := map[string]interface{}{
-		"model": p.model,
-		"messages": []map[string]interface{}{
-			{
-				"role":    "user",
-				"content": prompt,
-			},
-		},
+		"model":    p.model,
+		"messages": []map[string]interface{}{},
 	}
+
+	// Handle system prompt as developer message
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+			"role":    "developer",
+			"content": systemPrompt,
+		})
+	}
+
+	// Add user message
+	request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+		"role":    "user",
+		"content": prompt,
+	})
 
 	// Handle tool_choice
 	if toolChoice, ok := options["tool_choice"].(string); ok {
@@ -158,120 +168,17 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 
 	// Add other options
 	for k, v := range p.options {
-		if k != "tools" && k != "tool_choice" {
+		if k != "tools" && k != "tool_choice" && k != "system_prompt" {
 			request[k] = v
 		}
 	}
 	for k, v := range options {
-		if k != "tools" && k != "tool_choice" {
+		if k != "tools" && k != "tool_choice" && k != "system_prompt" {
 			request[k] = v
 		}
 	}
 
 	return json.Marshal(request)
-}
-
-// createBaseRequest initializes the basic request structure.
-// This includes the model selection and basic message format.
-func (p *OpenAIProvider) createBaseRequest(prompt string) map[string]interface{} {
-	var request map[string]interface{}
-	if err := json.Unmarshal([]byte(prompt), &request); err != nil {
-		p.logger.Debug("Prompt is not a valid JSON, creating standard request", "error", err)
-		request = map[string]interface{}{
-			"model": p.model,
-			"messages": []interface{}{
-				map[string]interface{}{
-					"role":    "user",
-					"content": prompt,
-				},
-			},
-		}
-	}
-	return request
-}
-
-// processMessages handles message formatting and structure.
-// It processes system messages, user inputs, and assistant responses.
-func (p *OpenAIProvider) processMessages(request map[string]interface{}) {
-	p.logger.Debug("Processing messages")
-	if messages, ok := request["messages"]; ok {
-		switch msg := messages.(type) {
-		case []interface{}:
-			for i, m := range msg {
-				if msgMap, ok := m.(map[string]interface{}); ok {
-					p.processFunctionMessage(msgMap)
-					p.processToolCalls(msgMap)
-					msg[i] = msgMap
-				}
-			}
-		case []map[string]string:
-			newMessages := make([]interface{}, len(msg))
-			for i, m := range msg {
-				msgMap := make(map[string]interface{})
-				for k, v := range m {
-					msgMap[k] = v
-				}
-				p.processFunctionMessage(msgMap)
-				p.processToolCalls(msgMap)
-				newMessages[i] = msgMap
-			}
-			request["messages"] = newMessages
-		default:
-			p.logger.Warn("Unexpected type for messages", "type", fmt.Sprintf("%T", messages))
-		}
-	}
-	p.logger.Debug("Messages processed", "messageCount", len(request["messages"].([]interface{})))
-}
-
-// processFunctionMessage handles function call responses.
-// This is used when the model has executed a function and needs to process the result.
-func (p *OpenAIProvider) processFunctionMessage(msgMap map[string]interface{}) {
-	if msgMap["role"] == "function" && msgMap["name"] == nil {
-		if content, ok := msgMap["content"].(string); ok {
-			var contentMap map[string]interface{}
-			if err := json.Unmarshal([]byte(content), &contentMap); err == nil {
-				if name, ok := contentMap["name"].(string); ok {
-					msgMap["name"] = name
-					p.logger.Debug("Function name extracted from content", "name", name)
-				}
-			}
-		}
-	}
-}
-
-// processToolCalls handles tool/function definitions and responses.
-// This supports OpenAI's function calling capability.
-func (p *OpenAIProvider) processToolCalls(msgMap map[string]interface{}) {
-	if toolCalls, ok := msgMap["tool_calls"].([]interface{}); ok {
-		for j, call := range toolCalls {
-			if callMap, ok := call.(map[string]interface{}); ok {
-				if function, ok := callMap["function"].(map[string]interface{}); ok {
-					if args, ok := function["arguments"].(string); ok {
-						var parsedArgs map[string]interface{}
-						if err := json.Unmarshal([]byte(args), &parsedArgs); err == nil {
-							function["arguments"] = parsedArgs
-							callMap["function"] = function
-							toolCalls[j] = callMap
-							p.logger.Debug("Tool call arguments parsed", "functionName", function["name"], "arguments", parsedArgs)
-						}
-					}
-				}
-			}
-		}
-		msgMap["tool_calls"] = toolCalls
-	}
-}
-
-// addOptions incorporates additional options into the request.
-// This includes model parameters and any provider-specific settings.
-func (p *OpenAIProvider) addOptions(request map[string]interface{}, options map[string]interface{}) {
-	for k, v := range p.options {
-		request[k] = v
-	}
-	for k, v := range options {
-		request[k] = v
-	}
-	p.logger.Debug("Options added to request", "options", options)
 }
 
 // PrepareRequestWithSchema creates a request that includes JSON schema validation.
@@ -287,19 +194,65 @@ func (p *OpenAIProvider) addOptions(request map[string]interface{}, options map[
 //   - Any error encountered during preparation
 func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
 	p.logger.Debug("Preparing request with schema", "prompt", prompt, "schema", schema)
+
+	// First, ensure we have a proper object for the schema
+	var schemaObj interface{}
+	switch s := schema.(type) {
+	case string:
+		if err := json.Unmarshal([]byte(s), &schemaObj); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal schema string: %w", err)
+		}
+	case []byte:
+		if err := json.Unmarshal(s, &schemaObj); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal schema bytes: %w", err)
+		}
+	case map[string]interface{}:
+		schemaObj = s
+	default:
+		// Try to marshal and unmarshal to ensure we have a proper object
+		schemaBytes, err := json.Marshal(schema)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal schema: %w", err)
+		}
+		if err := json.Unmarshal(schemaBytes, &schemaObj); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal schema: %w", err)
+		}
+	}
+
+	// Clean the schema for OpenAI by removing unsupported validation rules
+	cleanSchema := cleanSchemaForOpenAI(schemaObj)
+
+	// Debug log the cleaned schema
+	cleanSchemaJSON, _ := json.MarshalIndent(cleanSchema, "", "  ")
+	p.logger.Debug("Cleaned schema for OpenAI", "schema", string(cleanSchemaJSON))
+
 	request := map[string]interface{}{
 		"model": p.model,
-		"messages": []map[string]string{
+		"messages": []map[string]interface{}{
 			{"role": "user", "content": prompt},
 		},
 		"response_format": map[string]interface{}{
-			"type":   "json_schema",
-			"schema": schema,
+			"type": "json_schema",
+			"json_schema": map[string]interface{}{
+				"name":   "structured_response",
+				"schema": cleanSchema,
+				"strict": true,
+			},
 		},
 	}
 
+	// Handle system prompt as system message
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		request["messages"] = append([]map[string]interface{}{
+			{"role": "system", "content": systemPrompt},
+		}, request["messages"].([]map[string]interface{})...)
+	}
+
+	// Add other options
 	for k, v := range options {
-		request[k] = v
+		if k != "system_prompt" {
+			request[k] = v
+		}
 	}
 
 	reqJSON, err := json.Marshal(request)
@@ -308,8 +261,39 @@ func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[str
 		return nil, err
 	}
 
-	p.logger.Debug("Request with schema prepared", "request", string(reqJSON))
+	p.logger.Debug("Full request to OpenAI", "request", string(reqJSON))
 	return reqJSON, nil
+}
+
+// cleanSchemaForOpenAI removes validation rules that OpenAI doesn't support
+func cleanSchemaForOpenAI(schema interface{}) interface{} {
+	if schemaMap, ok := schema.(map[string]interface{}); ok {
+		result := make(map[string]interface{})
+		for k, v := range schemaMap {
+			switch k {
+			case "type", "properties", "required", "items":
+				if k == "properties" {
+					props := make(map[string]interface{})
+					if propsMap, ok := v.(map[string]interface{}); ok {
+						for propName, propSchema := range propsMap {
+							props[propName] = cleanSchemaForOpenAI(propSchema)
+						}
+					}
+					result[k] = props
+				} else if k == "items" {
+					result[k] = cleanSchemaForOpenAI(v)
+				} else {
+					result[k] = v
+				}
+			}
+		}
+		// Add additionalProperties: false at each object level
+		if schemaMap["type"] == "object" {
+			result["additionalProperties"] = false
+		}
+		return result
+	}
+	return schema
 }
 
 // ParseResponse extracts the generated text from the OpenAI API response.
@@ -330,8 +314,8 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 					ID       string `json:"id"`
 					Type     string `json:"type"`
 					Function struct {
-						Name      string `json:"name"`
-						Arguments string `json:"arguments"`
+						Name      string          `json:"name"`
+						Arguments json.RawMessage `json:"arguments"`
 					} `json:"function"`
 				} `json:"tool_calls"`
 			} `json:"message"`
@@ -352,11 +336,21 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	if len(message.ToolCalls) > 0 {
-		toolCallJSON, err := json.Marshal(message.ToolCalls)
-		if err != nil {
-			return "", err
+		var functionCalls []string
+		for _, call := range message.ToolCalls {
+			// Parse arguments as raw JSON to preserve the exact format
+			var args interface{}
+			if err := json.Unmarshal(call.Function.Arguments, &args); err != nil {
+				return "", fmt.Errorf("error parsing function arguments: %w", err)
+			}
+
+			functionCall, err := utils.FormatFunctionCall(call.Function.Name, args)
+			if err != nil {
+				return "", fmt.Errorf("error formatting function call: %w", err)
+			}
+			functionCalls = append(functionCalls, functionCall)
 		}
-		return fmt.Sprintf("<function_call>%s</function_call>", toolCallJSON), nil
+		return strings.Join(functionCalls, "\n"), nil
 	}
 
 	return "", fmt.Errorf("no content or tool calls in response")
@@ -365,51 +359,18 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 // HandleFunctionCalls processes function calling in the response.
 // This supports OpenAI's function calling and JSON mode features.
 func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	var response struct {
-		Choices []struct {
-			Message struct {
-				ToolCalls []struct {
-					Function struct {
-						Name      string `json:"name"`
-						Arguments string `json:"arguments"`
-					} `json:"function"`
-				} `json:"tool_calls"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
-	}
-
-	if len(response.Choices) == 0 || len(response.Choices[0].Message.ToolCalls) == 0 {
-		return nil, fmt.Errorf("no tool calls found in response")
-	}
-
-	toolCalls := response.Choices[0].Message.ToolCalls
-	result := make([]map[string]interface{}, len(toolCalls))
-	for i, call := range toolCalls {
-		var args map[string]interface{}
-		if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
-			return nil, fmt.Errorf("error parsing arguments: %w", err)
-		}
-		result[i] = map[string]interface{}{
-			"name":      call.Function.Name,
-			"arguments": args,
-		}
-	}
-
-	return json.Marshal(result)
-}
-
-// mustMarshal is a helper that panics on JSON marshaling errors.
-// This is used internally where marshaling errors indicate a programming error.
-func mustMarshal(v interface{}) []byte {
-	b, err := json.Marshal(v)
+	response := string(body)
+	functionCalls, err := utils.ExtractFunctionCalls(response)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
-	return b
+
+	if len(functionCalls) == 0 {
+		return nil, fmt.Errorf("no function calls found in response")
+	}
+
+	p.logger.Debug("Function calls to handle", "calls", functionCalls)
+	return json.Marshal(functionCalls)
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.

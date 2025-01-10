@@ -4,6 +4,7 @@ package llm
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -17,6 +18,54 @@ var validate *validator.Validate
 
 func init() {
 	validate = validator.New()
+
+	// Register custom validator for API key map
+	if err := validate.RegisterValidation("apikey", validateAPIKey); err != nil {
+		// Since this is in init(), we can't return the error
+		// Instead, panic with a clear message as this is a critical setup failure
+		panic(fmt.Sprintf("failed to register API key validator: %v", err))
+	}
+}
+
+// validateAPIKey checks if the API key map contains a valid key for the current provider
+func validateAPIKey(fl validator.FieldLevel) bool {
+	apiKeys, ok := fl.Field().Interface().(map[string]string)
+	if !ok {
+		return false
+	}
+
+	// Get the parent struct (Config)
+	parent := fl.Parent()
+	provider := parent.FieldByName("Provider").String()
+
+	// Check if there's a key for the provider
+	apiKey, exists := apiKeys[provider]
+	if !exists || apiKey == "" {
+		return false
+	}
+
+	// Validate key format based on provider
+	switch provider {
+	case "openai":
+		return strings.HasPrefix(apiKey, "sk-") && len(apiKey) > 20
+	case "anthropic":
+		return strings.HasPrefix(apiKey, "sk-ant-") && len(apiKey) > 20
+	case "ollama":
+		// For Ollama, check if the endpoint is accessible
+		endpoint := parent.FieldByName("OllamaEndpoint").String()
+		if endpoint == "" {
+			endpoint = "http://localhost:11434" // default endpoint
+		}
+		// Try to make a HEAD request to the Ollama endpoint
+		resp, err := http.Head(endpoint + "/api/tags")
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode == http.StatusOK
+	default:
+		return len(apiKey) > 20 // Generic validation for unknown providers
+	}
 }
 
 // Validate checks if the given struct is valid according to its validation rules.
@@ -34,7 +83,7 @@ func init() {
 //	    Model     string `validate:"required"`
 //	    MaxTokens int    `validate:"min=1,max=4096"`
 //	}
-//	
+//
 //	config := Config{Model: "gpt-4", MaxTokens: 2048}
 //	if err := Validate(&config); err != nil {
 //	    log.Fatal(err)
@@ -58,7 +107,7 @@ func Validate(s interface{}) error {
 //	func validateModel(fl validator.FieldLevel) bool {
 //	    return strings.HasPrefix(fl.Field().String(), "gpt-")
 //	}
-//	
+//
 //	err := RegisterCustomValidation("model", validateModel)
 func RegisterCustomValidation(tag string, fn validator.Func) error {
 	return validate.RegisterValidation(tag, fn)
@@ -81,7 +130,7 @@ func RegisterCustomValidation(tag string, fn validator.Func) error {
 //	    MaxTokens int      `json:"max_tokens" validate:"min=1"`
 //	    Stop      []string `json:"stop,omitempty"`
 //	}
-//	
+//
 //	schema, err := GenerateJSONSchema(&Prompt{})
 func GenerateJSONSchema(v interface{}) ([]byte, error) {
 	schema := make(map[string]interface{})
@@ -206,12 +255,20 @@ func addValidationToSchema(schema map[string]interface{}, validateTag string) {
 
 		case "min":
 			if num, err := strconv.ParseFloat(value, 64); err == nil {
-				schema["minimum"] = num
+				if schema["type"] == "array" {
+					schema["minItems"] = int(num)
+				} else {
+					schema["minimum"] = num
+				}
 			}
 
 		case "max":
 			if num, err := strconv.ParseFloat(value, 64); err == nil {
-				schema["maximum"] = num
+				if schema["type"] == "array" {
+					schema["maxItems"] = int(num)
+				} else {
+					schema["maximum"] = num
+				}
 			}
 
 		case "len":
@@ -297,7 +354,7 @@ func addValidationToSchema(schema map[string]interface{}, validateTag string) {
 //	        },
 //	    },
 //	}
-//	
+//
 //	err := ValidateAgainstSchema(`{"text": "Hello"}`, schema)
 func ValidateAgainstSchema(response string, schema interface{}) error {
 	var responseData interface{}
@@ -305,14 +362,27 @@ func ValidateAgainstSchema(response string, schema interface{}) error {
 		return fmt.Errorf("failed to parse response JSON: %w", err)
 	}
 
-	schemaBytes, err := json.Marshal(schema)
-	if err != nil {
-		return fmt.Errorf("failed to marshal schema: %w", err)
-	}
-
 	var schemaMap map[string]interface{}
-	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
-		return fmt.Errorf("failed to parse schema JSON: %w", err)
+	switch s := schema.(type) {
+	case string:
+		if err := json.Unmarshal([]byte(s), &schemaMap); err != nil {
+			return fmt.Errorf("failed to parse schema JSON string: %w", err)
+		}
+	case []byte:
+		if err := json.Unmarshal(s, &schemaMap); err != nil {
+			return fmt.Errorf("failed to parse schema JSON bytes: %w", err)
+		}
+	case map[string]interface{}:
+		schemaMap = s
+	default:
+		// Try to marshal and unmarshal to ensure we have a proper object
+		schemaBytes, err := json.Marshal(schema)
+		if err != nil {
+			return fmt.Errorf("failed to marshal schema: %w", err)
+		}
+		if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+			return fmt.Errorf("failed to parse schema JSON: %w", err)
+		}
 	}
 
 	if err := validateJSONAgainstSchema(responseData, schemaMap); err != nil {

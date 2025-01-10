@@ -19,15 +19,15 @@ import (
 // supporting various open-source models like Llama, Mistral, and others.
 type OllamaProvider struct {
 	// endpoint is the base URL for the Ollama API
-	endpoint     string                 // Ollama API endpoint URL
+	endpoint string // Ollama API endpoint URL
 	// model is the name of the model to use (e.g., "llama2", "mistral")
-	model        string                 // Model identifier (e.g., "llama2", "mistral")
+	model string // Model identifier (e.g., "llama2", "mistral")
 	// extraHeaders are additional HTTP headers for requests
-	extraHeaders map[string]string      // Additional HTTP headers
+	extraHeaders map[string]string // Additional HTTP headers
 	// options are model-specific options for the provider
-	options      map[string]interface{} // Model-specific options
+	options map[string]interface{} // Model-specific options
 	// logger is the logger instance for this provider
-	logger       utils.Logger           // Logger instance
+	logger utils.Logger // Logger instance
 }
 
 // NewOllamaProvider creates a new Ollama provider instance.
@@ -185,8 +185,17 @@ func (p *OllamaProvider) ParseResponse(body []byte) (string, error) {
 // HandleFunctionCalls processes function calling capabilities.
 // Since Ollama doesn't support function calling natively, this returns nil.
 func (p *OllamaProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	// Ollama doesn't support function calling natively, so we return nil
-	return nil, nil
+	response := string(body)
+	functionCalls, err := utils.ExtractFunctionCalls(response)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting function calls: %w", err)
+	}
+
+	if len(functionCalls) == 0 {
+		return nil, nil // No function calls found
+	}
+
+	return json.Marshal(functionCalls)
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.

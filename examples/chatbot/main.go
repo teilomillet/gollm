@@ -1,6 +1,6 @@
 // File: examples/chatbot.go
 
-package main
+package chatbot
 
 import (
 	"bufio"

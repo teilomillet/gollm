@@ -85,7 +85,13 @@ func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.Provide
 		extraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
 	}
 
-	provider, err := registry.Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, extraHeaders)
+	// Check if API key is empty
+	apiKey := cfg.APIKeys[cfg.Provider]
+	if apiKey == "" {
+		return nil, NewLLMError(ErrorTypeAuthentication, "empty API key", nil)
+	}
+
+	provider, err := registry.Get(cfg.Provider, apiKey, cfg.Model, extraHeaders)
 
 	if err != nil {
 		return nil, err
@@ -208,7 +214,7 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 	if len(prompt.Tools) > 0 {
 		options["tools"] = prompt.Tools
 	}
-	if prompt.ToolChoice != nil && len(prompt.ToolChoice) > 0 {
+	if len(prompt.ToolChoice) > 0 {
 		options["tool_choice"] = prompt.ToolChoice
 	}
 

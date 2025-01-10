@@ -151,9 +151,32 @@ Please structure your response as a JSON object with the following format:
 	}
 
 	// Demonstrate error handling and retries
-	_, err = presets.QuestionAnswer(ctx, llmClient, "This is an intentionally long prompt that exceeds the token limit to demonstrate error handling.")
+	fmt.Println("\nDemonstrating error handling and retries:")
+
+	// Create a client with short timeout to demonstrate retries
+	retryClient, err := gollm.NewLLM(
+		gollm.SetProvider("openai"),
+		gollm.SetModel("gpt-4o-mini"),
+		gollm.SetTemperature(0.7),
+		gollm.SetMaxTokens(1000),
+		gollm.SetTimeout(5*time.Second),  // Short timeout to trigger retries
+		gollm.SetMaxRetries(3),           // Will attempt 4 times total (initial + 3 retries)
+		gollm.SetRetryDelay(time.Second), // Wait between retries
+		gollm.SetLogLevel(gollm.LogLevelInfo),
+		gollm.SetAPIKey(apiKey),
+	)
 	if err != nil {
-		fmt.Printf("Expected error occurred: %v\n", err)
-		// Here you would typically implement appropriate error handling or fallback strategies
+		log.Fatalf("Failed to create retry client: %v", err)
+	}
+
+	// Use a complex prompt that's likely to take longer than the timeout
+	_, err = presets.QuestionAnswer(ctx, retryClient,
+		"Please provide a detailed analysis of the impact of quantum computing on cryptography, including current limitations, potential breakthroughs, and implications for cybersecurity.")
+
+	if err != nil {
+		fmt.Printf("Got expected error after retries: %v\n", err)
+		fmt.Println("This demonstrates how the retry mechanism handles timeouts and errors gracefully.")
+	} else {
+		fmt.Println("Request succeeded (unexpected with short timeout)")
 	}
 }

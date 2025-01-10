@@ -18,12 +18,12 @@ import (
 // It is a generic type that can hold any structured response data along with metadata
 // about the generation attempt.
 type ComparisonResult[T any] struct {
-	Provider string  // The LLM provider (e.g., "openai", "anthropic")
-	Model    string  // The specific model used (e.g., "gpt-4", "claude-2")
-	Response string  // Raw response from the model
-	Data     T       // Parsed and validated response data
-	Error    error   // Any error encountered during generation or validation
-	Attempts int     // Number of attempts made to get a valid response
+	Provider string // The LLM provider (e.g., "openai", "anthropic")
+	Model    string // The specific model used (e.g., "gpt-4", "claude-2")
+	Response string // Raw response from the model
+	Data     T      // Parsed and validated response data
+	Error    error  // Any error encountered during generation or validation
+	Attempts int    // Number of attempts made to get a valid response
 }
 
 // debugLog outputs debug information when debug logging is enabled in the config.
@@ -132,6 +132,17 @@ type ValidateFunc[T any] func(T) error
 //	analysis := AnalyzeComparisonResults(results)
 //	fmt.Println(analysis)
 func CompareModels[T any](ctx context.Context, prompt string, validateFunc ValidateFunc[T], configs ...*config.Config) ([]ComparisonResult[T], error) {
+	// Validate inputs
+	if prompt == "" {
+		return nil, fmt.Errorf("prompt cannot be empty")
+	}
+	if validateFunc == nil {
+		return nil, fmt.Errorf("validator function cannot be nil")
+	}
+	if len(configs) == 0 {
+		return nil, fmt.Errorf("at least one config must be provided")
+	}
+
 	results := make([]ComparisonResult[T], len(configs))
 	remainingConfigs := make([]*config.Config, len(configs))
 	copy(remainingConfigs, configs)
@@ -165,6 +176,13 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 
 			if err != nil {
 				debugLog(config, "Error generating response: %v", err)
+				// Immediately propagate API errors (like invalid keys)
+				if strings.Contains(err.Error(), "API error") {
+					return nil, fmt.Errorf("API error for %s %s: %w", config.Provider, config.Model, err)
+				}
+				if attempt == 3 {
+					return nil, fmt.Errorf("failed to generate response after all attempts: %w", err)
+				}
 				newRemainingConfigs = append(newRemainingConfigs, config)
 				continue
 			}
@@ -180,6 +198,9 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 			if err := json.Unmarshal([]byte(cleanedResponse), &data); err != nil {
 				debugLog(config, "Invalid JSON: %v", err)
 				results[index].Error = fmt.Errorf("invalid JSON: %w", err)
+				if attempt == 3 {
+					return nil, fmt.Errorf("failed to parse JSON after all attempts: %w", err)
+				}
 				newRemainingConfigs = append(newRemainingConfigs, config)
 				continue
 			}
@@ -187,6 +208,9 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 			if err := validateFunc(data); err != nil {
 				debugLog(config, "Validation failed: %v", err)
 				results[index].Error = fmt.Errorf("validation failed: %w", err)
+				if attempt == 3 {
+					return nil, fmt.Errorf("validation failed after all attempts: %w", err)
+				}
 				newRemainingConfigs = append(newRemainingConfigs, config)
 				continue
 			}

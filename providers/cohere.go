@@ -3,9 +3,10 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/utils"
-	"strings"
 )
 
 // CohereProvider implements the Provider interface for Cohere's API.
@@ -226,9 +227,20 @@ func (p *CohereProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	for _, toolCall := range response.Message.ToolCalls {
-		finalResponse.WriteString(
-			fmt.Sprintf("<function_call>{\"name\": \"%s\", \"arguments\": %s}</function_call>",
-				toolCall.Function.Name, toolCall.Function.Arguments))
+		// Parse arguments as raw JSON to preserve the exact format
+		var args interface{}
+		if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+			return "", fmt.Errorf("error parsing function arguments: %w", err)
+		}
+
+		functionCall, err := utils.FormatFunctionCall(toolCall.Function.Name, args)
+		if err != nil {
+			return "", fmt.Errorf("error formatting function call: %w", err)
+		}
+		if finalResponse.Len() > 0 {
+			finalResponse.WriteString("\n")
+		}
+		finalResponse.WriteString(functionCall)
 	}
 
 	p.logger.Debug("Final response: %s", finalResponse.String())
@@ -238,46 +250,17 @@ func (p *CohereProvider) ParseResponse(body []byte) (string, error) {
 // HandleFunctionCalls processes structured output in the response.
 // This supports Cohere's response formatting capabilities.
 func (p *CohereProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	var response struct {
-		Message struct {
-			Role    string `json:"role"`
-			Content []struct {
-				Type string `json:"type"`
-				Text string `json:"text"`
-			} `json:"content"`
-			ToolCalls []struct {
-				ID       string `json:"id"`
-				Type     string `json:"type"`
-				Function struct {
-					Name      string `json:"name"`
-					Arguments string `json:"arguments"`
-				} `json:"function"`
-			} `json:"tool_calls"`
-		} `json:"message"`
+	response := string(body)
+	functionCalls, err := utils.ExtractFunctionCalls(response)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
 
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
+	if len(functionCalls) == 0 {
+		return nil, nil // No function calls found
 	}
 
-	if len(response.Message.ToolCalls) == 0 {
-		return nil, fmt.Errorf("no tool calls found in response")
-	}
-
-	toolCalls := response.Message.ToolCalls
-	result := make([]map[string]any, len(toolCalls))
-	for i, call := range toolCalls {
-		var args map[string]any
-		if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
-			return nil, fmt.Errorf("error parsing arguments: %w", err)
-		}
-		result[i] = map[string]any{
-			"name":      call.Function.Name,
-			"arguments": args,
-		}
-	}
-
-	return json.Marshal(result)
+	return json.Marshal(functionCalls)
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.

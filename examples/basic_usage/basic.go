@@ -1,4 +1,4 @@
-package main
+package basic_usage
 
 import (
 	"context"
@@ -85,7 +85,7 @@ func main() {
 	fmt.Println("\nExample 4: JSON Schema Generation and Validation")
 	fmt.Println("This example demonstrates how gollm validates prompts using JSON Schema.")
 	fmt.Println("A valid prompt must have input text and can optionally have other properties.")
-	
+
 	// First, let's look at the JSON Schema that defines a valid prompt
 	schemaBytes, err := llm.GetPromptJSONSchema()
 	if err != nil {
@@ -98,7 +98,7 @@ func main() {
 	fmt.Println("\n1. Testing a Valid Prompt:")
 	fmt.Println("Creating a prompt with input text: 'Provide an overview of Go language'")
 	validPrompt := gollm.NewPrompt("Provide an overview of Go language.")
-	
+
 	// Print the prompt contents so we can see what we're validating
 	validPromptJSON, _ := json.MarshalIndent(validPrompt, "", "  ")
 	fmt.Printf("\nPrompt contents:\n%s\n", string(validPromptJSON))
@@ -115,7 +115,7 @@ func main() {
 	fmt.Println("\n2. Testing an Invalid Prompt:")
 	fmt.Println("Creating a prompt with NO input text (empty string)")
 	invalidPrompt := gollm.NewPrompt("")
-	
+
 	// Print the prompt contents so we can see what we're validating
 	invalidPromptJSON, _ := json.MarshalIndent(invalidPrompt, "", "  ")
 	fmt.Printf("\nPrompt contents:\n%s\n", string(invalidPromptJSON))

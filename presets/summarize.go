@@ -89,10 +89,10 @@ var summarizeTemplate = gollm.NewPromptTemplate(
 //   - WithOutput: Customize output format
 //
 // Best practices:
-//   1. Set appropriate length limits based on source text
-//   2. Use lower temperature for factual summaries
-//   3. Add specific directives for focus areas
-//   4. Consider audience when setting style
+//  1. Set appropriate length limits based on source text
+//  2. Use lower temperature for factual summaries
+//  3. Add specific directives for focus areas
+//  4. Consider audience when setting style
 //
 // The function handles:
 //   - Context management
@@ -100,9 +100,14 @@ var summarizeTemplate = gollm.NewPromptTemplate(
 //   - Error propagation
 //   - Response generation
 func Summarize(ctx context.Context, l gollm.LLM, text string, opts ...gollm.PromptOption) (string, error) {
+	// Validate input
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if l == nil {
+		return "", fmt.Errorf("LLM instance cannot be nil")
+	}
+
 	prompt, err := summarizeTemplate.Execute(map[string]interface{}{
 		"Text": text,
 	})

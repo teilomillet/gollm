@@ -4,6 +4,8 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/utils"
 )
@@ -12,11 +14,11 @@ import (
 // It supports Mistral's language models and provides access to their capabilities,
 // including chat completion and structured output.
 type MistralProvider struct {
-	apiKey       string           // API key for authentication
-	model        string           // Model identifier (e.g., "mistral-large", "mistral-medium")
-	extraHeaders map[string]string // Additional HTTP headers
+	apiKey       string                 // API key for authentication
+	model        string                 // Model identifier (e.g., "mistral-large", "mistral-medium")
+	extraHeaders map[string]string      // Additional HTTP headers
 	options      map[string]interface{} // Model-specific options
-	logger       utils.Logger     // Logger instance
+	logger       utils.Logger           // Logger instance
 }
 
 // NewMistralProvider creates a new Mistral provider instance.
@@ -207,41 +209,44 @@ func (p *MistralProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	// Combine content and tool calls
-	var finalResponse string
-	finalResponse += response.Choices[0].Message.Content
+	var finalResponse strings.Builder
+	finalResponse.WriteString(response.Choices[0].Message.Content)
 
+	// Process tool calls if present
 	for _, toolCall := range response.Choices[0].Message.ToolCalls {
-		finalResponse += fmt.Sprintf("<function_call>{\"name\": \"%s\", \"arguments\": %s}</function_call>", toolCall.Function.Name, toolCall.Function.Arguments)
+		// Parse arguments as raw JSON to preserve the exact format
+		var args interface{}
+		if err := json.Unmarshal(toolCall.Function.Arguments, &args); err != nil {
+			return "", fmt.Errorf("error parsing function arguments: %w", err)
+		}
+
+		functionCall, err := utils.FormatFunctionCall(toolCall.Function.Name, args)
+		if err != nil {
+			return "", fmt.Errorf("error formatting function call: %w", err)
+		}
+		if finalResponse.Len() > 0 {
+			finalResponse.WriteString("\n")
+		}
+		finalResponse.WriteString(functionCall)
 	}
 
-	return finalResponse, nil
+	return finalResponse.String(), nil
 }
 
 // HandleFunctionCalls processes structured output in the response.
 // This supports Mistral's response formatting capabilities.
 func (p *MistralProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	var response struct {
-		Choices []struct {
-			Message struct {
-				ToolCalls []struct {
-					Function struct {
-						Name      string          `json:"name"`
-						Arguments json.RawMessage `json:"arguments"`
-					} `json:"function"`
-				} `json:"tool_calls"`
-			} `json:"message"`
-		} `json:"choices"`
+	response := string(body)
+	functionCalls, err := utils.ExtractFunctionCalls(response)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
 
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
+	if len(functionCalls) == 0 {
+		return nil, nil // No function calls found
 	}
 
-	if len(response.Choices) == 0 || len(response.Choices[0].Message.ToolCalls) == 0 {
-		return nil, nil // No function call
-	}
-
-	return json.Marshal(response.Choices[0].Message.ToolCalls[0].Function)
+	return json.Marshal(functionCalls)
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.
