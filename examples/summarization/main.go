@@ -1,4 +1,4 @@
-package summarization
+package main
 
 import (
 	"context"
