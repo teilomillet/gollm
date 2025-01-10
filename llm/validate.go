@@ -21,7 +21,9 @@ func init() {
 
 	// Register custom validator for API key map
 	if err := validate.RegisterValidation("apikey", validateAPIKey); err != nil {
-		panic(fmt.Sprintf("failed to register apikey validator: %v", err))
+		// Since this is in init(), we can't return the error
+		// Instead, panic with a clear message as this is a critical setup failure
+		panic(fmt.Sprintf("failed to register API key validator: %v", err))
 	}
 }
 
