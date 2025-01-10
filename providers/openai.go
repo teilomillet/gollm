@@ -181,109 +181,6 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 	return json.Marshal(request)
 }
 
-// createBaseRequest initializes the basic request structure.
-// This includes the model selection and basic message format.
-func (p *OpenAIProvider) createBaseRequest(prompt string) map[string]interface{} {
-	var request map[string]interface{}
-	if err := json.Unmarshal([]byte(prompt), &request); err != nil {
-		p.logger.Debug("Prompt is not a valid JSON, creating standard request", "error", err)
-		request = map[string]interface{}{
-			"model": p.model,
-			"messages": []interface{}{
-				map[string]interface{}{
-					"role":    "user",
-					"content": prompt,
-				},
-			},
-		}
-	}
-	return request
-}
-
-// processMessages handles message formatting and structure.
-// It processes system messages, user inputs, and assistant responses.
-func (p *OpenAIProvider) processMessages(request map[string]interface{}) {
-	p.logger.Debug("Processing messages")
-	if messages, ok := request["messages"]; ok {
-		switch msg := messages.(type) {
-		case []interface{}:
-			for i, m := range msg {
-				if msgMap, ok := m.(map[string]interface{}); ok {
-					p.processFunctionMessage(msgMap)
-					p.processToolCalls(msgMap)
-					msg[i] = msgMap
-				}
-			}
-		case []map[string]string:
-			newMessages := make([]interface{}, len(msg))
-			for i, m := range msg {
-				msgMap := make(map[string]interface{})
-				for k, v := range m {
-					msgMap[k] = v
-				}
-				p.processFunctionMessage(msgMap)
-				p.processToolCalls(msgMap)
-				newMessages[i] = msgMap
-			}
-			request["messages"] = newMessages
-		default:
-			p.logger.Warn("Unexpected type for messages", "type", fmt.Sprintf("%T", messages))
-		}
-	}
-	p.logger.Debug("Messages processed", "messageCount", len(request["messages"].([]interface{})))
-}
-
-// processFunctionMessage handles function call responses.
-// This is used when the model has executed a function and needs to process the result.
-func (p *OpenAIProvider) processFunctionMessage(msgMap map[string]interface{}) {
-	if msgMap["role"] == "function" && msgMap["name"] == nil {
-		if content, ok := msgMap["content"].(string); ok {
-			var contentMap map[string]interface{}
-			if err := json.Unmarshal([]byte(content), &contentMap); err == nil {
-				if name, ok := contentMap["name"].(string); ok {
-					msgMap["name"] = name
-					p.logger.Debug("Function name extracted from content", "name", name)
-				}
-			}
-		}
-	}
-}
-
-// processToolCalls handles tool/function definitions and responses.
-// This supports OpenAI's function calling capability.
-func (p *OpenAIProvider) processToolCalls(msgMap map[string]interface{}) {
-	if toolCalls, ok := msgMap["tool_calls"].([]interface{}); ok {
-		for j, call := range toolCalls {
-			if callMap, ok := call.(map[string]interface{}); ok {
-				if function, ok := callMap["function"].(map[string]interface{}); ok {
-					if args, ok := function["arguments"].(string); ok {
-						var parsedArgs map[string]interface{}
-						if err := json.Unmarshal([]byte(args), &parsedArgs); err == nil {
-							function["arguments"] = parsedArgs
-							callMap["function"] = function
-							toolCalls[j] = callMap
-							p.logger.Debug("Tool call arguments parsed", "functionName", function["name"], "arguments", parsedArgs)
-						}
-					}
-				}
-			}
-		}
-		msgMap["tool_calls"] = toolCalls
-	}
-}
-
-// addOptions incorporates additional options into the request.
-// This includes model parameters and any provider-specific settings.
-func (p *OpenAIProvider) addOptions(request map[string]interface{}, options map[string]interface{}) {
-	for k, v := range p.options {
-		request[k] = v
-	}
-	for k, v := range options {
-		request[k] = v
-	}
-	p.logger.Debug("Options added to request", "options", options)
-}
-
 // PrepareRequestWithSchema creates a request that includes JSON schema validation.
 // This uses OpenAI's function calling feature to enforce response structure.
 //
@@ -474,16 +371,6 @@ func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 
 	p.logger.Debug("Function calls to handle", "calls", functionCalls)
 	return json.Marshal(functionCalls)
-}
-
-// mustMarshal is a helper that panics on JSON marshaling errors.
-// This is used internally where marshaling errors indicate a programming error.
-func mustMarshal(v interface{}) []byte {
-	b, err := json.Marshal(v)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.

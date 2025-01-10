@@ -109,9 +109,6 @@ type PromptOptimizer struct {
 	// llm is the language model used for optimization
 	llm llm.LLM
 
-	// logger provides logging capabilities
-	logger utils.Logger
-
 	// debugManager handles debug output and tracking
 	debugManager *utils.DebugManager
 

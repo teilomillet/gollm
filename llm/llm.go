@@ -214,7 +214,7 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 	if len(prompt.Tools) > 0 {
 		options["tools"] = prompt.Tools
 	}
-	if prompt.ToolChoice != nil && len(prompt.ToolChoice) > 0 {
+	if len(prompt.ToolChoice) > 0 {
 		options["tool_choice"] = prompt.ToolChoice
 	}
 
