@@ -124,6 +124,7 @@ func main() {
     }
     fmt.Printf("Response:\n%s\n", response)
 }
+```
 
 ## Quick Reference
 
