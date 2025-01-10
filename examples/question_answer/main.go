@@ -1,4 +1,4 @@
-package question_answer
+package main
 
 import (
 	"context"
