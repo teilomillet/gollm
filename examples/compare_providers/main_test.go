@@ -20,7 +20,7 @@ func TestCreateLLM(t *testing.T) {
 	// Test with empty API key
 	_, err = createLLM("openai", "gpt-4o-mini", "")
 	assert.Error(t, err, "Should fail with empty API key")
-	assert.Contains(t, err.Error(), "empty API key")
+	assert.Contains(t, err.Error(), "APIKeys", "Error should mention API key validation")
 
 	// Test with invalid model
 	_, err = createLLM("openai", "invalid-model", os.Getenv("OPENAI_API_KEY"))
@@ -189,21 +189,15 @@ func TestCompareProviders(t *testing.T) {
 }
 
 func TestCompareProvidersErrorHandling(t *testing.T) {
-	// Test with invalid API key
-	t.Run("invalid_api_key", func(t *testing.T) {
-		llm, err := gollm.NewLLM(
+	t.Run("invalid api key", func(t *testing.T) {
+		_, err := gollm.NewLLM(
 			gollm.SetProvider("openai"),
 			gollm.SetModel("gpt-4o-mini"),
-			gollm.SetAPIKey("invalid_key"),
-			gollm.SetMaxTokens(300),
+			gollm.SetAPIKey("invalid-key"),
+			gollm.SetMaxTokens(500),
 		)
-		assert.NoError(t, err, "Should create LLM instance even with invalid key")
-
-		ctx := context.Background()
-		prompt := gollm.NewPrompt("Test message")
-		_, err = llm.Generate(ctx, prompt)
 		assert.Error(t, err, "Should fail with invalid API key")
-		assert.Contains(t, err.Error(), "failed to generate after", "Error should indicate generation failure")
+		assert.Contains(t, err.Error(), "APIKeys", "Error should mention API key validation")
 	})
 
 	// Test with empty API key
@@ -215,7 +209,7 @@ func TestCompareProvidersErrorHandling(t *testing.T) {
 			gollm.SetMaxTokens(300),
 		)
 		assert.Error(t, err, "Should fail with empty API key")
-		assert.Contains(t, err.Error(), "empty API key", "Error should indicate empty API key")
+		assert.Contains(t, err.Error(), "APIKeys", "Error should mention API key validation")
 	})
 
 	// Test with invalid model

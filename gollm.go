@@ -155,6 +155,11 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		opt(cfg)
 	}
 
+	// Validate config
+	if err := llm.Validate(cfg); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
 	logger := utils.NewLogger(cfg.LogLevel)
 
 	if cfg.Provider == "anthropic" && cfg.EnableCaching {

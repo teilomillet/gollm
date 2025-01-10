@@ -69,17 +69,14 @@ func TestProviderConfigurationChange(t *testing.T) {
 
 func TestProviderErrorHandling(t *testing.T) {
 	// Test with invalid API key
-	llm, err := gollm.NewLLM(
+	_, err := gollm.NewLLM(
 		gollm.SetProvider("openai"),
 		gollm.SetModel("gpt-4o-mini"),
 		gollm.SetAPIKey("invalid-key"),
+		gollm.SetMaxTokens(500),
 	)
-	require.NoError(t, err) // Creating with invalid key should work
-
-	// But generating should fail
-	ctx := context.Background()
-	_, err = llm.Generate(ctx, gollm.NewPrompt("test"))
-	assert.Error(t, err, "Should error when generating with invalid API key")
+	assert.Error(t, err, "Should fail with invalid API key")
+	assert.Contains(t, err.Error(), "APIKeys", "Error should mention API key validation")
 
 	// Test with invalid provider
 	_, err = gollm.NewLLM(
