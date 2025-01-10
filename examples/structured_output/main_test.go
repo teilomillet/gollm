@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,15 +51,6 @@ type ComplexPerson struct {
 		Phone     string `json:"phone" validate:"required"`
 		Preferred string `json:"preferred" validate:"required,oneof=email phone"`
 	} `json:"contact" validate:"required"`
-}
-
-// Helper function to clean JSON response
-func cleanJSONResponse(response string) string {
-	// Remove markdown code block delimiters if present
-	response = strings.TrimPrefix(response, "```json")
-	response = strings.TrimPrefix(response, "```")
-	response = strings.TrimSuffix(response, "```")
-	return strings.TrimSpace(response)
 }
 
 func TestBasicStructuredOutput(t *testing.T) {
@@ -171,9 +161,9 @@ func TestStructuredOutputErrorHandling(t *testing.T) {
 	llm := setupLLM(t)
 	ctx := context.Background()
 
-	// Test with nil context
-	_, err := presets.ExtractStructuredData[TestPersonInfo](nil, llm, "some text")
-	assert.Error(t, err, "Should error with nil context")
+	// Test with empty context
+	_, err := presets.ExtractStructuredData[TestPersonInfo](context.TODO(), llm, "some text")
+	assert.Error(t, err, "Should error with empty context")
 
 	// Test with nil LLM
 	_, err = presets.ExtractStructuredData[TestPersonInfo](ctx, nil, "some text")
