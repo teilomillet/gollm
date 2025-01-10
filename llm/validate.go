@@ -20,7 +20,9 @@ func init() {
 	validate = validator.New()
 
 	// Register custom validator for API key map
-	validate.RegisterValidation("apikey", validateAPIKey)
+	if err := validate.RegisterValidation("apikey", validateAPIKey); err != nil {
+		panic(fmt.Sprintf("failed to register apikey validator: %v", err))
+	}
 }
 
 // validateAPIKey checks if the API key map contains a valid key for the current provider
