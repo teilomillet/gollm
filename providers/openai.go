@@ -155,12 +155,16 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
 		openAITools := make([]map[string]interface{}, len(tools))
 		for i, tool := range tools {
+			mcpTool, err := tool.ToMCP()
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert tool to MCP format: %w", err)
+			}
 			openAITools[i] = map[string]interface{}{
 				"type": "function",
 				"function": map[string]interface{}{
-					"name":        tool.Function.Name,
-					"description": tool.Function.Description,
-					"parameters":  tool.Function.Parameters,
+					"name":        mcpTool.Name,
+					"description": mcpTool.Description,
+					"parameters":  mcpTool.Parameters,
 				},
 				"strict": true, // Add this if you want strict mode
 			}

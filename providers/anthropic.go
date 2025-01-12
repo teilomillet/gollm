@@ -147,10 +147,14 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]int
 	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
 		anthropicTools := make([]map[string]interface{}, len(tools))
 		for i, tool := range tools {
+			mcpTool, err := tool.ToMCP()
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert tool to MCP format: %w", err)
+			}
 			anthropicTools[i] = map[string]interface{}{
-				"name":         tool.Function.Name,
-				"description":  tool.Function.Description,
-				"input_schema": tool.Function.Parameters,
+				"name":         mcpTool.Name,
+				"description":  mcpTool.Description,
+				"input_schema": mcpTool.Parameters,
 			}
 		}
 		requestBody["tools"] = anthropicTools
