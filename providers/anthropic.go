@@ -2,8 +2,10 @@
 package providers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
@@ -427,4 +429,94 @@ func (p *AnthropicProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 // This allows for custom headers needed for specific features or requirements.
 func (p *AnthropicProvider) SetExtraHeaders(extraHeaders map[string]string) {
 	p.extraHeaders = extraHeaders
+}
+
+// SupportsStreaming indicates whether streaming is supported
+func (p *AnthropicProvider) SupportsStreaming() bool {
+	return true
+}
+
+// PrepareStreamRequest creates a request body for streaming API calls
+func (p *AnthropicProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+	requestBody := map[string]interface{}{
+		"model":  p.model,
+		"stream": true,
+		"messages": []map[string]interface{}{
+			{
+				"role":    "user",
+				"content": prompt,
+			},
+		},
+		"max_tokens": 1024, // Default max tokens
+	}
+
+	// Add system prompt if present
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		requestBody["system"] = systemPrompt
+		delete(options, "system_prompt")
+	}
+
+	// Add max tokens if present
+	if maxTokens, ok := options["max_tokens"].(int); ok {
+		requestBody["max_tokens"] = maxTokens
+		delete(options, "max_tokens")
+	}
+
+	// Add temperature if present
+	if temperature, ok := options["temperature"].(float64); ok {
+		requestBody["temperature"] = temperature
+		delete(options, "temperature")
+	}
+
+	// Add other options
+	for k, v := range options {
+		if k != "stream" { // Don't override stream setting
+			requestBody[k] = v
+		}
+	}
+
+	return json.Marshal(requestBody)
+}
+
+// ParseStreamResponse processes a single chunk from a streaming response
+func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (string, error) {
+	// Skip empty lines
+	if len(bytes.TrimSpace(chunk)) == 0 {
+		return "", fmt.Errorf("empty chunk")
+	}
+
+	// Check for [DONE] marker
+	if bytes.Equal(bytes.TrimSpace(chunk), []byte("[DONE]")) {
+		return "", io.EOF
+	}
+
+	// Parse the event
+	var event struct {
+		Type  string `json:"type"`
+		Index int    `json:"index"`
+		Delta struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"delta"`
+	}
+
+	if err := json.Unmarshal(chunk, &event); err != nil {
+		return "", fmt.Errorf("malformed event: %w", err)
+	}
+
+	// Handle different event types
+	switch event.Type {
+	case "content_block_delta":
+		if event.Delta.Type == "text_delta" {
+			if event.Delta.Text == "" {
+				return "", fmt.Errorf("skip token")
+			}
+			return event.Delta.Text, nil
+		}
+		return "", fmt.Errorf("skip token")
+	case "message_stop":
+		return "", io.EOF
+	default:
+		return "", fmt.Errorf("skip token")
+	}
 }

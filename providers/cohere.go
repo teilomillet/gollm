@@ -269,3 +269,25 @@ func (p *CohereProvider) SetExtraHeaders(extraHeaders map[string]string) {
 	p.extraHeaders = extraHeaders
 	p.logger.Debug("Extra headers set", "headers", extraHeaders)
 }
+
+// SupportsStreaming returns whether the provider supports streaming responses
+func (p *CohereProvider) SupportsStreaming() bool {
+	return true
+}
+
+// PrepareStreamRequest prepares a request body for streaming
+func (p *CohereProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+	options["stream"] = true
+	return p.PrepareRequest(prompt, options)
+}
+
+// ParseStreamResponse parses a single chunk from a streaming response
+func (p *CohereProvider) ParseStreamResponse(chunk []byte) (string, error) {
+	var response struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(chunk, &response); err != nil {
+		return "", err
+	}
+	return response.Text, nil
+}

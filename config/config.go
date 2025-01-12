@@ -40,6 +40,7 @@ type MemoryOption struct {
 //   - LLM_LOG_LEVEL: Logging verbosity (default: "WARN")
 //   - LLM_SEED: Random seed for reproducible generation
 //   - LLM_ENABLE_CACHING: Enable response caching (default: false)
+//   - LLM_ENABLE_STREAMING: Enable streaming responses (default: false)
 //
 // Advanced Parameters:
 //   - LLM_MIN_P: Minimum token probability threshold
@@ -75,6 +76,7 @@ type Config struct {
 	SystemPromptCacheType string
 	ExtraHeaders          map[string]string
 	EnableCaching         bool `env:"LLM_ENABLE_CACHING" envDefault:"false"`
+	EnableStreaming       bool `env:"LLM_ENABLE_STREAMING" envDefault:"false"`
 	MemoryOption          *MemoryOption
 }
 
@@ -256,6 +258,13 @@ func SetExtraHeaders(headers map[string]string) ConfigOption {
 		for k, v := range headers {
 			c.ExtraHeaders[k] = v
 		}
+	}
+}
+
+// WithStream enables or disables streaming responses.
+func WithStream(enableStreaming bool) ConfigOption {
+	return func(c *Config) {
+		c.EnableStreaming = enableStreaming
 	}
 }
 

@@ -4,9 +4,11 @@
 package gollm
 
 import (
+	"strings"
+
+	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/llm"
 	"github.com/teilomillet/gollm/utils"
-	"strings"
 )
 
 // The following types are re-exported from the llm package to provide a cleaner API surface.
@@ -111,6 +113,9 @@ var (
 
 	// WithJSONSchemaValidation enables JSON schema validation.
 	WithJSONSchemaValidation = llm.WithJSONSchemaValidation
+
+	// WithStream enables or disables streaming responses.
+	WithStream = config.WithStream
 )
 
 // CleanResponse processes and cleans up LLM responses by removing markdown formatting

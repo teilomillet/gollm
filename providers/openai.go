@@ -2,8 +2,10 @@
 package providers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
@@ -378,4 +380,74 @@ func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 func (p *OpenAIProvider) SetExtraHeaders(extraHeaders map[string]string) {
 	p.extraHeaders = extraHeaders
 	p.logger.Debug("Extra headers set", "headers", extraHeaders)
+}
+
+// SupportsStreaming indicates whether streaming is supported
+func (p *OpenAIProvider) SupportsStreaming() bool {
+	return true
+}
+
+// PrepareStreamRequest creates a request body for streaming API calls
+func (p *OpenAIProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+	// Start with regular request preparation
+	requestBody := map[string]interface{}{
+		"model": p.model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
+		"stream": true,
+	}
+
+	// Add other options
+	for k, v := range options {
+		if k != "stream" { // Don't override stream setting
+			requestBody[k] = v
+		}
+	}
+
+	return json.Marshal(requestBody)
+}
+
+// ParseStreamResponse processes a single chunk from a streaming response
+func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (string, error) {
+	// Skip empty lines
+	if len(bytes.TrimSpace(chunk)) == 0 {
+		return "", fmt.Errorf("empty chunk")
+	}
+
+	// Check for [DONE] marker
+	if bytes.Equal(bytes.TrimSpace(chunk), []byte("[DONE]")) {
+		return "", io.EOF
+	}
+
+	// Parse the chunk
+	var response struct {
+		Choices []struct {
+			Delta struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"delta"`
+			FinishReason string `json:"finish_reason"`
+		} `json:"choices"`
+	}
+
+	if err := json.Unmarshal(chunk, &response); err != nil {
+		return "", fmt.Errorf("malformed response: %w", err)
+	}
+
+	if len(response.Choices) == 0 {
+		return "", fmt.Errorf("no choices in response")
+	}
+
+	// Handle finish reason
+	if response.Choices[0].FinishReason != "" {
+		return "", io.EOF
+	}
+
+	// Skip role-only messages
+	if response.Choices[0].Delta.Role != "" && response.Choices[0].Delta.Content == "" {
+		return "", fmt.Errorf("skip token")
+	}
+
+	return response.Choices[0].Delta.Content, nil
 }

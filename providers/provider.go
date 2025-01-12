@@ -57,6 +57,17 @@ type Provider interface {
 
 	// SetLogger configures the logger for the provider instance.
 	SetLogger(logger utils.Logger)
+
+	// SupportsStreaming indicates whether the provider supports streaming responses.
+	SupportsStreaming() bool
+
+	// PrepareStreamRequest creates a request body for streaming API calls.
+	// It's similar to PrepareRequest but includes streaming-specific options.
+	PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error)
+
+	// ParseStreamResponse processes a single chunk from a streaming response.
+	// It returns the token text and any error encountered.
+	ParseStreamResponse(chunk []byte) (string, error)
 }
 
 // ProviderConstructor defines a function type for creating new provider instances.

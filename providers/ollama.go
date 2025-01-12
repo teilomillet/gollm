@@ -263,3 +263,26 @@ func (p *OllamaProvider) SetDebugLevel(level utils.LogLevel) {
 		p.logger.SetLevel(level)
 	}
 }
+
+// SupportsStreaming returns whether the provider supports streaming responses
+func (p *OllamaProvider) SupportsStreaming() bool {
+	return true
+}
+
+// PrepareStreamRequest prepares a request body for streaming
+func (p *OllamaProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+	options["stream"] = true
+	return p.PrepareRequest(prompt, options)
+}
+
+// ParseStreamResponse parses a single chunk from a streaming response
+func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (string, error) {
+	var response struct {
+		Response string `json:"response"`
+		Done     bool   `json:"done"`
+	}
+	if err := json.Unmarshal(chunk, &response); err != nil {
+		return "", err
+	}
+	return response.Response, nil
+}
