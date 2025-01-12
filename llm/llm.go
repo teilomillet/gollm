@@ -31,6 +31,13 @@ type LLM interface {
 	// or other error types as per Generate.
 	GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (string, error)
 
+	// Stream initiates a streaming response from the LLM.
+	// Returns ErrorTypeUnsupported if the provider doesn't support streaming.
+	Stream(ctx context.Context, prompt *Prompt, opts ...StreamOption) (TokenStream, error)
+
+	// SupportsStreaming checks if the provider supports streaming responses.
+	SupportsStreaming() bool
+
 	// SetOption configures a provider-specific option.
 	// Returns ErrorTypeInvalidInput if the option is not supported.
 	SetOption(key string, value interface{})
@@ -401,4 +408,135 @@ func (l *LLMImpl) preparePromptWithSchema(prompt string, schema interface{}) str
 	}
 
 	return fmt.Sprintf("%s\n\nPlease provide your response in JSON format according to this schema:\n%s", prompt, string(schemaJSON))
+}
+
+// Stream initiates a streaming response from the LLM.
+func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOption) (TokenStream, error) {
+	if !l.SupportsStreaming() {
+		return nil, NewLLMError(ErrorTypeUnsupported, "streaming not supported by provider", nil)
+	}
+
+	// Apply stream options
+	config := &StreamConfig{
+		BufferSize: 100,
+		RetryStrategy: &DefaultRetryStrategy{
+			MaxRetries:  l.MaxRetries,
+			InitialWait: l.RetryDelay,
+			MaxWait:     l.RetryDelay * 10,
+		},
+	}
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	// Prepare request with streaming enabled
+	options := make(map[string]interface{})
+	for k, v := range l.Options {
+		options[k] = v
+	}
+	options["stream"] = true
+
+	body, err := l.Provider.PrepareStreamRequest(prompt.String(), options)
+	if err != nil {
+		return nil, NewLLMError(ErrorTypeRequest, "failed to prepare stream request", err)
+	}
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(body))
+	if err != nil {
+		return nil, NewLLMError(ErrorTypeRequest, "failed to create stream request", err)
+	}
+
+	// Add headers
+	for k, v := range l.Provider.Headers() {
+		req.Header.Set(k, v)
+	}
+
+	// Make request
+	resp, err := l.client.Do(req)
+	if err != nil {
+		return nil, NewLLMError(ErrorTypeAPI, "failed to make stream request", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
+	}
+
+	// Create and return stream
+	return newProviderStream(resp.Body, l.Provider, config), nil
+}
+
+// SupportsStreaming checks if the provider supports streaming responses.
+func (l *LLMImpl) SupportsStreaming() bool {
+	return l.Provider.SupportsStreaming()
+}
+
+// providerStream implements TokenStream for a specific provider
+type providerStream struct {
+	decoder       *SSEDecoder
+	provider      providers.Provider
+	config        *StreamConfig
+	buffer        []byte
+	currentIndex  int
+	retryStrategy RetryStrategy
+}
+
+func newProviderStream(reader io.ReadCloser, provider providers.Provider, config *StreamConfig) *providerStream {
+	return &providerStream{
+		decoder:       NewSSEDecoder(reader),
+		provider:      provider,
+		config:        config,
+		buffer:        make([]byte, 0, 4096),
+		currentIndex:  0,
+		retryStrategy: config.RetryStrategy,
+	}
+}
+
+func (s *providerStream) Next(ctx context.Context) (*StreamToken, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			if !s.decoder.Next() {
+				if err := s.decoder.Err(); err != nil {
+					if s.retryStrategy.ShouldRetry(err) {
+						time.Sleep(s.retryStrategy.NextDelay())
+						continue
+					}
+					return nil, err
+				}
+				return nil, io.EOF
+			}
+
+			event := s.decoder.Event()
+			if len(event.Data) == 0 {
+				continue
+			}
+
+			// Process the event
+			token, err := s.provider.ParseStreamResponse(event.Data)
+			if err != nil {
+				if err.Error() == "skip token" {
+					continue
+				}
+				if err == io.EOF {
+					return nil, io.EOF
+				}
+				continue // Not enough data or malformed
+			}
+
+			// Create and return token
+			return &StreamToken{
+				Text:  token,
+				Type:  event.Type,
+				Index: s.currentIndex,
+			}, nil
+		}
+	}
+}
+
+func (s *providerStream) Close() error {
+	return nil
 }

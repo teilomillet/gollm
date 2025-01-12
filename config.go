@@ -73,9 +73,9 @@ var (
 var (
 	// Provider configuration
 	SetProvider       = config.SetProvider       // Sets the LLM provider (e.g., "openai", "anthropic")
-	SetModel         = config.SetModel          // Sets the model name for the selected provider
+	SetModel          = config.SetModel          // Sets the model name for the selected provider
 	SetOllamaEndpoint = config.SetOllamaEndpoint // Sets the endpoint URL for Ollama local deployment
-	SetAPIKey        = config.SetAPIKey         // Sets the API key for the current provider
+	SetAPIKey         = config.SetAPIKey         // Sets the API key for the current provider
 
 	// Generation parameters
 	SetTemperature      = config.SetTemperature      // Controls randomness in generation (0.0-1.0)
@@ -83,7 +83,7 @@ var (
 	SetTopP             = config.SetTopP             // Controls nucleus sampling
 	SetFrequencyPenalty = config.SetFrequencyPenalty // Penalizes frequent token usage
 	SetPresencePenalty  = config.SetPresencePenalty  // Penalizes repeated tokens
-	SetSeed            = config.SetSeed             // Sets random seed for reproducible generation
+	SetSeed             = config.SetSeed             // Sets random seed for reproducible generation
 
 	// Advanced generation parameters
 	SetMinP          = config.SetMinP          // Sets minimum probability threshold
@@ -100,7 +100,7 @@ var (
 	SetRetryDelay   = config.SetRetryDelay   // Sets delay between retries
 	SetLogLevel     = config.SetLogLevel     // Sets logging verbosity
 	SetExtraHeaders = config.SetExtraHeaders // Sets additional HTTP headers
-	
+
 	// Feature toggles
 	SetEnableCaching = config.SetEnableCaching // Enables/disables response caching
 	SetMemory        = config.SetMemory        // Configures conversation memory

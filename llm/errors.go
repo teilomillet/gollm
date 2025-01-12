@@ -34,6 +34,9 @@ const (
 
 	// ErrorTypeInvalidInput indicates invalid input parameters or prompt
 	ErrorTypeInvalidInput
+
+	// ErrorTypeUnsupported indicates a requested feature is not supported
+	ErrorTypeUnsupported
 )
 
 // LLMError represents a structured error in the LLM package.
@@ -42,7 +45,7 @@ const (
 type LLMError struct {
 	Type    ErrorType // The category of the error
 	Message string    // A human-readable error message
-	Err     error    // The underlying error, if any
+	Err     error     // The underlying error, if any
 }
 
 // LoggableFields returns a slice of interface{} containing error information
@@ -89,6 +92,8 @@ func (e *LLMError) TypeString() string {
 		return "AuthenticationError"
 	case ErrorTypeInvalidInput:
 		return "InvalidInputError"
+	case ErrorTypeUnsupported:
+		return "UnsupportedError"
 	default:
 		return "UnknownError"
 	}

@@ -254,3 +254,32 @@ func (p *MistralProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 func (p *MistralProvider) SetExtraHeaders(extraHeaders map[string]string) {
 	p.extraHeaders = extraHeaders
 }
+
+// SupportsStreaming returns whether the provider supports streaming responses
+func (p *MistralProvider) SupportsStreaming() bool {
+	return true
+}
+
+// PrepareStreamRequest prepares a request body for streaming
+func (p *MistralProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+	options["stream"] = true
+	return p.PrepareRequest(prompt, options)
+}
+
+// ParseStreamResponse parses a single chunk from a streaming response
+func (p *MistralProvider) ParseStreamResponse(chunk []byte) (string, error) {
+	var response struct {
+		Choices []struct {
+			Delta struct {
+				Content string `json:"content"`
+			} `json:"delta"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(chunk, &response); err != nil {
+		return "", err
+	}
+	if len(response.Choices) == 0 {
+		return "", nil
+	}
+	return response.Choices[0].Delta.Content, nil
+}
