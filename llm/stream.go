@@ -67,11 +67,7 @@ type DefaultRetryStrategy struct {
 }
 
 func (s *DefaultRetryStrategy) ShouldRetry(err error) bool {
-	if s.attempts >= s.MaxRetries {
-		return false
-	}
-	// Add logic to determine if error is retryable
-	return true
+	return s.attempts < s.MaxRetries
 }
 
 func (s *DefaultRetryStrategy) NextDelay() time.Duration {
