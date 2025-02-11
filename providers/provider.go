@@ -112,6 +112,7 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"ollama":    NewOllamaProvider,
 		"mistral":   NewMistralProvider,
 		"cohere":    NewCohereProvider,
+		"deepseek":  NewDeepSeekProvider,
 		// Add other providers here as they are implemented
 	}
 
