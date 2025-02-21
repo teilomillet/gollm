@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/teilomillet/gollm"
+	"github.com/mauza/gollm"
 )
 
 func createSystemPrompt() string {

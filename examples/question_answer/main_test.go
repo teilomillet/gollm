@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mauza/gollm"
+	"github.com/mauza/gollm/presets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/presets"
 )
 
 func setupLLM(t *testing.T) gollm.LLM {

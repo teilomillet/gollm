@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mauza/gollm"
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
 )
 
 func TestCreateLLM(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/teilomillet/gollm"
+	"github.com/mauza/gollm"
 )
 
 func main() {

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/optimizer"
-	"github.com/teilomillet/gollm/presets"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/mauza/gollm"
+	"github.com/mauza/gollm/optimizer"
+	"github.com/mauza/gollm/presets"
+	"github.com/mauza/gollm/utils"
 )
 
 func main() {

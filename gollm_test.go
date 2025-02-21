@@ -9,12 +9,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/mauza/gollm"
+	"github.com/mauza/gollm/config"
+	"github.com/mauza/gollm/providers"
+	"github.com/mauza/gollm/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/utils"
 )
 
 // MockProvider implements the Provider interface for testing

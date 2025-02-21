@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mauza/gollm"
+	"github.com/mauza/gollm/optimizer"
+	"github.com/mauza/gollm/utils"
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/optimizer"
-	"github.com/teilomillet/gollm/utils"
 )
 
 func TestPromptOptimizer(t *testing.T) {

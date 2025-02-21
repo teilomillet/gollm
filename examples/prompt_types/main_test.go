@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mauza/gollm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/teilomillet/gollm"
 )
 
 // cleanJSONResponse removes markdown code block delimiters and trims whitespace

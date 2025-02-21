@@ -3,7 +3,7 @@ package llm
 import (
 	"fmt"
 
-	"github.com/teilomillet/gollm/utils"
+	"github.com/mauza/gollm/utils"
 )
 
 // ErrorType represents the category of an LLM error.

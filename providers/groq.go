@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/mauza/gollm/config"
+	"github.com/mauza/gollm/utils"
 )
 
 // GroqProvider implements the Provider interface for Groq's API.

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mauza/gollm"
+	"github.com/mauza/gollm/assess"
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/assess"
 )
 
 func TestStreaming(t *testing.T) {

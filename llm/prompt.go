@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/invopop/jsonschema"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/mauza/gollm/utils"
 )
 
 // CacheType defines how prompts and responses should be cached in the system.

@@ -9,9 +9,9 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/mauza/gollm"
+	"github.com/mauza/gollm/optimizer"
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/optimizer"
 )
 
 func TestBatchPromptOptimizer(t *testing.T) {

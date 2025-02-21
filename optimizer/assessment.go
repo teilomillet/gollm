@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/teilomillet/gollm/llm"
+	"github.com/mauza/gollm/llm"
 )
 
 // assessPrompt evaluates a prompt's quality and effectiveness using the configured LLM.

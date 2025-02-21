@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/mauza/gollm/config"
+	"github.com/mauza/gollm/utils"
 )
 
 // Provider defines the interface that all LLM providers must implement.

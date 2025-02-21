@@ -3,7 +3,7 @@
 package gollm
 
 import (
-	"github.com/teilomillet/gollm/llm"
+	"github.com/mauza/gollm/llm"
 )
 
 // Re-export streaming types from the llm package

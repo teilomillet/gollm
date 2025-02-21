@@ -4,8 +4,8 @@
 package gollm
 
 import (
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/mauza/gollm/config"
+	"github.com/mauza/gollm/utils"
 )
 
 // Re-export core configuration types for easier access

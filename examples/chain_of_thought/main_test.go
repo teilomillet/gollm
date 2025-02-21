@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mauza/gollm"
+	"github.com/mauza/gollm/presets"
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/presets"
 )
 
 func TestChainOfThought(t *testing.T) {

@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/optimizer"
-	"github.com/teilomillet/gollm/utils"
 	"log"
 	"os"
 	"time"
+
+	"github.com/mauza/gollm"
+	"github.com/mauza/gollm/optimizer"
+	"github.com/mauza/gollm/utils"
 )
 
 func main() {

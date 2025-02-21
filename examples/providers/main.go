@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/teilomillet/gollm"
+	"github.com/mauza/gollm"
 )
 
 func main() {

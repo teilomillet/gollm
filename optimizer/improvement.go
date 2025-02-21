@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/teilomillet/gollm/llm"
+	"github.com/mauza/gollm/llm"
 )
 
 // generateImprovedPrompt creates an enhanced version of a prompt based on its assessment
@@ -16,8 +16,9 @@ import (
 // The improvement process:
 // 1. Analyzes previous assessment and optimization history
 // 2. Generates two alternative improvements:
-//    - Incremental: Refines existing approach
-//    - Bold: Reimagines prompt structure
+//   - Incremental: Refines existing approach
+//   - Bold: Reimagines prompt structure
+//
 // 3. Evaluates expected impact of each version
 // 4. Selects the version with higher potential impact
 //

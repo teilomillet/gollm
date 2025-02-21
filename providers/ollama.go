@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/mauza/gollm/config"
+	"github.com/mauza/gollm/utils"
 )
 
 // OllamaProvider implements the Provider interface for Ollama's API.

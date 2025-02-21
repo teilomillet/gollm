@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/mauza/gollm/config"
+	"github.com/mauza/gollm/llm"
+	"github.com/mauza/gollm/providers"
+	"github.com/mauza/gollm/utils"
 )
 
 // ComparisonResult represents the outcome of a model comparison for a specific provider.

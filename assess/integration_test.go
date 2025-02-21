@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mauza/gollm"
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
 )
 
 // TestProviderIntegration demonstrates comprehensive testing across providers

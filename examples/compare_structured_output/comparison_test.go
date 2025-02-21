@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mauza/gollm"
+	"github.com/mauza/gollm/presets"
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/presets"
 )
 
 // validateComplexPerson validates the ComplexPerson struct according to the defined rules

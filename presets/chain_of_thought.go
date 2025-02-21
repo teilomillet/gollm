@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	"github.com/teilomillet/gollm"
+	"github.com/mauza/gollm"
 )
 
 // chainOfThoughtTemplate defines a structured prompt template for guiding

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/mauza/gollm/utils"
 	"github.com/pkoukk/tiktoken-go"
-	"github.com/teilomillet/gollm/utils"
 )
 
 // MemoryMessage represents a single message in the conversation history.
@@ -23,12 +23,12 @@ type MemoryMessage struct {
 // It provides thread-safe operations for adding, retrieving, and managing messages
 // while ensuring the total token count stays within specified limits.
 type Memory struct {
-	messages    []MemoryMessage     // Ordered list of conversation messages
-	mutex       sync.Mutex          // Ensures thread-safe operations
-	totalTokens int                 // Current total token count
-	maxTokens   int                 // Maximum allowed tokens
-	encoding    *tiktoken.Tiktoken  // Token encoder for the model
-	logger      utils.Logger        // Logger for debugging and monitoring
+	messages    []MemoryMessage    // Ordered list of conversation messages
+	mutex       sync.Mutex         // Ensures thread-safe operations
+	totalTokens int                // Current total token count
+	maxTokens   int                // Maximum allowed tokens
+	encoding    *tiktoken.Tiktoken // Token encoder for the model
+	logger      utils.Logger       // Logger for debugging and monitoring
 }
 
 // NewMemory creates a new Memory instance with the specified token limit and model.
@@ -134,8 +134,8 @@ func (m *Memory) GetMessages() []MemoryMessage {
 // LLMWithMemory wraps an LLM instance with conversation memory capabilities.
 // It maintains conversation history and provides context for each generation.
 type LLMWithMemory struct {
-	LLM              // Underlying LLM instance
-	memory *Memory   // Conversation memory manager
+	LLM            // Underlying LLM instance
+	memory *Memory // Conversation memory manager
 }
 
 // NewLLMWithMemory creates a new LLM instance with conversation memory.

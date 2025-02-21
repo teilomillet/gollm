@@ -1,4 +1,4 @@
-module github.com/teilomillet/gollm
+module github.com/mauza/gollm
 
 go 1.22.5
 
@@ -8,6 +8,7 @@ require (
 	github.com/invopop/jsonschema v0.12.0
 	github.com/pkoukk/tiktoken-go v0.1.7
 	github.com/stretchr/testify v1.10.0
+	github.com/mauza/gollm v0.1.5
 	golang.org/x/time v0.8.0
 )
 

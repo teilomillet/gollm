@@ -4,7 +4,7 @@
 package gollm
 
 import (
-	"github.com/teilomillet/gollm/llm"
+	"github.com/mauza/gollm/llm"
 )
 
 // Validate checks if the given struct is valid according to its validation rules.
@@ -31,7 +31,7 @@ import (
 //	    Email     string `validate:"required,email"`
 //	    Password  string `validate:"required,password=strong"`
 //	}
-//	
+//
 //	config := Config{
 //	    Model:     "gpt-4",
 //	    MaxTokens: 2048,
@@ -70,13 +70,13 @@ func Validate(s interface{}) error {
 //	    Tokens   int      `json:"tokens,omitempty" validate:"min=0"`
 //	    Tags     []string `json:"tags,omitempty" validate:"unique"`
 //	}
-//	
+//
 //	type Conversation struct {
 //	    ID       string    `json:"id" validate:"required,uuid"`
 //	    Messages []Message `json:"messages" validate:"required,min=1"`
 //	    Model    string    `json:"model" validate:"required,model"`
 //	}
-//	
+//
 //	schema, err := GenerateJSONSchema(&Conversation{})
 //
 // Parameters:

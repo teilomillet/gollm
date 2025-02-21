@@ -4,10 +4,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/mauza/gollm/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/teilomillet/gollm/utils"
 )
 
 func TestLLMError(t *testing.T) {

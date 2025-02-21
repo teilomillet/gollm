@@ -8,8 +8,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/mauza/gollm/config"
+	"github.com/mauza/gollm/utils"
 )
 
 // OpenAIProvider implements the Provider interface for OpenAI's API.

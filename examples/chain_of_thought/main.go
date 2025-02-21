@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/presets"
+	"github.com/mauza/gollm"
+	"github.com/mauza/gollm/presets"
 )
 
 func main() {

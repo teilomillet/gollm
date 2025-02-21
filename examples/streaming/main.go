@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/teilomillet/gollm"
+	"github.com/mauza/gollm"
 )
 
 func runStream(llm gollm.LLM, prompt *gollm.Prompt) error {

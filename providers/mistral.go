@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/mauza/gollm/config"
+	"github.com/mauza/gollm/utils"
 )
 
 // MistralProvider implements the Provider interface for Mistral AI's API.

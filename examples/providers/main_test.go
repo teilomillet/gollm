@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/mauza/gollm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/teilomillet/gollm"
 )
 
 func setupLLM(t *testing.T) gollm.LLM {

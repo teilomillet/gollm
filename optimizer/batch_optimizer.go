@@ -4,11 +4,12 @@ package optimizer
 import (
 	"context"
 	"fmt"
-	"golang.org/x/time/rate"
 	"sync"
 	"time"
 
-	"github.com/teilomillet/gollm/llm"
+	"golang.org/x/time/rate"
+
+	"github.com/mauza/gollm/llm"
 )
 
 // BatchPromptOptimizer handles concurrent optimization of multiple prompts with rate limiting.

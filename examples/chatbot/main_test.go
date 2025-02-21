@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mauza/gollm"
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
 )
 
 func TestChatbotMemory(t *testing.T) {
