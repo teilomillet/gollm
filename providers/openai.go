@@ -17,6 +17,7 @@ import (
 // including function calling, JSON mode, and structured output validation.
 type OpenAIProvider struct {
 	apiKey       string                 // API key for authentication
+	endpoint     string                 // API endpoint URL
 	model        string                 // Model identifier (e.g., "gpt-4", "gpt-4o-mini")
 	extraHeaders map[string]string      // Additional HTTP headers
 	options      map[string]interface{} // Model-specific options
@@ -65,11 +66,20 @@ func (p *OpenAIProvider) SetOption(key string, value interface{}) {
 	p.logger.Debug("Option set", "key", key, "value", value)
 }
 
+func (p *OpenAIProvider) SetEndpoint(endpoint string) {
+	p.endpoint = endpoint
+}
+
 // SetDefaultOptions configures standard options from the global configuration.
 // This includes temperature, max tokens, and sampling parameters.
 func (p *OpenAIProvider) SetDefaultOptions(config *config.Config) {
 	p.SetOption("temperature", config.Temperature)
 	p.SetOption("max_tokens", config.MaxTokens)
+	if config.Endpoint != "" {
+		p.SetEndpoint(config.Endpoint)
+	} else {
+		p.SetEndpoint("https://api.openai.com/v1/chat/completions")
+	}
 	if config.Seed != nil {
 		p.SetOption("seed", *config.Seed)
 	}
@@ -84,7 +94,7 @@ func (p *OpenAIProvider) Name() string {
 // Endpoint returns the OpenAI API endpoint URL.
 // For API version 1, this is "https://api.openai.com/v1/chat/completions".
 func (p *OpenAIProvider) Endpoint() string {
-	return "https://api.openai.com/v1/chat/completions"
+	return p.endpoint
 }
 
 // SupportsJSONSchema indicates that OpenAI supports native JSON schema validation

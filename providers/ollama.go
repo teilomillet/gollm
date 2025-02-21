@@ -92,8 +92,8 @@ func (p *OllamaProvider) SetDefaultOptions(config *config.Config) {
 	if config.Seed != nil {
 		p.SetOption("seed", *config.Seed)
 	}
-	if config.OllamaEndpoint != "" {
-		p.SetEndpoint(config.OllamaEndpoint)
+	if config.Endpoint != "" {
+		p.SetEndpoint(config.Endpoint)
 	}
 	p.SetOption("top_p", config.TopP)
 	p.SetOption("min_p", config.MinP)

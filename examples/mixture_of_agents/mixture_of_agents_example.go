@@ -17,7 +17,7 @@ func main() {
 		Models: []gollm.ConfigOption{
 			gollm.SetProvider("ollama"),
 			gollm.SetModel("phi-3-medium-128k-instruct:Q8_0"),
-			gollm.SetOllamaEndpoint(os.Getenv("OLLAMA_HOST")),
+			gollm.SetEndpoint(os.Getenv("OLLAMA_HOST")),
 			gollm.SetMaxTokens(1024),
 		},
 		MaxParallel:  2,
@@ -28,7 +28,7 @@ func main() {
 	aggregatorOpts := []gollm.ConfigOption{
 		gollm.SetProvider("ollama"),
 		gollm.SetModel("llama-3.1:8b-instruct-Q8_0"),
-		gollm.SetOllamaEndpoint(os.Getenv("OLLAMA_HOST")),
+		gollm.SetEndpoint(os.Getenv("OLLAMA_HOST")),
 		gollm.SetTemperature(0.7),
 		gollm.SetMaxTokens(1024),
 		gollm.SetTimeout(45 * time.Second),

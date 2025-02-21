@@ -14,7 +14,7 @@ func main() {
 		gollm.SetProvider("ollama"),
 		gollm.SetModel("llama3.1"),
 		gollm.SetLogLevel(gollm.LogLevelInfo),
-		gollm.SetOllamaEndpoint("http://localhost:11434"), // Set initial endpoint
+		gollm.SetEndpoint("http://localhost:11434"), // Set initial endpoint
 	)
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)

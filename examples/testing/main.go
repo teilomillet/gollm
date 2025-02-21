@@ -52,7 +52,7 @@ func createLLM(temperature, topP, minP, repeatPenalty float64, repeatLastN int, 
 	return gollm.NewLLM(
 		gollm.SetProvider("ollama"),
 		gollm.SetModel("llama3.1"),
-		gollm.SetOllamaEndpoint("http://localhost:11434"),
+		gollm.SetEndpoint("http://localhost:11434"),
 		gollm.SetTemperature(temperature),
 		gollm.SetTopP(topP),
 		gollm.SetMinP(minP),

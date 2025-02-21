@@ -28,7 +28,7 @@ type MemoryOption struct {
 // Environment Variables:
 //   - LLM_PROVIDER: LLM provider name (default: "anthropic")
 //   - LLM_MODEL: Model name (default: "claude-3-opus-20240229")
-//   - OLLAMA_ENDPOINT: Ollama API endpoint (default: "http://localhost:11434")
+//   - LLM_ENDPOINT: LLM API endpoint (default: "http://localhost:11434")
 //   - LLM_TEMPERATURE: Generation temperature (default: 0.7)
 //   - LLM_MAX_TOKENS: Maximum tokens to generate (default: 100)
 //   - LLM_TOP_P: Top-p sampling parameter (default: 0.9)
@@ -53,7 +53,7 @@ type MemoryOption struct {
 type Config struct {
 	Provider              string            `env:"LLM_PROVIDER" envDefault:"anthropic" validate:"required"`
 	Model                 string            `env:"LLM_MODEL" envDefault:"claude-3-5-haiku-latest" validate:"required"`
-	OllamaEndpoint        string            `env:"OLLAMA_ENDPOINT" envDefault:"http://localhost:11434"`
+	Endpoint              string            `env:"LLM_ENDPOINT"`
 	Temperature           float64           `env:"LLM_TEMPERATURE" envDefault:"0.7" validate:"gte=0,lte=1"`
 	MaxTokens             int               `env:"LLM_MAX_TOKENS" envDefault:"100"`
 	TopP                  float64           `env:"LLM_TOP_P" envDefault:"0.9" validate:"gte=0,lte=1"`
@@ -179,9 +179,9 @@ func SetModel(model string) ConfigOption {
 }
 
 // SetOllamaEndpoint sets the Ollama API endpoint.
-func SetOllamaEndpoint(endpoint string) ConfigOption {
+func SetEndpoint(endpoint string) ConfigOption {
 	return func(c *Config) {
-		c.OllamaEndpoint = endpoint
+		c.Endpoint = endpoint
 	}
 }
 
