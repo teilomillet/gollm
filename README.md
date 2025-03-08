@@ -46,7 +46,7 @@
 
 ## Key Features
 
-- **Unified API for Multiple LLM Providers:** Interact seamlessly with various providers, including OpenAI, Anthropic, Groq, and Ollama. Easily switch between models like GPT-4, Claude, and Llama-3.1.
+- **Unified API for Multiple LLM Providers:** Interact seamlessly with various providers, including OpenAI, Anthropic, Groq, Ollama, and OpenRouter. Easily switch between models like GPT-4, Claude, and Llama-3.1.
 - **Easy Provider and Model Switching:** Configure preferred providers and models with simple options.
 - **Flexible Configuration Options:** Customize using environment variables, code-based configuration, or configuration files.
 - **Advanced Prompt Engineering:** Craft sophisticated instructions to guide your AI's responses effectively.
@@ -57,6 +57,22 @@
 - **High-Level AI Functions:** Use pre-built functions like `ChainOfThought` for complex reasoning tasks.
 - **Robust Error Handling and Retries:** Built-in retry mechanisms to handle API rate limits and transient errors.
 - **Extensible Architecture:** Easily expand support for new LLM providers and features.
+
+## Supported Providers
+
+`gollm` works with a variety of LLM providers:
+
+- **OpenAI**: GPT-4o, GPT-4, GPT-3.5 Turbo
+- **Anthropic**: Claude 3 (Opus, Sonnet, Haiku), Claude 2.1
+- **Groq**: Llama-3, Mixtral models with high-speed inference
+- **Ollama**: Local models support (Llama-3, Mistral, etc.)
+- **Mistral**: Mistral Large, Mistral Medium
+- **OpenRouter**: Access to multiple providers through a single API with:
+  - Model fallback capabilities
+  - Auto-routing between models
+  - Prompt caching
+  - Reasoning tokens
+  - Provider routing preferences
 
 ## Real-World Applications
 
@@ -133,6 +149,7 @@ Here's a quick reference guide for the most commonly used functions and options 
 ### LLM Creation and Configuration
 
 ```go
+// Using OpenAI
 llm, err := gollm.NewLLM(
     gollm.SetProvider("openai"),
     gollm.SetModel("gpt-4"),
@@ -141,6 +158,18 @@ llm, err := gollm.NewLLM(
     gollm.SetTemperature(0.7),
     gollm.SetMemory(4096),
 )
+
+// Using OpenRouter (with model fallback)
+llm, err := gollm.NewLLM(
+    gollm.SetProvider("openrouter"),
+    gollm.SetModel("anthropic/claude-3-5-sonnet"),
+    gollm.SetAPIKey("your-openrouter-api-key"),
+    gollm.SetMaxTokens(500),
+)
+// Enable fallback models if primary model is unavailable
+llm.SetOption("fallback_models", []string{"openai/gpt-4o", "mistral/mistral-large"})
+// Or use OpenRouter's auto-routing capability
+// llm.SetOption("auto_route", true)
 ```
 
 ### Prompt Creation
@@ -189,26 +218,54 @@ The `gollm` package offers a range of advanced features to enhance your AI appli
 
 ### Prompt Engineering
 
-Create sophisticated prompts with multiple components:
+Create sophisticated prompts to guide the AI's responses:
 
 ```go
-prompt := gollm.NewPrompt("Explain the concept of recursion in programming.",
-    gollm.WithContext("The audience is beginner programmers."),
+prompt := gollm.NewPrompt(
+    "Explain the concept of recursion in programming",
     gollm.WithDirectives(
-        "Use simple language and avoid jargon.",
+        "Be concise and clear", 
+        "Include code examples in multiple languages",
         "Provide a practical example.",
-        "Explain potential pitfalls and how to avoid them.",
     ),
+    gollm.WithContext("This is for a beginner programmer who is just starting to learn."),
     gollm.WithOutput("Structure your response with sections: Definition, Example, Pitfalls, Best Practices."),
-    gollm.WithMaxLength(300),
+    gollm.WithMaxLength(1000),
+)
+```
+
+### Provider-Specific Features
+
+#### OpenRouter Special Features
+
+OpenRouter provides access to multiple LLM providers with additional capabilities:
+
+```go
+// Create OpenRouter client
+llm, err := gollm.NewLLM(
+    gollm.SetProvider("openrouter"),
+    gollm.SetModel("anthropic/claude-3-5-sonnet"),
+    gollm.SetAPIKey(apiKey),
 )
 
-response, err := llm.Generate(ctx, prompt)
-if err != nil {
-    log.Fatalf("Failed to generate explanation: %v", err)
-}
+// Enable model fallbacks (tried in order if primary model fails)
+llm.SetOption("fallback_models", []string{"openai/gpt-4o", "mistral/mistral-large"})
 
-fmt.Printf("Explanation of Recursion:\n%s\n", response)
+// Use auto-routing (automatically select best model)
+llm.SetOption("auto_route", true)
+
+// Enable prompt caching (improves performance and reduces costs)
+llm.SetOption("enable_prompt_caching", true)
+
+// Enable reasoning tokens (step-by-step thinking)
+llm.SetOption("enable_reasoning", true)
+
+// Specify provider routing preferences
+llm.SetOption("provider_preferences", map[string]interface{}{
+    "openai": map[string]interface{}{
+        "weight": 1.0,
+    },
+})
 ```
 
 ### Pre-built Functions (Chain of Thought)
@@ -427,137 +484,4 @@ fmt.Printf("Response 2: %s\n", response2)
      ```
 
 2. **Utilize Prompt Templates**:
-   - For consistent prompt generation, create and use `PromptTemplate` objects.
-   - Example:
-     ```go
-     template := gollm.NewPromptTemplate(
-         "CustomTemplate",
-         "A template for custom prompts",
-         "Generate a {{.Type}} about {{.Topic}}",
-         gollm.WithPromptOptions(
-             gollm.WithDirectives("Be creative", "Use vivid language"),
-             gollm.WithOutput("Your {{.Type}}:"),
-         ),
-     )
-     ```
-
-3. **Leverage Pre-built Functions**:
-   - Use provided functions like `ChainOfThought()` for complex reasoning tasks.
-   - Example:
-     ```go
-     response, err := tools.ChainOfThought(ctx, llm, "Your complex question here")
-     ```
-
-4. **Work with Examples**:
-   - Use `ReadExamplesFromFile()` to load examples from files for consistent outputs.
-   - Example:
-     ```go
-     examples, err := utils.ReadExamplesFromFile("examples.txt")
-     if err != nil {
-         log.Fatalf("Failed to read examples: %v", err)
-     }
-     ```
-
-5. **Implement Structured Output**:
-   - Use `WithJSONSchemaValidation()` to ensure valid JSON outputs.
-   - Example:
-     ```go
-     response, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
-     ```
-
-6. **Optimize Prompts**:
-   - Utilize `PromptOptimizer` to refine prompts automatically.
-   - Example:
-     ```go
-     optimizer := optimizer.NewPromptOptimizer(llm, initialPrompt, taskDescription,
-         optimizer.WithCustomMetrics(
-             optimizer.Metric{Name: "Relevance", Description: "How relevant the response is to the task"},
-         ),
-         optimizer.WithRatingSystem("numerical"),
-         optimizer.WithThreshold(0.8),
-     )
-     ```
-
-7. **Compare Model Performances**:
-   - Use `CompareModels()` to evaluate different models or providers.
-   - Example:
-     ```go
-     results, err := tools.CompareModels(ctx, promptText, validateFunc, configs...)
-     ```
-
-8. **Implement Memory for Contextual Interactions**:
-   - Enable memory retention for maintaining context across interactions.
-   - Example:
-     ```go
-     llm, err := gollm.NewLLM(
-         gollm.SetProvider("openai"),
-         gollm.SetModel("gpt-3.5-turbo"),
-         gollm.SetMemory(4096),
-     )
-     ```
-
-9. **Error Handling and Retries**:
-   - Always check for errors and configure retry mechanisms.
-   - Example:
-     ```go
-     llm, err := gollm.NewLLM(
-         gollm.SetMaxRetries(3),
-         gollm.SetRetryDelay(time.Second * 2),
-     )
-     ```
-
-10. **Secure API Key Handling**:
-    - Use environment variables for API keys.
-    - Example:
-      ```go
-      llm, err := gollm.NewLLM(
-          gollm.SetAPIKey(os.Getenv("OPENAI_API_KEY")),
-      )
-      ```
-
-## Examples and Tutorials
-
-Check out our [examples directory](https://github.com/teilomillet/gollm/tree/main/examples) for more usage examples, including:
-
-- Basic usage
-- Different prompt types
-- Comparing providers
-- Advanced prompt templates
-- Prompt optimization
-- JSON output validation
-- Mixture of Agents
-
-## Project Status
-
-`gollm` is actively maintained and under continuous development. With the recent refactoring, we've streamlined the codebase to make it simpler and more accessible for new contributors. We welcome contributions and feedback from the community.
-
-## Philosophy
-
-`gollm` is built on a philosophy of pragmatic minimalism and forward-thinking simplicity:
-
-1. **Build what's necessary**: We add features as they become needed, avoiding speculative development.
-
-2. **Simplicity first**: Additions should be straightforward while fulfilling their purpose.
-
-3. **Future-compatible**: We consider how current changes might impact future development.
-
-4. **Readability counts**: Code should be clear and self-explanatory.
-
-5. **Modular design**: Each component should do one thing well.
-
-## Contributing
-
-We welcome contributions that align with our philosophy! Whether you're fixing a bug, improving documentation, or proposing new features, your efforts are appreciated.
-
-To get started:
-
-1. Familiarize yourself with our [philosophy](#philosophy).
-2. Check out our [CONTRIBUTING.md](CONTRIBUTING.md).
-3. Look through our [issues](https://github.com/teilomillet/gollm/issues).
-4. Fork the repository, make your changes, and submit a pull request.
-
-Thank you for helping make `gollm` better!
-
-## License
-
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+   - For consistent prompt generation, create and use `
