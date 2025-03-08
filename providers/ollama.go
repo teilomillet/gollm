@@ -33,6 +33,7 @@ type OllamaProvider struct {
 
 // NewOllamaProvider creates a new Ollama provider instance.
 // It initializes the provider with the specified endpoint URL and model name.
+// Note that Ollama typically doesn't require an API key, so the apiKey parameter is ignored.
 //
 // Parameters:
 //   - endpoint: The Ollama API endpoint URL (e.g., "http://localhost:11434")
@@ -41,7 +42,8 @@ type OllamaProvider struct {
 //
 // Returns:
 //   - A configured Ollama Provider instance
-func NewOllamaProvider(endpoint, model string, extraHeaders map[string]string) Provider {
+func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+	endpoint := "http://localhost:11434"
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}

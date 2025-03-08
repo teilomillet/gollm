@@ -155,6 +155,16 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		opt(cfg)
 	}
 
+	// For Ollama, ensure we have a dummy API key if none is provided
+	if cfg.Provider == "ollama" {
+		if cfg.APIKeys == nil {
+			cfg.APIKeys = make(map[string]string)
+		}
+		if _, exists := cfg.APIKeys[cfg.Provider]; !exists || cfg.APIKeys[cfg.Provider] == "" {
+			cfg.APIKeys[cfg.Provider] = "ollama-local"
+		}
+	}
+
 	// Validate config
 	if err := llm.Validate(cfg); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)

@@ -215,6 +215,12 @@ func SetAPIKey(apiKey string) ConfigOption {
 		if c.APIKeys == nil {
 			c.APIKeys = make(map[string]string)
 		}
+		// For Ollama, we don't need a real API key, but we need to set something
+		// to satisfy the validation
+		if c.Provider == "ollama" && apiKey == "" {
+			c.APIKeys[c.Provider] = "ollama-local"
+			return
+		}
 		c.APIKeys[c.Provider] = apiKey
 	}
 }

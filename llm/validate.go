@@ -38,19 +38,8 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 	parent := fl.Parent()
 	provider := parent.FieldByName("Provider").String()
 
-	// Check if there's a key for the provider
-	apiKey, exists := apiKeys[provider]
-	if !exists || apiKey == "" {
-		return false
-	}
-
-	// Validate key format based on provider
-	switch provider {
-	case "openai":
-		return strings.HasPrefix(apiKey, "sk-") && len(apiKey) > 20
-	case "anthropic":
-		return strings.HasPrefix(apiKey, "sk-ant-") && len(apiKey) > 20
-	case "ollama":
+	// For Ollama, we don't require an API key
+	if provider == "ollama" {
 		// For Ollama, check if the endpoint is accessible
 		endpoint := parent.FieldByName("OllamaEndpoint").String()
 		if endpoint == "" {
@@ -63,6 +52,20 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 		}
 		defer resp.Body.Close()
 		return resp.StatusCode == http.StatusOK
+	}
+
+	// For other providers, check if there's a key for the provider
+	apiKey, exists := apiKeys[provider]
+	if !exists || apiKey == "" {
+		return false
+	}
+
+	// Validate key format based on provider
+	switch provider {
+	case "openai":
+		return strings.HasPrefix(apiKey, "sk-") && len(apiKey) > 20
+	case "anthropic":
+		return strings.HasPrefix(apiKey, "sk-ant-") && len(apiKey) > 20
 	default:
 		return len(apiKey) > 20 // Generic validation for unknown providers
 	}

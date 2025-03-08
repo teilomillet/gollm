@@ -227,6 +227,16 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			SupportsSchema:    true,
 			SupportsStreaming: true,
 		},
+		"ollama": {
+			Name:              "ollama",
+			Type:              TypeCustom,
+			Endpoint:          "http://localhost:11434/api/generate",
+			AuthHeader:        "", // Ollama doesn't require authentication
+			AuthPrefix:        "",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    false,
+			SupportsStreaming: true,
+		},
 		"deepseek": {
 			Name:              "deepseek",
 			Type:              TypeOpenAI,
