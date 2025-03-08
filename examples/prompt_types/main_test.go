@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -199,16 +200,26 @@ func TestChainedPrompts(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, analysisResponse)
 
+	// Print response for debugging
+	fmt.Printf("Raw analysis response: %s\n", analysisResponse)
+
 	cleanedResponse := cleanJSONResponse(analysisResponse)
+	fmt.Printf("Cleaned analysis response: %s\n", cleanedResponse)
+
 	var result map[string]interface{}
 	err = json.Unmarshal([]byte(cleanedResponse), &result)
 	require.NoError(t, err)
 
-	// Check the properties field which contains our actual data
-	properties, ok := result["properties"].(map[string]interface{})
-	require.True(t, ok, "properties field should be a map")
+	// Print the unmarshalled result
+	resultBytes, _ := json.MarshalIndent(result, "", "  ")
+	fmt.Printf("Unmarshalled result:\n%s\n", string(resultBytes))
 
-	assert.Contains(t, properties, "challenges")
-	assert.Contains(t, properties, "targetMarket")
-	assert.Contains(t, properties, "monetization")
+	// The response is a JSON schema with the actual fields inside the "properties" object
+	properties, ok := result["properties"].(map[string]interface{})
+	require.True(t, ok, "Response should contain a properties field of type map")
+
+	// Check the fields in the properties object
+	assert.Contains(t, properties, "challenges", "Properties should contain challenges field")
+	assert.Contains(t, properties, "targetMarket", "Properties should contain targetMarket field")
+	assert.Contains(t, properties, "monetization", "Properties should contain monetization field")
 }
