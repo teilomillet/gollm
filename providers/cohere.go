@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -290,4 +291,51 @@ func (p *CohereProvider) ParseStreamResponse(chunk []byte) (string, error) {
 		return "", err
 	}
 	return response.Text, nil
+}
+
+// PrepareRequestWithMessages creates a request using structured message objects.
+func (p *CohereProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+	// Cohere uses a chat history format
+	chatHistory := []map[string]interface{}{}
+	var userMessage string
+
+	// Process messages and build chat history
+	for i, msg := range messages {
+		if i == len(messages)-1 && msg.Role == "user" {
+			// Last user message goes in the message field
+			userMessage = msg.Content
+		} else {
+			// Previous messages go into chat history
+			chatHistory = append(chatHistory, map[string]interface{}{
+				"role":    msg.Role,
+				"message": msg.Content,
+			})
+		}
+	}
+
+	// Build request
+	request := map[string]interface{}{
+		"model":        p.model,
+		"message":      userMessage,
+		"chat_history": chatHistory,
+	}
+
+	// Add other options
+	for k, v := range p.options {
+		if k != "message" && k != "chat_history" {
+			request[k] = v
+		}
+	}
+	for k, v := range options {
+		if k != "message" && k != "chat_history" && k != "system_prompt" && k != "structured_messages" {
+			request[k] = v
+		}
+	}
+
+	// Add system prompt if present
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		request["preamble"] = systemPrompt
+	}
+
+	return json.Marshal(request)
 }

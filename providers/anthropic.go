@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -519,4 +520,115 @@ func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (string, error) {
 	default:
 		return "", fmt.Errorf("skip token")
 	}
+}
+
+// PrepareRequestWithMessages creates a request body using structured message objects
+// rather than a flattened prompt string. This enables more efficient caching and
+// better preserves conversation structure for the Claude API.
+//
+// Parameters:
+//   - messages: Slice of MemoryMessage objects representing the conversation
+//   - options: Additional options for the request
+//
+// Returns:
+//   - Serialized JSON request body
+//   - Any error encountered during preparation
+func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+	requestBody := map[string]interface{}{
+		"model":      p.model,
+		"max_tokens": p.options["max_tokens"],
+		"system":     []map[string]interface{}{},
+		"messages":   []map[string]interface{}{},
+	}
+
+	// Extract system prompt if present in options
+	systemPrompt := ""
+	if sp, ok := options["system_prompt"].(string); ok && sp != "" {
+		systemPrompt = sp
+	}
+
+	// Handle system prompt
+	if systemPrompt != "" {
+		parts := splitSystemPrompt(systemPrompt, 3)
+		for i, part := range parts {
+			systemMessage := map[string]interface{}{
+				"type": "text",
+				"text": part,
+			}
+			if i > 0 {
+				systemMessage["cache_control"] = map[string]string{"type": "ephemeral"}
+			}
+			requestBody["system"] = append(requestBody["system"].([]map[string]interface{}), systemMessage)
+		}
+	}
+
+	// Process tools if present
+	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
+		anthropicTools := make([]map[string]interface{}, len(tools))
+		for i, tool := range tools {
+			anthropicTools[i] = map[string]interface{}{
+				"name":         tool.Function.Name,
+				"description":  tool.Function.Description,
+				"input_schema": tool.Function.Parameters,
+			}
+		}
+		requestBody["tools"] = anthropicTools
+
+		// Add tool usage instructions to system prompt if needed
+		if len(tools) > 1 {
+			toolUsagePrompt := "When multiple tools are needed to answer a question, you should identify all required tools upfront and use them all at once in your response, rather than using them sequentially. Do not wait for tool results before calling other tools."
+			// This is separate from the existing system messages
+			systemMessage := map[string]interface{}{
+				"type": "text",
+				"text": toolUsagePrompt,
+			}
+			requestBody["system"] = append(requestBody["system"].([]map[string]interface{}), systemMessage)
+		}
+
+		// Only set tool_choice when tools are provided
+		if toolChoice, ok := options["tool_choice"].(string); ok {
+			requestBody["tool_choice"] = map[string]interface{}{
+				"type": toolChoice,
+			}
+		} else {
+			// Default to auto for tool choice when tools are provided
+			requestBody["tool_choice"] = map[string]interface{}{
+				"type": "auto",
+			}
+		}
+	}
+
+	// Convert MemoryMessage objects to Anthropic messages
+	for _, msg := range messages {
+		content := []map[string]interface{}{
+			{
+				"type": "text",
+				"text": msg.Content,
+			},
+		}
+
+		// Add cache_control if specified
+		if msg.CacheControl != "" {
+			content[0]["cache_control"] = map[string]string{"type": msg.CacheControl}
+		} else if caching, ok := options["enable_caching"].(bool); ok && caching {
+			// Add default caching if enabled globally
+			content[0]["cache_control"] = map[string]string{"type": "ephemeral"}
+		}
+
+		message := map[string]interface{}{
+			"role":    msg.Role,
+			"content": content,
+		}
+
+		requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), message)
+	}
+
+	// Add other options
+	for k, v := range options {
+		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" && k != "enable_caching" && k != "structured_messages" {
+			requestBody[k] = v
+		}
+	}
+
+	return json.Marshal(requestBody)
 }

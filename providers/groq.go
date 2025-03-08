@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -239,4 +240,43 @@ func (p *GroqProvider) ParseStreamResponse(chunk []byte) (string, error) {
 		return "", nil
 	}
 	return response.Choices[0].Delta.Content, nil
+}
+
+// PrepareRequestWithMessages creates a request body using structured message objects
+// rather than a flattened prompt string.
+func (p *GroqProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+	request := map[string]interface{}{
+		"model":    p.model,
+		"messages": []map[string]interface{}{},
+	}
+
+	// Add system prompt if present
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+			"role":    "system",
+			"content": systemPrompt,
+		})
+	}
+
+	// Convert structured messages to Groq format (OpenAI compatible)
+	for _, msg := range messages {
+		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+			"role":    msg.Role,
+			"content": msg.Content,
+		})
+	}
+
+	// Add other options from provider and request
+	for k, v := range p.options {
+		if k != "messages" {
+			request[k] = v
+		}
+	}
+	for k, v := range options {
+		if k != "messages" && k != "system_prompt" && k != "structured_messages" {
+			request[k] = v
+		}
+	}
+
+	return json.Marshal(request)
 }

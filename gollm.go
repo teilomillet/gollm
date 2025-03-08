@@ -189,7 +189,7 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 	}
 
 	if cfg.MemoryOption != nil {
-		llmWithMemory, err := llm.NewLLMWithMemory(baseLLM, cfg.MemoryOption.MaxTokens, cfg.Model, logger)
+		llmWithMemory, err := llm.NewLLMWithMemory(baseLLM, cfg.MemoryOption.MaxTokens, cfg.Model)
 		if err != nil {
 			logger.Error("Failed to create LLM with memory", "error", err)
 			return nil, fmt.Errorf("failed to create LLM with memory: %w", err)

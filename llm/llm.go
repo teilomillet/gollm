@@ -14,6 +14,7 @@ import (
 
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/providers"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -225,11 +226,39 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 		options["tool_choice"] = prompt.ToolChoice
 	}
 
-	// Prepare the request with both the user prompt and the combined options
-	reqBody, err := l.Provider.PrepareRequest(prompt.String(), options)
+	var reqBody []byte
+	var err error
+
+	// Check if we have structured messages
+	if structuredMessages, ok := l.Options["structured_messages"]; ok {
+		// Use the structured messages API if the provider supports it
+		if prepareWithMessages, ok := l.Provider.(interface {
+			PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error)
+		}); ok {
+			// Convert to the expected type
+			messages, ok := structuredMessages.([]types.MemoryMessage)
+			if ok {
+				l.logger.Debug("Using structured messages API", "message_count", len(messages))
+				reqBody, err = prepareWithMessages.PrepareRequestWithMessages(messages, options)
+			} else {
+				l.logger.Warn("Invalid structured_messages format", "type", fmt.Sprintf("%T", structuredMessages))
+				// Fall back to regular prepare
+				reqBody, err = l.Provider.PrepareRequest(prompt.String(), options)
+			}
+		} else {
+			l.logger.Debug("Provider does not support structured messages API", "provider", l.Provider.Name())
+			// Provider doesn't support structured messages, fall back to normal request
+			reqBody, err = l.Provider.PrepareRequest(prompt.String(), options)
+		}
+	} else {
+		// Standard request preparation
+		reqBody, err = l.Provider.PrepareRequest(prompt.String(), options)
+	}
+
 	if err != nil {
 		return "", NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
 	}
+
 	l.logger.Debug("Full request body", "body", string(reqBody))
 	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {

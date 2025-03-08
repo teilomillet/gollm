@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -450,4 +451,83 @@ func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (string, error) {
 	}
 
 	return response.Choices[0].Delta.Content, nil
+}
+
+// PrepareRequestWithMessages creates a request body using structured message objects
+// rather than a flattened prompt string. This enables more efficient caching and
+// better preserves conversation structure for the OpenAI API.
+//
+// Parameters:
+//   - messages: Slice of MemoryMessage objects representing the conversation
+//   - options: Additional options for the request
+//
+// Returns:
+//   - Serialized JSON request body
+//   - Any error encountered during preparation
+func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+	request := map[string]interface{}{
+		"model":    p.model,
+		"messages": []map[string]interface{}{},
+	}
+
+	// Handle system prompt as system message
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+			"role":    "system",
+			"content": systemPrompt,
+		})
+	}
+
+	// Convert MemoryMessage objects to OpenAI messages format
+	for _, msg := range messages {
+		message := map[string]interface{}{
+			"role":    msg.Role,
+			"content": msg.Content,
+		}
+
+		// Add metadata if present
+		if len(msg.Metadata) > 0 {
+			for k, v := range msg.Metadata {
+				message[k] = v
+			}
+		}
+
+		request["messages"] = append(request["messages"].([]map[string]interface{}), message)
+	}
+
+	// Handle tool_choice
+	if toolChoice, ok := options["tool_choice"].(string); ok {
+		request["tool_choice"] = toolChoice
+	}
+
+	// Handle tools
+	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
+		openAITools := make([]map[string]interface{}, len(tools))
+		for i, tool := range tools {
+			openAITools[i] = map[string]interface{}{
+				"type": "function",
+				"function": map[string]interface{}{
+					"name":        tool.Function.Name,
+					"description": tool.Function.Description,
+					"parameters":  tool.Function.Parameters,
+				},
+				"strict": true, // Add this if you want strict mode
+			}
+		}
+		request["tools"] = openAITools
+	}
+
+	// Add other options, but exclude the structured_messages parameter
+	for k, v := range p.options {
+		if k != "tools" && k != "tool_choice" && k != "system_prompt" && k != "structured_messages" {
+			request[k] = v
+		}
+	}
+	for k, v := range options {
+		if k != "tools" && k != "tool_choice" && k != "system_prompt" && k != "structured_messages" {
+			request[k] = v
+		}
+	}
+
+	return json.Marshal(request)
 }

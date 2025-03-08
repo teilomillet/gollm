@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -285,4 +286,38 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (string, error) {
 		return "", err
 	}
 	return response.Response, nil
+}
+
+// PrepareRequestWithMessages creates a request body using structured message objects
+// rather than a flattened prompt string.
+//
+// Parameters:
+//   - messages: Slice of MemoryMessage objects representing the conversation
+//   - options: Additional options for the request
+//
+// Returns:
+//   - Serialized JSON request body
+//   - Any error encountered during preparation
+func (p *OllamaProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+	// Ollama doesn't natively support structured messages like Anthropic/OpenAI
+	// Convert to flattened format
+	var flattenedPrompt strings.Builder
+
+	// Add system prompt if present
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		flattenedPrompt.WriteString("System: ")
+		flattenedPrompt.WriteString(systemPrompt)
+		flattenedPrompt.WriteString("\n\n")
+	}
+
+	// Add all messages in sequence
+	for _, msg := range messages {
+		flattenedPrompt.WriteString(msg.Role)
+		flattenedPrompt.WriteString(": ")
+		flattenedPrompt.WriteString(msg.Content)
+		flattenedPrompt.WriteString("\n\n")
+	}
+
+	// Use regular prompt preparation with flattened text
+	return p.PrepareRequest(flattenedPrompt.String(), options)
 }

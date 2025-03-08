@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -33,6 +34,19 @@ type Provider interface {
 	// PrepareRequestWithSchema creates a request body that includes JSON schema validation.
 	// This is used for providers that support structured output validation.
 	PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error)
+
+	// PrepareRequestWithMessages creates a request body using structured message objects
+	// rather than a flattened prompt string. This enables more efficient caching and
+	// better preserves conversation structure for the LLM API.
+	//
+	// Parameters:
+	//   - messages: Slice of MemoryMessage objects representing the conversation
+	//   - options: Additional options for the request
+	//
+	// Returns:
+	//   - Serialized JSON request body
+	//   - Any error encountered during preparation
+	PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error)
 
 	// ParseResponse extracts the generated text from the API response.
 	// It handles provider-specific response formats and error cases.

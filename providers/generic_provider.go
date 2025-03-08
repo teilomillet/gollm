@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -488,4 +489,127 @@ func (p *GenericProvider) parseAnthropicStreamResponse(chunk []byte) (string, er
 	}
 
 	return "", nil
+}
+
+// PrepareRequestWithMessages creates a request body using structured message objects
+// rather than a flattened prompt string. This enables more efficient caching.
+//
+// Parameters:
+//   - messages: Slice of MemoryMessage objects representing the conversation
+//   - options: Additional options for the request
+//
+// Returns:
+//   - Serialized JSON request body
+//   - Any error encountered during preparation
+func (p *GenericProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+	switch p.config.Type {
+	case TypeOpenAI:
+		return p.prepareOpenAIRequestWithMessages(messages, options)
+	case TypeAnthropic, TypeClaude:
+		return p.prepareAnthropicRequestWithMessages(messages, options)
+	case TypeCustom:
+		// For custom types, we would need a custom implementation
+		return nil, fmt.Errorf("custom API type requires specialized implementation")
+	default:
+		return nil, fmt.Errorf("unsupported provider type: %s", p.config.Type)
+	}
+}
+
+// prepareOpenAIRequestWithMessages creates a request for OpenAI APIs using structured messages
+func (p *GenericProvider) prepareOpenAIRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+	requestOptions := make(map[string]interface{})
+
+	// Copy default options
+	for k, v := range p.options {
+		requestOptions[k] = v
+	}
+
+	// Override with passed options
+	for k, v := range options {
+		requestOptions[k] = v
+	}
+
+	// Set model
+	requestOptions["model"] = p.model
+
+	// Handle messages
+	openAIMessages := []map[string]interface{}{}
+
+	// Add system message first if present
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		openAIMessages = append(openAIMessages, map[string]interface{}{
+			"role":    "system",
+			"content": systemPrompt,
+		})
+	}
+
+	// Add all other messages
+	for _, msg := range messages {
+		message := map[string]interface{}{
+			"role":    msg.Role,
+			"content": msg.Content,
+		}
+		openAIMessages = append(openAIMessages, message)
+	}
+
+	requestOptions["messages"] = openAIMessages
+
+	return json.Marshal(requestOptions)
+}
+
+// prepareAnthropicRequestWithMessages creates a request for Anthropic APIs using structured messages
+func (p *GenericProvider) prepareAnthropicRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+	requestOptions := make(map[string]interface{})
+
+	// Copy default options
+	for k, v := range p.options {
+		requestOptions[k] = v
+	}
+
+	// Override with passed options
+	for k, v := range options {
+		requestOptions[k] = v
+	}
+
+	// Set model
+	requestOptions["model"] = p.model
+
+	// Set system prompt if provided
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		requestOptions["system"] = systemPrompt
+	}
+
+	// Format messages for Anthropic
+	anthropicMessages := []map[string]interface{}{}
+	for _, msg := range messages {
+		content := []map[string]interface{}{
+			{
+				"type": "text",
+				"text": msg.Content,
+			},
+		}
+
+		// Add cache_control if specified
+		if msg.CacheControl != "" {
+			content[0]["cache_control"] = map[string]string{"type": msg.CacheControl}
+		}
+
+		message := map[string]interface{}{
+			"role":    msg.Role,
+			"content": content,
+		}
+
+		anthropicMessages = append(anthropicMessages, message)
+	}
+
+	requestOptions["messages"] = anthropicMessages
+
+	// Set max tokens if needed
+	if maxTokens, ok := requestOptions["max_tokens"]; ok {
+		requestOptions["max_tokens"] = maxTokens
+	} else {
+		requestOptions["max_tokens"] = 1024 // Default
+	}
+
+	return json.Marshal(requestOptions)
 }
