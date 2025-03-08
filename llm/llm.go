@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/teilomillet/gollm/config"
@@ -63,13 +64,14 @@ type LLM interface {
 // LLMImpl implements the LLM interface and manages interactions with specific providers.
 // It handles provider communication, error management, and logging.
 type LLMImpl struct {
-	Provider   providers.Provider     // The underlying LLM provider
-	Options    map[string]interface{} // Provider-specific options
-	client     *http.Client           // HTTP client for API requests
-	logger     utils.Logger           // Logger for debugging and monitoring
-	config     *config.Config         // Configuration settings
-	MaxRetries int                    // Maximum number of retry attempts
-	RetryDelay time.Duration          // Delay between retry attempts
+	Provider     providers.Provider     // The underlying LLM provider
+	Options      map[string]interface{} // Provider-specific options
+	optionsMutex sync.RWMutex           // Mutex to protect concurrent access to Options map
+	client       *http.Client           // HTTP client for API requests
+	logger       utils.Logger           // Logger for debugging and monitoring
+	config       *config.Config         // Configuration settings
+	MaxRetries   int                    // Maximum number of retry attempts
+	RetryDelay   time.Duration          // Delay between retry attempts
 }
 
 // GenerateOption is a function type for configuring generation behavior.
@@ -123,6 +125,9 @@ func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.Provide
 // SetOption sets a provider-specific option with the given key and value.
 // The option is logged at debug level for troubleshooting.
 func (l *LLMImpl) SetOption(key string, value interface{}) {
+	l.optionsMutex.Lock()
+	defer l.optionsMutex.Unlock()
+
 	l.Options[key] = value
 	l.logger.Debug("Option set", key, value)
 }
@@ -214,9 +219,13 @@ func (l *LLMImpl) wait(ctx context.Context) error {
 func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, error) {
 	// Create a new options map that includes both l.Options and prompt-specific options
 	options := make(map[string]interface{})
+
+	// Safely read from the Options map
+	l.optionsMutex.RLock()
 	for k, v := range l.Options {
 		options[k] = v
 	}
+	l.optionsMutex.RUnlock()
 
 	// Add Tools and ToolChoice to options
 	if len(prompt.Tools) > 0 {
@@ -230,7 +239,12 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 	var err error
 
 	// Check if we have structured messages
-	if structuredMessages, ok := l.Options["structured_messages"]; ok {
+	l.optionsMutex.RLock()
+	structuredMessages, hasStructuredMessages := l.Options["structured_messages"]
+	l.optionsMutex.RUnlock()
+
+	// Check if we have structured messages
+	if hasStructuredMessages {
 		// Use the structured messages API if the provider supports it
 		if prepareWithMessages, ok := l.Provider.(interface {
 			PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error)
@@ -374,12 +388,19 @@ func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, 
 	var err error
 	var fullPrompt string
 
+	l.optionsMutex.RLock()
+	options := make(map[string]interface{})
+	for k, v := range l.Options {
+		options[k] = v
+	}
+	l.optionsMutex.RUnlock()
+
 	if l.SupportsJSONSchema() {
-		reqBody, err = l.Provider.PrepareRequestWithSchema(prompt, l.Options, schema)
+		reqBody, err = l.Provider.PrepareRequestWithSchema(prompt, options, schema)
 		fullPrompt = prompt
 	} else {
 		fullPrompt = l.preparePromptWithSchema(prompt, schema)
-		reqBody, err = l.Provider.PrepareRequest(fullPrompt, l.Options)
+		reqBody, err = l.Provider.PrepareRequest(fullPrompt, options)
 	}
 
 	if err != nil {
@@ -460,9 +481,11 @@ func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOpti
 
 	// Prepare request with streaming enabled
 	options := make(map[string]interface{})
+	l.optionsMutex.RLock()
 	for k, v := range l.Options {
 		options[k] = v
 	}
+	l.optionsMutex.RUnlock()
 	options["stream"] = true
 
 	body, err := l.Provider.PrepareStreamRequest(prompt.String(), options)
