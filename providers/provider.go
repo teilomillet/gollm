@@ -70,6 +70,57 @@ type Provider interface {
 	ParseStreamResponse(chunk []byte) (string, error)
 }
 
+// ProviderType represents the general type of LLM API
+type ProviderType string
+
+const (
+	// TypeOpenAI is for providers using the OpenAI API format
+	TypeOpenAI ProviderType = "openai"
+
+	// TypeAnthropic is for providers using the Anthropic API format
+	TypeAnthropic ProviderType = "anthropic"
+
+	// TypeClaude is an alias for Anthropic
+	TypeClaude ProviderType = "claude"
+
+	// TypeCustom is for completely custom providers
+	TypeCustom ProviderType = "custom"
+)
+
+// ProviderConfig holds the configuration for a provider
+type ProviderConfig struct {
+	// Name is the provider identifier
+	Name string
+
+	// Type is the API format this provider uses (e.g., "openai", "anthropic")
+	Type ProviderType
+
+	// Endpoint is the API endpoint URL
+	Endpoint string
+
+	// AuthHeader is the header key used for authentication
+	AuthHeader string
+
+	// AuthPrefix is the prefix to use before the API key (e.g., "Bearer ")
+	AuthPrefix string
+
+	// RequiredHeaders are additional headers always needed
+	RequiredHeaders map[string]string
+
+	// EndpointParams are URL parameters to add to the endpoint
+	EndpointParams map[string]string
+
+	// ResponseFormat defines how to parse the response
+	// If empty, uses the default parser for the provider type
+	ResponseFormat string
+
+	// SupportsSchema indicates if JSON schema validation is supported
+	SupportsSchema bool
+
+	// SupportsStreaming indicates if streaming is supported
+	SupportsStreaming bool
+}
+
 // ProviderConstructor defines a function type for creating new provider instances.
 // Each provider implementation must provide a constructor function of this type.
 type ProviderConstructor func(apiKey, model string, extraHeaders map[string]string) Provider
@@ -79,6 +130,7 @@ type ProviderConstructor func(apiKey, model string, extraHeaders map[string]stri
 // dynamic provider registration.
 type ProviderRegistry struct {
 	providers map[string]ProviderConstructor
+	configs   map[string]ProviderConfig
 	mutex     sync.RWMutex
 }
 
@@ -91,6 +143,8 @@ type ProviderRegistry struct {
 //   - "groq": Groq's LLM services
 //   - "ollama": Local LLM deployment
 //   - "mistral": Mistral AI's models
+//   - "cohere": Cohere's models
+//   - "deepseek": DeepSeek's models
 //
 // Example usage:
 //
@@ -102,6 +156,7 @@ type ProviderRegistry struct {
 func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 	registry := &ProviderRegistry{
 		providers: make(map[string]ProviderConstructor),
+		configs:   make(map[string]ProviderConfig),
 	}
 
 	// Register all known providers
@@ -116,24 +171,124 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		// Add other providers here as they are implemented
 	}
 
+	// Standard provider configurations
+	standardConfigs := map[string]ProviderConfig{
+		"openai": {
+			Name:              "openai",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://api.openai.com/v1/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"azure-openai": {
+			Name: "azure-openai",
+			Type: TypeOpenAI,
+			// Endpoint should be configured by the user
+			AuthHeader:        "api-key",
+			AuthPrefix:        "",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"anthropic": {
+			Name:              "anthropic",
+			Type:              TypeAnthropic,
+			Endpoint:          "https://api.anthropic.com/v1/messages",
+			AuthHeader:        "x-api-key",
+			AuthPrefix:        "",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json", "anthropic-version": "2023-06-01"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"groq": {
+			Name:              "groq",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://api.groq.com/openai/v1/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"deepseek": {
+			Name:              "deepseek",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://api.deepseek.com/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		// Add other provider configurations
+	}
+
+	// Store standard configs
+	for name, config := range standardConfigs {
+		registry.configs[name] = config
+	}
+
 	if len(providerNames) == 0 {
 		// If no specific providers are requested, register all known providers
 		for name, constructor := range knownProviders {
-			registry.Register(name, constructor)
+			registry.providers[name] = constructor
 		}
 	} else {
-		// Register only the requested providers
+		// Otherwise, register only the requested providers
 		for _, name := range providerNames {
 			if constructor, ok := knownProviders[name]; ok {
-				registry.Register(name, constructor)
-			} else {
-				// You might want to handle unknown provider names differently
-				fmt.Printf("Warning: Unknown provider '%s' requested\n", name)
+				registry.providers[name] = constructor
 			}
 		}
 	}
 
 	return registry
+}
+
+// GetProviderConfig returns the configuration for a named provider
+// Returns the config and a boolean indicating whether the provider was found
+func (r *ProviderRegistry) GetProviderConfig(name string) (ProviderConfig, bool) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	config, exists := r.configs[name]
+	return config, exists
+}
+
+// RegisterProviderConfig registers a new provider configuration
+func (r *ProviderRegistry) RegisterProviderConfig(name string, config ProviderConfig) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	r.configs[name] = config
+}
+
+// defaultRegistry is a singleton instance of the provider registry
+var defaultRegistry *ProviderRegistry
+var defaultRegistryOnce sync.Once
+
+// GetDefaultRegistry returns the default provider registry
+// This registry contains all known providers and is created lazily
+func GetDefaultRegistry() *ProviderRegistry {
+	defaultRegistryOnce.Do(func() {
+		defaultRegistry = NewProviderRegistry()
+	})
+	return defaultRegistry
+}
+
+// RegisterGenericProvider creates a constructor for a generic provider
+// with the specified name and configuration
+func RegisterGenericProvider(name string, config ProviderConfig) {
+	registry := GetDefaultRegistry()
+	registry.RegisterProviderConfig(name, config)
+
+	// Register a constructor that creates a GenericProvider with this config
+	registry.providers[name] = func(apiKey, model string, extraHeaders map[string]string) Provider {
+		return NewGenericProvider(apiKey, model, name, extraHeaders)
+	}
 }
 
 // Register adds a new provider constructor to the registry.
