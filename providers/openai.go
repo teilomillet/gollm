@@ -53,15 +53,24 @@ func (p *OpenAIProvider) SetLogger(logger utils.Logger) {
 	p.logger = logger
 }
 
+// needsMaxCompletionTokens checks if the model requires max_completion_tokens instead of max_tokens
+func (p *OpenAIProvider) needsMaxCompletionTokens() bool {
+	return strings.HasPrefix(p.model, "o")
+}
+
 // SetOption sets a specific option for the OpenAI provider.
 // Supported options include:
 //   - temperature: Controls randomness (0.0 to 2.0)
-//   - max_tokens: Maximum tokens in the response
+//   - max_tokens: Maximum tokens in the response (automatically converted to max_completion_tokens for "o" models)
 //   - top_p: Nucleus sampling parameter
 //   - frequency_penalty: Repetition reduction
 //   - presence_penalty: Topic steering
 //   - seed: Deterministic sampling seed
 func (p *OpenAIProvider) SetOption(key string, value interface{}) {
+	// Handle max_tokens conversion for "o" models
+	if key == "max_tokens" && p.needsMaxCompletionTokens() {
+		key = "max_completion_tokens"
+	}
 	p.options[key] = value
 	p.logger.Debug("Option set", "key", key, "value", value)
 }
