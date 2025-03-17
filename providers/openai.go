@@ -55,7 +55,17 @@ func (p *OpenAIProvider) SetLogger(logger utils.Logger) {
 
 // needsMaxCompletionTokens checks if the model requires max_completion_tokens instead of max_tokens
 func (p *OpenAIProvider) needsMaxCompletionTokens() bool {
-	return strings.HasPrefix(p.model, "o")
+	// Check for models that start with "o"
+	if strings.HasPrefix(p.model, "o") {
+		return true
+	}
+
+	// Check for gpt-4o and similar models
+	if strings.Contains(p.model, "4o") || strings.Contains(p.model, "-o") {
+		return true
+	}
+
+	return false
 }
 
 // SetOption sets a specific option for the OpenAI provider.
@@ -68,9 +78,21 @@ func (p *OpenAIProvider) needsMaxCompletionTokens() bool {
 //   - seed: Deterministic sampling seed
 func (p *OpenAIProvider) SetOption(key string, value interface{}) {
 	// Handle max_tokens conversion for "o" models
-	if key == "max_tokens" && p.needsMaxCompletionTokens() {
-		key = "max_completion_tokens"
+	if key == "max_tokens" {
+		if p.needsMaxCompletionTokens() {
+			// For models requiring max_completion_tokens, use that instead
+			key = "max_completion_tokens"
+			// Delete max_tokens if it was previously set
+			delete(p.options, "max_tokens")
+		} else {
+			// For models using max_tokens, make sure max_completion_tokens is not set
+			delete(p.options, "max_completion_tokens")
+		}
+	} else if key == "max_completion_tokens" {
+		// If explicitly setting max_completion_tokens, remove max_tokens to avoid conflicts
+		delete(p.options, "max_tokens")
 	}
+
 	p.options[key] = value
 	p.logger.Debug("Option set", "key", key, "value", value)
 }
@@ -178,16 +200,43 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 		request["tools"] = openAITools
 	}
 
-	// Add other options
+	// Create a merged copy of options to handle token parameters properly
+	mergedOptions := make(map[string]interface{})
+
+	// First add options from provider (p.options)
 	for k, v := range p.options {
 		if k != "tools" && k != "tool_choice" && k != "system_prompt" {
-			request[k] = v
+			mergedOptions[k] = v
 		}
 	}
+
+	// Then add options from the function parameters (may override provider options)
 	for k, v := range options {
 		if k != "tools" && k != "tool_choice" && k != "system_prompt" {
-			request[k] = v
+			mergedOptions[k] = v
 		}
+	}
+
+	// Handle max_tokens/max_completion_tokens conflict
+	// For models that need max_completion_tokens, ensure we use that and not max_tokens
+	if p.needsMaxCompletionTokens() {
+		if _, hasMaxTokens := mergedOptions["max_tokens"]; hasMaxTokens {
+			// Move max_tokens value to max_completion_tokens
+			mergedOptions["max_completion_tokens"] = mergedOptions["max_tokens"]
+			delete(mergedOptions, "max_tokens")
+		}
+	} else {
+		// For other models, ensure we use max_tokens and not max_completion_tokens
+		if _, hasMaxCompletionTokens := mergedOptions["max_completion_tokens"]; hasMaxCompletionTokens {
+			// Move max_completion_tokens value to max_tokens
+			mergedOptions["max_tokens"] = mergedOptions["max_completion_tokens"]
+			delete(mergedOptions, "max_completion_tokens")
+		}
+	}
+
+	// Add merged options to the request
+	for k, v := range mergedOptions {
+		request[k] = v
 	}
 
 	return json.Marshal(request)
@@ -260,11 +309,43 @@ func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[str
 		}, request["messages"].([]map[string]interface{})...)
 	}
 
-	// Add other options
+	// Create a merged copy of options to handle token parameters properly
+	mergedOptions := make(map[string]interface{})
+
+	// First add options from provider (p.options)
+	for k, v := range p.options {
+		if k != "system_prompt" {
+			mergedOptions[k] = v
+		}
+	}
+
+	// Then add options from the function parameters (may override provider options)
 	for k, v := range options {
 		if k != "system_prompt" {
-			request[k] = v
+			mergedOptions[k] = v
 		}
+	}
+
+	// Handle max_tokens/max_completion_tokens conflict
+	// For models that need max_completion_tokens, ensure we use that and not max_tokens
+	if p.needsMaxCompletionTokens() {
+		if _, hasMaxTokens := mergedOptions["max_tokens"]; hasMaxTokens {
+			// Move max_tokens value to max_completion_tokens
+			mergedOptions["max_completion_tokens"] = mergedOptions["max_tokens"]
+			delete(mergedOptions, "max_tokens")
+		}
+	} else {
+		// For other models, ensure we use max_tokens and not max_completion_tokens
+		if _, hasMaxCompletionTokens := mergedOptions["max_completion_tokens"]; hasMaxCompletionTokens {
+			// Move max_completion_tokens value to max_tokens
+			mergedOptions["max_tokens"] = mergedOptions["max_completion_tokens"]
+			delete(mergedOptions, "max_completion_tokens")
+		}
+	}
+
+	// Add merged options to the request
+	for k, v := range mergedOptions {
+		request[k] = v
 	}
 
 	reqJSON, err := json.Marshal(request)
@@ -408,11 +489,43 @@ func (p *OpenAIProvider) PrepareStreamRequest(prompt string, options map[string]
 		"stream": true,
 	}
 
-	// Add other options
+	// Create a merged copy of options to handle token parameters properly
+	mergedOptions := make(map[string]interface{})
+
+	// First add options from provider (p.options)
+	for k, v := range p.options {
+		if k != "stream" { // Don't override stream setting
+			mergedOptions[k] = v
+		}
+	}
+
+	// Then add options from the function parameters (may override provider options)
 	for k, v := range options {
 		if k != "stream" { // Don't override stream setting
-			requestBody[k] = v
+			mergedOptions[k] = v
 		}
+	}
+
+	// Handle max_tokens/max_completion_tokens conflict
+	// For models that need max_completion_tokens, ensure we use that and not max_tokens
+	if p.needsMaxCompletionTokens() {
+		if _, hasMaxTokens := mergedOptions["max_tokens"]; hasMaxTokens {
+			// Move max_tokens value to max_completion_tokens
+			mergedOptions["max_completion_tokens"] = mergedOptions["max_tokens"]
+			delete(mergedOptions, "max_tokens")
+		}
+	} else {
+		// For other models, ensure we use max_tokens and not max_completion_tokens
+		if _, hasMaxCompletionTokens := mergedOptions["max_completion_tokens"]; hasMaxCompletionTokens {
+			// Move max_completion_tokens value to max_tokens
+			mergedOptions["max_tokens"] = mergedOptions["max_completion_tokens"]
+			delete(mergedOptions, "max_completion_tokens")
+		}
+	}
+
+	// Add merged options to the request
+	for k, v := range mergedOptions {
+		requestBody[k] = v
 	}
 
 	return json.Marshal(requestBody)
@@ -526,16 +639,43 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 		request["tools"] = openAITools
 	}
 
-	// Add other options, but exclude the structured_messages parameter
+	// Create a merged copy of options to handle token parameters properly
+	mergedOptions := make(map[string]interface{})
+
+	// First add options from provider (p.options)
 	for k, v := range p.options {
 		if k != "tools" && k != "tool_choice" && k != "system_prompt" && k != "structured_messages" {
-			request[k] = v
+			mergedOptions[k] = v
 		}
 	}
+
+	// Then add options from the function parameters (may override provider options)
 	for k, v := range options {
 		if k != "tools" && k != "tool_choice" && k != "system_prompt" && k != "structured_messages" {
-			request[k] = v
+			mergedOptions[k] = v
 		}
+	}
+
+	// Handle max_tokens/max_completion_tokens conflict
+	// For models that need max_completion_tokens, ensure we use that and not max_tokens
+	if p.needsMaxCompletionTokens() {
+		if _, hasMaxTokens := mergedOptions["max_tokens"]; hasMaxTokens {
+			// Move max_tokens value to max_completion_tokens
+			mergedOptions["max_completion_tokens"] = mergedOptions["max_tokens"]
+			delete(mergedOptions, "max_tokens")
+		}
+	} else {
+		// For other models, ensure we use max_tokens and not max_completion_tokens
+		if _, hasMaxCompletionTokens := mergedOptions["max_completion_tokens"]; hasMaxCompletionTokens {
+			// Move max_completion_tokens value to max_tokens
+			mergedOptions["max_tokens"] = mergedOptions["max_completion_tokens"]
+			delete(mergedOptions, "max_completion_tokens")
+		}
+	}
+
+	// Add merged options to the request
+	for k, v := range mergedOptions {
+		request[k] = v
 	}
 
 	return json.Marshal(request)

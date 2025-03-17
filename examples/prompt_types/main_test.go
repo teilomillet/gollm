@@ -196,6 +196,7 @@ func TestChainedPrompts(t *testing.T) {
 		}`),
 	)
 
+	// Use WithJSONSchemaValidation to ensure the output is validated against the schema
 	analysisResponse, err := llm.Generate(ctx, analysisPrompt, gollm.WithJSONSchemaValidation())
 	require.NoError(t, err)
 	require.NotEmpty(t, analysisResponse)
