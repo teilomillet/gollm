@@ -159,6 +159,7 @@ type ProviderRegistry struct {
 //   - "mistral": Mistral AI's models
 //   - "cohere": Cohere's models
 //   - "deepseek": DeepSeek's models
+//   - "google-openai": Google's Gemini models using OpenAI compatible API
 //
 // Example usage:
 //
@@ -175,13 +176,14 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 
 	// Register all known providers
 	knownProviders := map[string]ProviderConstructor{
-		"openai":    NewOpenAIProvider,
-		"anthropic": NewAnthropicProvider,
-		"groq":      NewGroqProvider,
-		"ollama":    NewOllamaProvider,
-		"mistral":   NewMistralProvider,
-		"cohere":    NewCohereProvider,
-		"deepseek":  NewDeepSeekProvider,
+		"openai":        NewOpenAIProvider,
+		"anthropic":     NewAnthropicProvider,
+		"groq":          NewGroqProvider,
+		"ollama":        NewOllamaProvider,
+		"mistral":       NewMistralProvider,
+		"cohere":        NewCohereProvider,
+		"deepseek":      NewDeepSeekProvider,
+		"google-openai": NewGoogleProvider,
 		// Add other providers here as they are implemented
 	}
 
@@ -241,6 +243,16 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			Name:              "deepseek",
 			Type:              TypeOpenAI,
 			Endpoint:          "https://api.deepseek.com/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"google-openai": {
+			Name:              "google-openai",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
 			AuthHeader:        "Authorization",
 			AuthPrefix:        "Bearer ",
 			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
