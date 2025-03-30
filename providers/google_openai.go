@@ -29,7 +29,7 @@ func NewGoogleProvider(apiKey, model string, extraHeaders map[string]string) Pro
 	return provider
 }
 
-// Name returns "google" as the provider identifier.
+ // Name returns "google-openai" as the provider identifier.
 func (p *GoogleProvider) Name() string {
 	return "google-openai"
 }
