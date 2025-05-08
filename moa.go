@@ -78,7 +78,7 @@ func NewMOA(moaConfig MOAConfig, aggregatorOpts ...ConfigOption) (*MOA, error) {
 		return nil, fmt.Errorf("invalid model configuration: at least one model must be specified")
 	}
 
-	registry := providers.NewProviderRegistry()
+	registry := providers.GetDefaultRegistry()
 	logger := utils.NewLogger(utils.LogLevelInfo)
 
 	moa := &MOA{
