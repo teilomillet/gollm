@@ -526,7 +526,7 @@ func (l *LLMImpl) SupportsStreaming() bool {
 
 // providerStream implements TokenStream for a specific provider
 type providerStream struct {
-	decoder       *SSEDecoder
+	decoder       StreamDecoder
 	provider      providers.Provider
 	config        *StreamConfig
 	buffer        []byte
@@ -535,8 +535,15 @@ type providerStream struct {
 }
 
 func newProviderStream(reader io.ReadCloser, provider providers.Provider, config *StreamConfig) *providerStream {
+	var decoder StreamDecoder
+	if provider.Name() == "ollama" {
+		decoder = NewNDJSONDecoder(reader)
+	} else {
+		decoder = NewSSEDecoder(reader)
+	}
+
 	return &providerStream{
-		decoder:       NewSSEDecoder(reader),
+		decoder:       decoder,
 		provider:      provider,
 		config:        config,
 		buffer:        make([]byte, 0, 4096),
