@@ -24,7 +24,7 @@ Gollm offers a spectrum of approaches for provider creation, from simplest to mo
 For most API-compatible providers, this is all you need:
 
 ```go
-import "github.com/teilomillet/gollm/providers"
+import "github.com/guiperry/gollm_cerebras/providers"
 
 // Define provider configuration
 config := providers.ProviderConfig{
@@ -89,8 +89,8 @@ package providers
 import (
     "encoding/json"
     "fmt"
-    "github.com/teilomillet/gollm/config"
-    "github.com/teilomillet/gollm/utils"
+    "github.com/guiperry/gollm_cerebras/config"
+    "github.com/guiperry/gollm_cerebras/utils"
 )
 
 // Define your provider struct
@@ -195,10 +195,10 @@ import (
     "net/http"
     "strings"
     
-    "github.com/teilomillet/gollm"
-    "github.com/teilomillet/gollm/config"
-    "github.com/teilomillet/gollm/providers"
-    "github.com/teilomillet/gollm/utils"
+    "github.com/guiperry/gollm_cerebras"
+    "github.com/guiperry/gollm_cerebras/config"
+    "github.com/guiperry/gollm_cerebras/providers"
+    "github.com/guiperry/gollm_cerebras/utils"
 )
 
 // LocalProvider is a custom provider for a local LLM server
@@ -327,7 +327,7 @@ package providers_test
 import (
     "testing"
     
-    "github.com/teilomillet/gollm/providers"
+    "github.com/guiperry/gollm_cerebras/providers"
 )
 
 func TestCustomProvider(t *testing.T) {
