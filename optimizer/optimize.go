@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/llm"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // OptimizePrompt performs automated optimization of an LLM prompt and generates a response.

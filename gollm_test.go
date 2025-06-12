@@ -11,10 +11,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/providers"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // MockProvider implements the Provider interface for testing

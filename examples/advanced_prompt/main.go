@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/presets"
+	"github.com/guiperry/gollm_cerebras"
+	"github.com/guiperry/gollm_cerebras/presets"
 )
 
 // AnalysisResult represents the structured output of our analysis

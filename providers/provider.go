@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/types"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // Provider defines the interface that all LLM providers must implement.

@@ -8,8 +8,8 @@ import (
 
 	"github.com/go-playground/validator/v10"
 
-	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/llm"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // init registers custom validation functions for the optimizer package.

@@ -8,9 +8,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/types"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // AnthropicProvider implements the Provider interface for Anthropic's Claude API.

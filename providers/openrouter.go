@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/types"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // OpenRouterProvider implements the Provider interface for OpenRouter API.
@@ -110,7 +110,7 @@ func (p *OpenRouterProvider) Headers() map[string]string {
 	headers := map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer " + p.apiKey,
-		"HTTP-Referer":  "https://github.com/teilomillet/gollm", // Identify the app to OpenRouter
+		"HTTP-Referer":  "https://github.com/guiperry/gollm_cerebras", // Identify the app to OpenRouter
 	}
 
 	// Add OpenRouter specific headers

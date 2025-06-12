@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/llm"
+	"github.com/guiperry/gollm_cerebras/providers"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // LLM is the interface that wraps the basic LLM operations.

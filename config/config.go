@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v11"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // MemoryOption configures conversation memory settings, controlling how much

@@ -2,7 +2,7 @@
 package providers
 
 import (
-	"github.com/teilomillet/gollm/config"
+	"github.com/guiperry/gollm_cerebras/config"
 )
 
 // DeepSeekProvider implements the Provider interface for DeepSeek's API.

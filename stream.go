@@ -3,7 +3,7 @@
 package gollm
 
 import (
-	"github.com/teilomillet/gollm/llm"
+	"github.com/guiperry/gollm_cerebras/llm"
 )
 
 // Re-export streaming types from the llm package
