@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/llm"
+	"github.com/guiperry/gollm_cerebras/providers"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // LLM is the interface that wraps the basic LLM operations.
@@ -179,13 +179,13 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		cfg.ExtraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
 	}
 
-	baseLLM, err := llm.NewLLM(cfg, logger, providers.NewProviderRegistry())
+	baseLLM, err := llm.NewLLM(cfg, logger, providers.GetDefaultRegistry()) // Use default registry
 	if err != nil {
 		logger.Error("Failed to create internal LLM", "error", err)
 		return nil, fmt.Errorf("failed to create internal LLM: %w", err)
 	}
 
-	provider, err := providers.NewProviderRegistry().Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, cfg.ExtraHeaders)
+	provider, err := providers.GetDefaultRegistry().Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, cfg.ExtraHeaders) // Use default registry
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider: %w", err)
 	}

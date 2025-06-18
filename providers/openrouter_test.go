@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/types"
 )
 
 func TestOpenRouterProvider(t *testing.T) {

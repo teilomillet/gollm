@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/teilomillet/gollm"
+	"github.com/guiperry/gollm_cerebras"
 )
 
 // QuestionAnswerTemplate defines a structured prompt template for question answering.

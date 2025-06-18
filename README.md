@@ -88,7 +88,7 @@
 ## Installation
 
 ```bash
-go get github.com/teilomillet/gollm
+go get github.com/guiperry/gollm_cerebras
 ```
 
 ## Quick Start
@@ -104,7 +104,7 @@ import (
     "log"
     "os"
 
-    "github.com/teilomillet/gollm"
+    "github.com/guiperry/gollm_cerebras"
 )
 
 func main() {

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/presets"
+	"github.com/guiperry/gollm_cerebras"
+	"github.com/guiperry/gollm_cerebras/presets"
 )
 
 func TestChainOfThought(t *testing.T) {

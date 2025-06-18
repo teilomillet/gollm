@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/teilomillet/gollm"
+	"github.com/guiperry/gollm_cerebras"
 )
 
 // summarizeTemplate defines a structured prompt template for text summarization.

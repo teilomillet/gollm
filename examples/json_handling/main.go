@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/teilomillet/gollm"
+	"github.com/guiperry/gollm_cerebras"
 )
 
 func main() {

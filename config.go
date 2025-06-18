@@ -4,8 +4,8 @@
 package gollm
 
 import (
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // Re-export core configuration types for easier access
