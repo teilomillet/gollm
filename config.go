@@ -105,6 +105,9 @@ var (
 	SetEnableCaching = config.SetEnableCaching // Enables/disables response caching
 	SetMemory        = config.SetMemory        // Configures conversation memory
 
+	// Validation configuration
+	SetCustomValidator = config.SetCustomValidator // Sets a custom validation function to override default validation
+
 	// Configuration creation
 	NewConfig = config.NewConfig // Creates a new Config with default values
 )

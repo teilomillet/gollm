@@ -16,6 +16,9 @@ import (
 // validate is the shared validator instance used across the package.
 var validate *validator.Validate
 
+// customValidator holds a custom validation function that can override the default validation
+var customValidator func(interface{}) error
+
 func init() {
 	validate = validator.New()
 
@@ -25,6 +28,39 @@ func init() {
 		// Instead, panic with a clear message as this is a critical setup failure
 		panic(fmt.Sprintf("failed to register API key validator: %v", err))
 	}
+}
+
+// SetCustomValidator allows callers to override the default validation behavior.
+// This is particularly useful for bypassing API key validation or implementing
+// custom validation logic for specific providers.
+//
+// Parameters:
+//   - fn: A custom validation function that takes an interface{} and returns an error.
+//     If fn is nil, the default validation behavior is restored.
+//
+// Example:
+//
+//	// Allow Gemini without API key validation
+//	SetCustomValidator(func(v interface{}) error {
+//	    // Always return nil to skip all validation
+//	    return nil
+//	})
+//
+//	// Or implement custom logic
+//	SetCustomValidator(func(v interface{}) error {
+//	    config, ok := v.(*config.Config)
+//	    if !ok {
+//	        return fmt.Errorf("expected config struct")
+//	    }
+//	    if config.Provider == "google" {
+//	        // Skip validation for Google/Gemini
+//	        return nil
+//	    }
+//	    // Use default validation for other providers
+//	    return validate.Struct(v)
+//	})
+func SetCustomValidator(fn func(interface{}) error) {
+	customValidator = fn
 }
 
 // validateAPIKey checks if the API key map contains a valid key for the current provider
@@ -73,6 +109,7 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 
 // Validate checks if the given struct is valid according to its validation rules.
 // It uses the go-playground/validator package to perform validation based on struct tags.
+// If a custom validator is set via SetCustomValidator, it will be used instead of the default validation.
 //
 // Parameters:
 //   - s: The struct to validate. Must be a pointer to a struct.
@@ -92,6 +129,11 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 //	    log.Fatal(err)
 //	}
 func Validate(s interface{}) error {
+	// Use custom validator if one is set
+	if customValidator != nil {
+		return customValidator(s)
+	}
+	// Fall back to default validation
 	return validate.Struct(s)
 }
 

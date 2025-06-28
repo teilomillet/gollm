@@ -78,6 +78,7 @@ type Config struct {
 	EnableCaching         bool `env:"LLM_ENABLE_CACHING" envDefault:"false"`
 	EnableStreaming       bool `env:"LLM_ENABLE_STREAMING" envDefault:"false"`
 	MemoryOption          *MemoryOption
+	CustomValidator       func(interface{}) error // Custom validation function to override default validation
 }
 
 // LoadConfig creates a new Config instance, loading values from environment
@@ -348,6 +349,44 @@ func SetMirostatTau(tau float64) ConfigOption {
 func SetTfsZ(z float64) ConfigOption {
 	return func(c *Config) {
 		c.TfsZ = &z
+	}
+}
+
+// SetCustomValidator sets a custom validation function that overrides the default validation behavior.
+// This is particularly useful for bypassing API key validation for specific providers like Google/Gemini
+// or implementing custom validation logic.
+//
+// Parameters:
+//   - fn: A custom validation function that takes an interface{} and returns an error.
+//     If fn is nil, the default validation behavior is restored.
+//
+// Example usage:
+//
+//	// Skip all validation (useful for Google/Gemini)
+//	llm, err := gollm.NewLLM(
+//	    gollm.SetProvider("google"),
+//	    gollm.SetModel("gemini-1.5-pro-latest"),
+//	    gollm.SetAPIKey(os.Getenv("GEMINI_API_KEY")),
+//	    gollm.SetCustomValidator(func(v interface{}) error {
+//	        return nil // Skip all validation
+//	    }),
+//	)
+//
+//	// Or implement provider-specific logic
+//	llm, err := gollm.NewLLM(
+//	    gollm.SetProvider("google"),
+//	    gollm.SetCustomValidator(func(v interface{}) error {
+//	        if config, ok := v.(*Config); ok && config.Provider == "google" {
+//	            return nil // Skip validation for Google
+//	        }
+//	        return llm.Validate(v) // Use default for others
+//	    }),
+//	)
+func SetCustomValidator(fn func(interface{}) error) ConfigOption {
+	return func(c *Config) {
+		// Store the validator function to be applied during config loading
+		// The actual setting will be done in the NewLLM function
+		c.CustomValidator = fn
 	}
 }
 
