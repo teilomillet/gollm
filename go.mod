@@ -1,4 +1,4 @@
-module github.com/teilomillet/gollm
+module github.com/guiperry/gollm_cerebras
 
 go 1.23.0
 

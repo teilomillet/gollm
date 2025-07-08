@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/llm"
+	"github.com/guiperry/gollm_cerebras"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/llm"
 	"golang.org/x/time/rate"
 )
 

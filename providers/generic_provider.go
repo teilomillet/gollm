@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/types"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // GenericProvider is a flexible provider implementation that can adapt to

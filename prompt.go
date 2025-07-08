@@ -6,9 +6,9 @@ package gollm
 import (
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/config"
+	"github.com/guiperry/gollm_cerebras/llm"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // The following types are re-exported from the llm package to provide a cleaner API surface.

@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 func TestConcurrentOptionsAccess(t *testing.T) {

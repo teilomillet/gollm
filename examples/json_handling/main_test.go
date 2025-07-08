@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/assess"
+	"github.com/guiperry/gollm_cerebras"
+	"github.com/guiperry/gollm_cerebras/assess"
 )
 
 // cleanJSONResponse removes markdown code block delimiters and trims whitespace

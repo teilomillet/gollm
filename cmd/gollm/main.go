@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/optimizer"
-	"github.com/teilomillet/gollm/presets"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras"
+	"github.com/guiperry/gollm_cerebras/optimizer"
+	"github.com/guiperry/gollm_cerebras/presets"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 func main() {

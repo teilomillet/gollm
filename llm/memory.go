@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/pkoukk/tiktoken-go"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/guiperry/gollm_cerebras/types"
+	"github.com/guiperry/gollm_cerebras/utils"
 )
 
 // MemoryMessage represents a single message in the conversation history.

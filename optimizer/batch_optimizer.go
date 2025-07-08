@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/teilomillet/gollm/llm"
+	"github.com/guiperry/gollm_cerebras/llm"
 )
 
 // BatchPromptOptimizer handles concurrent optimization of multiple prompts with rate limiting.

@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/presets"
+	"github.com/guiperry/gollm_cerebras"
+	"github.com/guiperry/gollm_cerebras/presets"
 )
 
 func setupLLM(t *testing.T) gollm.LLM {
