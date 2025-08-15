@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/teilomillet/gollm/providers"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/assess"
-	"github.com/teilomillet/gollm/utils"
 )
 
 func TestFunctionCalling(t *testing.T) {
@@ -22,10 +22,10 @@ func TestFunctionCalling(t *testing.T) {
 	getWeatherFunction := gollm.Function{
 		Name:        "get_weather",
 		Description: "Get the current weather in a given location",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"location": map[string]interface{}{
+			"properties": map[string]any{
+				"location": map[string]any{
 					"type":        "string",
 					"description": "The city and state, e.g. San Francisco, CA",
 				},
@@ -38,10 +38,10 @@ func TestFunctionCalling(t *testing.T) {
 	getTimeFunction := gollm.Function{
 		Name:        "get_time",
 		Description: "Get the current time in a given timezone",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"timezone": map[string]interface{}{
+			"properties": map[string]any{
+				"timezone": map[string]any{
 					"type":        "string",
 					"description": "The timezone, e.g. America/New_York",
 				},
@@ -54,14 +54,14 @@ func TestFunctionCalling(t *testing.T) {
 	getWeatherWithOptionalFunction := gollm.Function{
 		Name:        "get_weather_with_unit",
 		Description: "Get the current weather in a given location with optional unit",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"location": map[string]interface{}{
+			"properties": map[string]any{
+				"location": map[string]any{
 					"type":        "string",
 					"description": "The city and state, e.g. San Francisco, CA",
 				},
-				"unit": map[string]interface{}{
+				"unit": map[string]any{
 					"type":        "string",
 					"enum":        []string{"celsius", "fahrenheit"},
 					"description": "The unit of temperature (optional, defaults to celsius)",
@@ -75,16 +75,16 @@ func TestFunctionCalling(t *testing.T) {
 	recordSummaryFunction := gollm.Function{
 		Name:        "record_summary",
 		Description: "Record summary using well-structured JSON",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"summary": map[string]interface{}{
+			"properties": map[string]any{
+				"summary": map[string]any{
 					"type":        "string",
 					"description": "Brief summary text",
 				},
-				"tags": map[string]interface{}{
+				"tags": map[string]any{
 					"type": "array",
-					"items": map[string]interface{}{
+					"items": map[string]any{
 						"type": "string",
 					},
 					"description": "List of relevant tags",
@@ -127,7 +127,7 @@ func TestFunctionCalling(t *testing.T) {
 			WithOption("tool_choice", "auto").
 			Validate(func(response string) error {
 				// The validation logic is the same as before
-				functionCalls, err := utils.ExtractFunctionCalls(response)
+				functionCalls, err := providers.ExtractFunctionCalls(response)
 				if err != nil {
 					return fmt.Errorf("failed to extract function calls: %v", err)
 				}
@@ -141,7 +141,7 @@ func TestFunctionCalling(t *testing.T) {
 					return fmt.Errorf("expected function name 'get_weather', got '%s'", call["name"])
 				}
 
-				args, ok := call["arguments"].(map[string]interface{})
+				args, ok := call["arguments"].(map[string]any)
 				if !ok {
 					return fmt.Errorf("expected arguments to be a map, got %T", call["arguments"])
 				}
@@ -168,7 +168,7 @@ func TestFunctionCalling(t *testing.T) {
 			WithOption("tool_choice", "auto").
 			Validate(func(response string) error {
 				// Validation logic remains the same
-				functionCalls, err := utils.ExtractFunctionCalls(response)
+				functionCalls, err := providers.ExtractFunctionCalls(response)
 				if err != nil {
 					return fmt.Errorf("failed to extract function calls: %v", err)
 				}
@@ -184,7 +184,7 @@ func TestFunctionCalling(t *testing.T) {
 					switch call["name"] {
 					case "get_weather":
 						foundWeather = true
-						args, ok := call["arguments"].(map[string]interface{})
+						args, ok := call["arguments"].(map[string]any)
 						if !ok {
 							return fmt.Errorf("expected weather arguments to be a map")
 						}
@@ -194,7 +194,7 @@ func TestFunctionCalling(t *testing.T) {
 						}
 					case "get_time":
 						foundTime = true
-						args, ok := call["arguments"].(map[string]interface{})
+						args, ok := call["arguments"].(map[string]any)
 						if !ok {
 							return fmt.Errorf("expected time arguments to be a map")
 						}
@@ -222,7 +222,7 @@ func TestFunctionCalling(t *testing.T) {
 			WithOption("tool_choice", "auto").
 			Validate(func(response string) error {
 				// Validation logic remains the same
-				functionCalls, err := utils.ExtractFunctionCalls(response)
+				functionCalls, err := providers.ExtractFunctionCalls(response)
 				if err != nil {
 					return fmt.Errorf("failed to extract function calls: %v", err)
 				}
@@ -250,7 +250,7 @@ func TestFunctionCalling(t *testing.T) {
 			WithOption("tool_choice", "auto").
 			Validate(func(response string) error {
 				// Validation logic remains the same
-				functionCalls, err := utils.ExtractFunctionCalls(response)
+				functionCalls, err := providers.ExtractFunctionCalls(response)
 				if err != nil {
 					return fmt.Errorf("failed to extract function calls: %v", err)
 				}
@@ -260,7 +260,7 @@ func TestFunctionCalling(t *testing.T) {
 				}
 
 				call := functionCalls[0]
-				args, ok := call["arguments"].(map[string]interface{})
+				args, ok := call["arguments"].(map[string]any)
 				if !ok {
 					return fmt.Errorf("expected arguments to be a map, got %T", call["arguments"])
 				}
@@ -293,7 +293,7 @@ func TestFunctionCalling(t *testing.T) {
 		}}).
 		WithOption("tool_choice", "required"). // OpenAI uses "required" as a simple string value
 		Validate(func(response string) error {
-			functionCalls, err := utils.ExtractFunctionCalls(response)
+			functionCalls, err := providers.ExtractFunctionCalls(response)
 			if err != nil {
 				return fmt.Errorf("failed to extract function calls: %v", err)
 			}
@@ -321,7 +321,7 @@ func TestFunctionCalling(t *testing.T) {
 		}}).
 		WithOption("tool_choice", "tool"). // Anthropic uses "tool" as a string value
 		Validate(func(response string) error {
-			functionCalls, err := utils.ExtractFunctionCalls(response)
+			functionCalls, err := providers.ExtractFunctionCalls(response)
 			if err != nil {
 				return fmt.Errorf("failed to extract function calls: %v", err)
 			}
@@ -347,15 +347,15 @@ func TestFunctionCalling(t *testing.T) {
 			Type:     "function",
 			Function: recordSummaryFunction,
 		}}).
-		WithOption("tool_choice", map[string]interface{}{
+		WithOption("tool_choice", map[string]any{
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name": "record_summary",
 			},
 		}).
 		Validate(func(response string) error {
 			// Validation logic remains the same
-			functionCalls, err := utils.ExtractFunctionCalls(response)
+			functionCalls, err := providers.ExtractFunctionCalls(response)
 			if err != nil {
 				return fmt.Errorf("failed to extract function calls: %v", err)
 			}
@@ -369,7 +369,7 @@ func TestFunctionCalling(t *testing.T) {
 				return fmt.Errorf("expected function name 'record_summary', got '%s'", call["name"])
 			}
 
-			args, ok := call["arguments"].(map[string]interface{})
+			args, ok := call["arguments"].(map[string]any)
 			if !ok {
 				return fmt.Errorf("expected arguments to be a map, got %T", call["arguments"])
 			}
@@ -381,7 +381,7 @@ func TestFunctionCalling(t *testing.T) {
 			}
 
 			// Optional tags field should be an array if present
-			if tags, ok := args["tags"].([]interface{}); ok {
+			if tags, ok := args["tags"].([]any); ok {
 				for i, tag := range tags {
 					if _, ok := tag.(string); !ok {
 						return fmt.Errorf("tag at index %d is not a string", i)
@@ -402,7 +402,7 @@ func TestFunctionCalling(t *testing.T) {
 		WithOption("tool_choice", "tool"). // Use simple string value for Anthropic
 		Validate(func(response string) error {
 			// Validation logic remains the same
-			functionCalls, err := utils.ExtractFunctionCalls(response)
+			functionCalls, err := providers.ExtractFunctionCalls(response)
 			if err != nil {
 				return fmt.Errorf("failed to extract function calls: %v", err)
 			}
@@ -416,7 +416,7 @@ func TestFunctionCalling(t *testing.T) {
 				return fmt.Errorf("expected function name 'record_summary', got '%s'", call["name"])
 			}
 
-			args, ok := call["arguments"].(map[string]interface{})
+			args, ok := call["arguments"].(map[string]any)
 			if !ok {
 				return fmt.Errorf("expected arguments to be a map, got %T", call["arguments"])
 			}
@@ -428,7 +428,7 @@ func TestFunctionCalling(t *testing.T) {
 			}
 
 			// Optional tags field should be an array if present
-			if tags, ok := args["tags"].([]interface{}); ok {
+			if tags, ok := args["tags"].([]any); ok {
 				for i, tag := range tags {
 					if _, ok := tag.(string); !ok {
 						return fmt.Errorf("tag at index %d is not a string", i)

@@ -17,11 +17,11 @@ import (
 // It supports GPT models and provides access to OpenAI's language model capabilities,
 // including function calling, JSON mode, and structured output validation.
 type OpenAIProvider struct {
-	apiKey       string                 // API key for authentication
-	model        string                 // Model identifier (e.g., "gpt-4", "gpt-4o-mini")
-	extraHeaders map[string]string      // Additional HTTP headers
-	options      map[string]interface{} // Model-specific options
-	logger       utils.Logger           // Logger instance
+	apiKey       string            // API key for authentication
+	model        string            // Model identifier (e.g., "gpt-4", "gpt-4o-mini")
+	extraHeaders map[string]string // Additional HTTP headers
+	options      map[string]any    // Model-specific options
+	logger       utils.Logger      // Logger instance
 }
 
 // NewOpenAIProvider creates a new OpenAI provider instance.
@@ -42,7 +42,7 @@ func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) Pro
 		apiKey:       apiKey,
 		model:        model,
 		extraHeaders: extraHeaders,
-		options:      make(map[string]interface{}),
+		options:      make(map[string]any),
 		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
 }
@@ -76,7 +76,7 @@ func (p *OpenAIProvider) needsMaxCompletionTokens() bool {
 //   - frequency_penalty: Repetition reduction
 //   - presence_penalty: Topic steering
 //   - seed: Deterministic sampling seed
-func (p *OpenAIProvider) SetOption(key string, value interface{}) {
+func (p *OpenAIProvider) SetOption(key string, value any) {
 	// Handle max_tokens conversion for "o" models
 	if key == "max_tokens" {
 		if p.needsMaxCompletionTokens() {
@@ -158,22 +158,22 @@ func (p *OpenAIProvider) Headers() map[string]string {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
-	request := map[string]interface{}{
+func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
+	request := map[string]any{
 		"model":    p.model,
-		"messages": []map[string]interface{}{},
+		"messages": []map[string]any{},
 	}
 
 	// Handle system prompt as developer message
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
 			"role":    "developer",
 			"content": systemPrompt,
 		})
 	}
 
 	// Add user message
-	request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+	request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
 		"role":    "user",
 		"content": prompt,
 	})
@@ -184,12 +184,12 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 	}
 
 	// Handle tools
-	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
-		openAITools := make([]map[string]interface{}, len(tools))
+	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
+		openAITools := make([]map[string]any, len(tools))
 		for i, tool := range tools {
-			openAITools[i] = map[string]interface{}{
+			openAITools[i] = map[string]any{
 				"type": "function",
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":        tool.Function.Name,
 					"description": tool.Function.Description,
 					"parameters":  tool.Function.Parameters,
@@ -201,7 +201,7 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 	}
 
 	// Create a merged copy of options to handle token parameters properly
-	mergedOptions := make(map[string]interface{})
+	mergedOptions := make(map[string]any)
 
 	// First add options from provider (p.options)
 	for k, v := range p.options {
@@ -253,11 +253,11 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
 	p.logger.Debug("Preparing request with schema", "prompt", prompt, "schema", schema)
 
 	// First, ensure we have a proper object for the schema
-	var schemaObj interface{}
+	var schemaObj any
 	switch s := schema.(type) {
 	case string:
 		if err := json.Unmarshal([]byte(s), &schemaObj); err != nil {
@@ -267,7 +267,7 @@ func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[str
 		if err := json.Unmarshal(s, &schemaObj); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal schema bytes: %w", err)
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		schemaObj = s
 	default:
 		// Try to marshal and unmarshal to ensure we have a proper object
@@ -287,14 +287,14 @@ func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[str
 	cleanSchemaJSON, _ := json.MarshalIndent(cleanSchema, "", "  ")
 	p.logger.Debug("Cleaned schema for OpenAI", "schema", string(cleanSchemaJSON))
 
-	request := map[string]interface{}{
+	request := map[string]any{
 		"model": p.model,
-		"messages": []map[string]interface{}{
+		"messages": []map[string]any{
 			{"role": "user", "content": prompt},
 		},
-		"response_format": map[string]interface{}{
+		"response_format": map[string]any{
 			"type": "json_schema",
-			"json_schema": map[string]interface{}{
+			"json_schema": map[string]any{
 				"name":   "structured_response",
 				"schema": cleanSchema,
 				"strict": true,
@@ -304,13 +304,13 @@ func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[str
 
 	// Handle system prompt as system message
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append([]map[string]interface{}{
+		request["messages"] = append([]map[string]any{
 			{"role": "system", "content": systemPrompt},
-		}, request["messages"].([]map[string]interface{})...)
+		}, request["messages"].([]map[string]any)...)
 	}
 
 	// Create a merged copy of options to handle token parameters properly
-	mergedOptions := make(map[string]interface{})
+	mergedOptions := make(map[string]any)
 
 	// First add options from provider (p.options)
 	for k, v := range p.options {
@@ -359,15 +359,15 @@ func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[str
 }
 
 // cleanSchemaForOpenAI removes validation rules that OpenAI doesn't support
-func cleanSchemaForOpenAI(schema interface{}) interface{} {
-	if schemaMap, ok := schema.(map[string]interface{}); ok {
-		result := make(map[string]interface{})
+func cleanSchemaForOpenAI(schema any) any {
+	if schemaMap, ok := schema.(map[string]any); ok {
+		result := make(map[string]any)
 		for k, v := range schemaMap {
 			switch k {
 			case "type", "properties", "required", "items":
 				if k == "properties" {
-					props := make(map[string]interface{})
-					if propsMap, ok := v.(map[string]interface{}); ok {
+					props := make(map[string]any)
+					if propsMap, ok := v.(map[string]any); ok {
 						for propName, propSchema := range propsMap {
 							props[propName] = cleanSchemaForOpenAI(propSchema)
 						}
@@ -431,12 +431,12 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (*Response, error) {
 		var functionCalls []string
 		for _, call := range message.ToolCalls {
 			// Parse arguments as raw JSON to preserve the exact format
-			var args interface{}
+			var args any
 			if err := json.Unmarshal(call.Function.Arguments, &args); err != nil {
 				return nil, fmt.Errorf("error parsing function arguments: %w", err)
 			}
 
-			functionCall, err := utils.FormatFunctionCall(call.Function.Name, args)
+			functionCall, err := FormatFunctionCall(call.Function.Name, args)
 			if err != nil {
 				return nil, fmt.Errorf("error formatting function call: %w", err)
 			}
@@ -455,7 +455,7 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (*Response, error) {
 // This supports OpenAI's function calling and JSON mode features.
 func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	response := string(body)
-	functionCalls, err := utils.ExtractFunctionCalls(response)
+	functionCalls, err := ExtractFunctionCalls(response)
 	if err != nil {
 		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
@@ -481,9 +481,9 @@ func (p *OpenAIProvider) SupportsStreaming() bool {
 }
 
 // PrepareStreamRequest creates a request body for streaming API calls
-func (p *OpenAIProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *OpenAIProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
 	// Start with regular request preparation
-	requestBody := map[string]interface{}{
+	requestBody := map[string]any{
 		"model": p.model,
 		"messages": []map[string]string{
 			{"role": "user", "content": prompt},
@@ -495,7 +495,7 @@ func (p *OpenAIProvider) PrepareStreamRequest(prompt string, options map[string]
 	}
 
 	// Create a merged copy of options to handle token parameters properly
-	mergedOptions := make(map[string]interface{})
+	mergedOptions := make(map[string]any)
 
 	// First add options from provider (p.options)
 	for k, v := range p.options {
@@ -599,15 +599,15 @@ func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
-	request := map[string]interface{}{
+func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+	request := map[string]any{
 		"model":    p.model,
-		"messages": []map[string]interface{}{},
+		"messages": []map[string]any{},
 	}
 
 	// Handle system prompt as system message
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
 			"role":    "system",
 			"content": systemPrompt,
 		})
@@ -615,7 +615,7 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 
 	// Convert MemoryMessage objects to OpenAI messages format
 	for _, msg := range messages {
-		message := map[string]interface{}{
+		message := map[string]any{
 			"role":    msg.Role,
 			"content": msg.Content,
 		}
@@ -627,7 +627,7 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 			}
 		}
 
-		request["messages"] = append(request["messages"].([]map[string]interface{}), message)
+		request["messages"] = append(request["messages"].([]map[string]any), message)
 	}
 
 	// Handle tool_choice
@@ -636,12 +636,12 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 	}
 
 	// Handle tools
-	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
-		openAITools := make([]map[string]interface{}, len(tools))
+	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
+		openAITools := make([]map[string]any, len(tools))
 		for i, tool := range tools {
-			openAITools[i] = map[string]interface{}{
+			openAITools[i] = map[string]any{
 				"type": "function",
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":        tool.Function.Name,
 					"description": tool.Function.Description,
 					"parameters":  tool.Function.Parameters,
@@ -653,7 +653,7 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 	}
 
 	// Create a merged copy of options to handle token parameters properly
-	mergedOptions := make(map[string]interface{})
+	mergedOptions := make(map[string]any)
 
 	// First add options from provider (p.options)
 	for k, v := range p.options {

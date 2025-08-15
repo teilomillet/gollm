@@ -3,6 +3,7 @@ package llm
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/teilomillet/gollm/types"
 	"strings"
 
 	"github.com/invopop/jsonschema"
@@ -45,17 +46,17 @@ type ToolCall struct {
 // It includes various components like system messages, user input, context,
 // and optional elements like tools and examples.
 type Prompt struct {
-	Input           string                 `json:"input" jsonschema:"required,description=The main input text for the LLM" validate:"required"`
-	Output          string                 `json:"output,omitempty" jsonschema:"description=Specification for the expected output format"`
-	Directives      []string               `json:"directives,omitempty" jsonschema:"description=List of directives to guide the LLM"`
-	Context         string                 `json:"context,omitempty" jsonschema:"description=Additional context for the LLM"`
-	MaxLength       int                    `json:"maxLength,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
-	Examples        []string               `json:"examples,omitempty" jsonschema:"description=List of examples to guide the LLM"`
-	SystemPrompt    string                 `json:"systemPrompt,omitempty" jsonschema:"description=System prompt for the LLM"`
-	SystemCacheType CacheType              `json:"systemCacheType,omitempty" jsonschema:"description=Cache type for the system prompt"`
-	Messages        []PromptMessage        `json:"messages,omitempty" jsonschema:"description=List of messages for the conversation"`
-	Tools           []utils.Tool           `json:"tools,omitempty" jsonschema:"description=Available tools for the LLM to use"`
-	ToolChoice      map[string]interface{} `json:"tool_choice,omitempty" jsonschema:"description=Configuration for tool selection behavior"`
+	Input           string          `json:"input" jsonschema:"required,description=The main input text for the LLM" validate:"required"`
+	Output          string          `json:"output,omitempty" jsonschema:"description=Specification for the expected output format"`
+	Directives      []string        `json:"directives,omitempty" jsonschema:"description=List of directives to guide the LLM"`
+	Context         string          `json:"context,omitempty" jsonschema:"description=Additional context for the LLM"`
+	MaxLength       int             `json:"maxLength,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
+	Examples        []string        `json:"examples,omitempty" jsonschema:"description=List of examples to guide the LLM"`
+	SystemPrompt    string          `json:"systemPrompt,omitempty" jsonschema:"description=System prompt for the LLM"`
+	SystemCacheType CacheType       `json:"systemCacheType,omitempty" jsonschema:"description=Cache type for the system prompt"`
+	Messages        []PromptMessage `json:"messages,omitempty" jsonschema:"description=List of messages for the conversation"`
+	Tools           []types.Tool    `json:"tools,omitempty" jsonschema:"description=Available tools for the LLM to use"`
+	ToolChoice      map[string]any  `json:"tool_choice,omitempty" jsonschema:"description=Configuration for tool selection behavior"`
 }
 
 // PromptOption is a function type that modifies a Prompt.
@@ -128,7 +129,7 @@ func WithMessage(role, content string, cacheType CacheType) PromptOption {
 //
 // Parameters:
 //   - tools: List of available tools
-func WithTools(tools []utils.Tool) PromptOption {
+func WithTools(tools []types.Tool) PromptOption {
 	return func(p *Prompt) {
 		p.Tools = tools
 	}
@@ -140,7 +141,7 @@ func WithTools(tools []utils.Tool) PromptOption {
 //   - choice: Tool selection strategy
 func WithToolChoice(choice string) PromptOption {
 	return func(p *Prompt) {
-		p.ToolChoice = map[string]interface{}{
+		p.ToolChoice = map[string]any{
 			"type": choice,
 		}
 	}
@@ -193,12 +194,6 @@ func WithContext(context string) PromptOption {
 func WithMaxLength(length int) PromptOption {
 	return func(p *Prompt) {
 		p.MaxLength = length
-	}
-}
-
-func WithJSONSchemaValidation() GenerateOption {
-	return func(c *GenerateConfig) {
-		c.UseJSONSchema = true
 	}
 }
 

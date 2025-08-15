@@ -31,7 +31,7 @@ func TestAllProvidersImplementStructuredMessages(t *testing.T) {
 	}
 
 	// Test options
-	options := map[string]interface{}{
+	options := map[string]any{
 		"system_prompt": "You are a helpful assistant",
 		"temperature":   0.7,
 		"max_tokens":    1024,
@@ -62,7 +62,7 @@ func TestAllProvidersImplementStructuredMessages(t *testing.T) {
 
 			// Test the type assertion works (the provider correctly implements the method)
 			_, ok := p.provider.(interface {
-				PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error)
+				PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error)
 			})
 			assert.True(t, ok, "Provider should implement PrepareRequestWithMessages")
 		})

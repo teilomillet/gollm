@@ -13,8 +13,8 @@ import (
 	"github.com/teilomillet/gollm"
 )
 
-// cleanJSONResponse removes markdown code block delimiters and trims whitespace
-func cleanJSONResponse(response string) string {
+// cleanResponse removes markdown code block delimiters and trims whitespace
+func cleanResponse(response string) string {
 	response = strings.TrimSpace(response)
 	response = strings.TrimPrefix(response, "```json")
 	response = strings.TrimPrefix(response, "```")
@@ -53,7 +53,7 @@ func TestBasicPromptWithStructuredOutput(t *testing.T) {
 	require.NotEmpty(t, response)
 
 	// Clean the response before parsing
-	cleanedResponse := cleanJSONResponse(response)
+	cleanedResponse := cleanResponse(response.AsText())
 	var benefits []map[string]string
 	err = json.Unmarshal([]byte(cleanedResponse), &benefits)
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestPromptTemplate(t *testing.T) {
 		),
 	)
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"ProductType":    "smartwatch",
 		"ProductName":    "TimeWise X1",
 		"TargetAudience": "fitness enthusiasts",
@@ -117,7 +117,7 @@ func TestPromptTemplate(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, response)
 
-	cleanedResponse := cleanJSONResponse(response)
+	cleanedResponse := cleanResponse(response.AsText())
 	assert.Contains(t, cleanedResponse, "<") // Should contain HTML tags
 }
 
@@ -125,29 +125,18 @@ func TestJSONSchemaValidation(t *testing.T) {
 	llm := setupLLM(t)
 	ctx := context.Background()
 
-	prompt := gollm.NewPrompt("Generate a user profile",
-		gollm.WithOutput(`{
-			"type": "object",
-			"properties": {
-				"name": {"type": "string"},
-				"age": {"type": "integer", "minimum": 18},
-				"interests": {"type": "array", "items": {"type": "string"}}
-			},
-			"required": ["name", "age", "interests"]
-		}`),
-	)
+	prompt := gollm.NewPrompt("Generate a user profile")
 
-	response, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
+	response, err := llm.Generate(ctx, prompt, gollm.WithStructuredResponseSchema(&UserProfile{}))
 	require.NoError(t, err)
 	require.NotEmpty(t, response)
 
-	cleanedResponse := cleanJSONResponse(response)
-	var result map[string]interface{}
-	err = json.Unmarshal([]byte(cleanedResponse), &result)
+	var result map[string]any
+	err = json.Unmarshal([]byte(response.AsText()), &result)
 	require.NoError(t, err)
 
 	// Check the properties field which contains our actual data
-	properties, ok := result["properties"].(map[string]interface{})
+	properties, ok := result["properties"].(map[string]any)
 	require.True(t, ok, "properties field should be a map")
 
 	assert.Contains(t, properties, "name")
@@ -179,35 +168,28 @@ func TestChainedPrompts(t *testing.T) {
 
 	// Second prompt analyzes the generated idea
 	analysisPrompt := gollm.NewPrompt(
-		"Analyze the following business idea: "+cleanJSONResponse(ideaResponse),
+		"Analyze the following business idea: "+cleanResponse(ideaResponse.AsText()),
 		gollm.WithDirectives(
 			"Identify potential challenges",
 			"Suggest target market",
 			"Propose a monetization strategy",
 		),
-		gollm.WithOutput(`{
-			"type": "object",
-			"properties": {
-				"challenges": {"type": "array", "items": {"type": "string"}},
-				"targetMarket": {"type": "string"},
-				"monetization": {"type": "string"}
-			},
-			"required": ["challenges", "targetMarket", "monetization"]
-		}`),
 	)
 
-	// Use WithJSONSchemaValidation to ensure the output is validated against the schema
-	analysisResponse, err := llm.Generate(ctx, analysisPrompt, gollm.WithJSONSchemaValidation())
+	analysisResponse, err := llm.Generate(ctx, analysisPrompt, gollm.WithStructuredResponseSchema(&IdeaAnalysis{}))
+	require.NoError(t, err)
+	require.NotEmpty(t, analysisResponse)
 	require.NoError(t, err)
 	require.NotEmpty(t, analysisResponse)
 
 	// Print response for debugging
-	fmt.Printf("Raw analysis response: %s\n", analysisResponse)
+	fmt.Printf("Raw analysis response: %s\n", analysisResponse.AsText())
 
-	cleanedResponse := cleanJSONResponse(analysisResponse)
+	cleanedResponse := cleanResponse(analysisResponse.AsText())
+
 	fmt.Printf("Cleaned analysis response: %s\n", cleanedResponse)
 
-	var result map[string]interface{}
+	var result map[string]any
 	err = json.Unmarshal([]byte(cleanedResponse), &result)
 	require.NoError(t, err)
 
@@ -216,11 +198,17 @@ func TestChainedPrompts(t *testing.T) {
 	fmt.Printf("Unmarshalled result:\n%s\n", string(resultBytes))
 
 	// The response is a JSON schema with the actual fields inside the "properties" object
-	properties, ok := result["properties"].(map[string]interface{})
+	properties, ok := result["properties"].(map[string]any)
 	require.True(t, ok, "Response should contain a properties field of type map")
 
 	// Check the fields in the properties object
 	assert.Contains(t, properties, "challenges", "Properties should contain challenges field")
 	assert.Contains(t, properties, "targetMarket", "Properties should contain targetMarket field")
 	assert.Contains(t, properties, "monetization", "Properties should contain monetization field")
+}
+
+type IdeaAnalysis struct {
+	Challenges   []string `json:"challenges"`
+	TargetMarket string   `json:"targetMarket"`
+	Monetization string   `json:"monetization"`
 }

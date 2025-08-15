@@ -261,8 +261,8 @@ llm.SetOption("enable_prompt_caching", true)
 llm.SetOption("enable_reasoning", true)
 
 // Specify provider routing preferences
-llm.SetOption("provider_preferences", map[string]interface{}{
-    "openai": map[string]interface{}{
+llm.SetOption("provider_preferences", map[string]any{
+    "openai": map[string]any{
         "weight": 1.0,
     },
 })
@@ -325,7 +325,7 @@ template := gollm.NewPromptTemplate(
 )
 
 // Use the template to create a prompt
-data := map[string]interface{}{
+data := map[string]any{
     "Topic": "artificial intelligence in healthcare",
 }
 prompt, err := template.Execute(data)
@@ -347,17 +347,15 @@ fmt.Printf("Analysis:\n%s\n", response)
 Ensure your LLM outputs are in a valid JSON format:
 
 ```go
-prompt := gollm.NewPrompt("Analyze the pros and cons of remote work.",
-    gollm.WithOutput("Respond in JSON format with 'topic', 'pros', 'cons', and 'conclusion' fields."),
-)
+prompt := gollm.NewPrompt("Analyze the pros and cons of remote work.")
 
-response, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
+response, err := llm.Generate(ctx, prompt, gollm.WithStructuredResponseSchema(AnalysisResult{}))
 if err != nil {
     log.Fatalf("Failed to generate valid analysis: %v", err)
 }
 
 var result AnalysisResult
-if err := json.Unmarshal([]byte(response), &result); err != nil {
+if err := json.Unmarshal([]byte(response.AsText()), &result); err != nil {
     log.Fatalf("Failed to parse response: %v", err)
 }
 
@@ -421,7 +419,7 @@ configs := []*gollm.Config{
 
 promptText := "Tell me a joke about programming. Respond in JSON format with 'setup' and 'punchline' fields."
 
-validateJoke := func(joke map[string]interface{}) error {
+validateJoke := func(joke map[string]any) error {
     if joke["setup"] == "" || joke["punchline"] == "" {
         return fmt.Errorf("joke must have both a setup and a punchline")
     }

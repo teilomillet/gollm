@@ -14,7 +14,7 @@ type Response struct {
 	Usage   *Usage
 }
 
-func (r Response) String() string {
+func (r Response) AsText() string {
 	if textContent, ok := r.Content.(Text); ok {
 		return textContent.Value
 	}

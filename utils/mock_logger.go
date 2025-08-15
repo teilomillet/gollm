@@ -8,19 +8,19 @@ type MockLogger struct {
 	LastErrorMessage string
 }
 
-func (m *MockLogger) Debug(msg string, keysAndValues ...interface{}) {
+func (m *MockLogger) Debug(msg string, keysAndValues ...any) {
 	m.Called(msg, keysAndValues)
 }
 
-func (m *MockLogger) Info(msg string, keysAndValues ...interface{}) {
+func (m *MockLogger) Info(msg string, keysAndValues ...any) {
 	m.Called(msg, keysAndValues)
 }
 
-func (m *MockLogger) Warn(msg string, keysAndValues ...interface{}) {
+func (m *MockLogger) Warn(msg string, keysAndValues ...any) {
 	m.Called(msg, keysAndValues)
 }
 
-func (m *MockLogger) Error(msg string, keysAndValues ...interface{}) {
+func (m *MockLogger) Error(msg string, keysAndValues ...any) {
 	m.ErrorCallCount++
 	m.LastErrorMessage = msg
 	m.Called(msg, keysAndValues)

@@ -161,8 +161,8 @@ func (bpo *BatchPromptOptimizer) OptimizePrompts(ctx context.Context, examples [
 			results[i] = OptimizationResult{
 				Name:             example.Name,
 				OriginalPrompt:   example.Prompt,
-				OptimizedPrompt:  optimizedPrompt,
-				GeneratedContent: response,
+				OptimizedPrompt:  optimizedPrompt.String(),
+				GeneratedContent: response.AsText(),
 				Error:            err,
 			}
 

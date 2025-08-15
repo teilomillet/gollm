@@ -26,7 +26,7 @@ func main() {
 
 	llm, err := gollm.NewLLM(
 		gollm.SetProvider("openai"),
-		gollm.SetModel("gpt-3.5-turbo"),
+		gollm.SetModel("gpt-4o-mini"),
 		gollm.SetAPIKey(apiKey),
 		gollm.SetMaxTokens(300),
 		gollm.SetMaxRetries(3),
@@ -37,11 +37,6 @@ func main() {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}
 
-	schemaJSON, err := llm.GetPromptJSONSchema(gollm.WithExpandedStruct(true))
-	if err != nil {
-		log.Fatalf("Failed to generate JSON schema: %v", err)
-	}
-
 	prompt := gollm.NewPrompt(
 		"Generate information about a fictional person",
 		gollm.WithDirectives(
@@ -50,19 +45,18 @@ func main() {
 			"Include 1 to 5 hobbies",
 			"Return ONLY the JSON data for the person, not the schema",
 		),
-		gollm.WithOutput(fmt.Sprintf("Generate a JSON object that adheres to this schema:\n%s\nDo not include the schema in your response, only the generated data.", string(schemaJSON))),
 	)
 
 	ctx := context.Background()
-	response, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
+	response, err := llm.Generate(ctx, prompt, gollm.WithStructuredResponseSchema[PersonInfo]())
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
 
-	fmt.Printf("Generated PersonInfo:\n%s\n", response)
+	fmt.Printf("Generated PersonInfo:\n%s\n", response.AsText())
 
 	var person PersonInfo
-	err = json.Unmarshal([]byte(response), &person)
+	err = json.Unmarshal([]byte(response.AsText()), &person)
 	if err != nil {
 		log.Fatalf("Failed to parse response as JSON: %v", err)
 	}

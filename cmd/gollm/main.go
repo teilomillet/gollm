@@ -43,12 +43,18 @@ func main() {
 	// Create LLM client with the specified options
 	llmClient, err := gollm.NewLLM(configOpts...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating LLM client: %v\n", err)
+		_, fmtErr := fmt.Fprintf(os.Stderr, "Error creating LLM client: %v\n", err)
+		if fmtErr != nil {
+			return
+		}
 		os.Exit(1)
 	}
 
 	if len(flag.Args()) < 1 {
-		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <prompt>\n", os.Args[0])
+		_, fmtErr := fmt.Fprintf(os.Stderr, "Usage: %s [flags] <prompt>\n", os.Args[0])
+		if fmtErr != nil {
+			return
+		}
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -62,12 +68,10 @@ func main() {
 	switch *promptType {
 	case "qa":
 		response, err = presets.QuestionAnswer(ctx, llmClient, rawPrompt)
-	case "cot":
-		response, err = presets.ChainOfThought(ctx, llmClient, rawPrompt)
 	case "summarize":
 		response, err = presets.Summarize(ctx, llmClient, rawPrompt)
 	case "optimize":
-		optimizer := optimizer.NewPromptOptimizer(
+		promptOptimizer := optimizer.NewPromptOptimizer(
 			llmClient,
 			utils.NewDebugManager(
 				llmClient.GetLogger(),
@@ -77,7 +81,7 @@ func main() {
 			optimizer.WithIterations(*optimizeIterations),
 			optimizer.WithMemorySize(*optimizeMemory),
 		)
-		optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
+		optimizedPrompt, err := promptOptimizer.OptimizePrompt(ctx)
 		if err == nil {
 			response = optimizedPrompt.Input
 			fullPrompt = fmt.Sprintf("Initial Prompt: %s\nOptimization Goal: %s\nMemory Size: %d", rawPrompt, *optimizeGoal, *optimizeMemory)
@@ -87,12 +91,19 @@ func main() {
 		if *outputFormat == "json" {
 			prompt.Apply(gollm.WithOutput("Please provide your response in JSON format."))
 		}
-		response, err = llmClient.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
-		fullPrompt = prompt.String()
+
+		providerResponse, err := llmClient.Generate(ctx, prompt)
+		if err == nil {
+			response = providerResponse.AsText()
+			fullPrompt = prompt.String()
+		}
 	}
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error generating response: %v\n", err)
+		_, fmtErr := fmt.Fprintf(os.Stderr, "Error generating response: %v\n", err)
+		if fmtErr != nil {
+			return
+		}
 		os.Exit(1)
 	}
 
@@ -122,7 +133,7 @@ func prepareConfigOptions(provider, model *string, temperature *float64, maxToke
 	}
 	configOpts = append(configOpts, gollm.SetMaxRetries(*maxRetries))
 	configOpts = append(configOpts, gollm.SetRetryDelay(*retryDelay))
-	configOpts = append(configOpts, gollm.SetLogLevel(gollm.LogLevel(getLogLevel(*debugLevel))))
+	configOpts = append(configOpts, gollm.SetLogLevel(getLogLevel(*debugLevel)))
 
 	return configOpts
 }
@@ -136,10 +147,13 @@ func printResponse(verbose bool, promptType, fullPrompt, rawPrompt, response, ou
 	}
 
 	if outputFormat == "json" {
-		var jsonResponse interface{}
+		var jsonResponse any
 		err := json.Unmarshal([]byte(response), &jsonResponse)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error parsing JSON response: %v\n", err)
+			_, fmtErr := fmt.Fprintf(os.Stderr, "Error parsing JSON response: %v\n", err)
+			if fmtErr != nil {
+				return
+			}
 			fmt.Println(response) // Print raw response if JSON parsing fails
 		} else {
 			jsonPretty, _ := json.MarshalIndent(jsonResponse, "", "  ")

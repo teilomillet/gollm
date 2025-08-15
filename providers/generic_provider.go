@@ -19,13 +19,13 @@ import (
 // and Anthropic-compatible APIs out of the box, and can be extended for
 // custom implementations.
 type GenericProvider struct {
-	apiKey        string                 // API key for authentication
-	model         string                 // Model identifier
-	config        ProviderConfig         // Provider configuration
-	extraHeaders  map[string]string      // Additional HTTP headers
-	options       map[string]interface{} // Model-specific options
-	logger        utils.Logger           // Logger instance
-	extraEndpoint string                 // Optional override for endpoint
+	apiKey        string            // API key for authentication
+	model         string            // Model identifier
+	config        ProviderConfig    // Provider configuration
+	extraHeaders  map[string]string // Additional HTTP headers
+	options       map[string]any    // Model-specific options
+	logger        utils.Logger      // Logger instance
+	extraEndpoint string            // Optional override for endpoint
 }
 
 // NewGenericProvider creates a new provider instance based on the provided configuration.
@@ -56,7 +56,7 @@ func NewGenericProvider(apiKey, model, providerName string, extraHeaders map[str
 		model:        model,
 		config:       config,
 		extraHeaders: extraHeaders,
-		options:      make(map[string]interface{}),
+		options:      make(map[string]any),
 		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
 }
@@ -128,7 +128,7 @@ func (p *GenericProvider) Headers() map[string]string {
 }
 
 // PrepareRequest creates the request body for an API call.
-func (p *GenericProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *GenericProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	switch p.config.Type {
 	case TypeOpenAI:
 		return p.prepareOpenAIRequest(prompt, options, nil)
@@ -143,7 +143,7 @@ func (p *GenericProvider) PrepareRequest(prompt string, options map[string]inter
 }
 
 // PrepareRequestWithSchema creates a request with JSON schema validation.
-func (p *GenericProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+func (p *GenericProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
 	if !p.config.SupportsSchema {
 		return nil, fmt.Errorf("provider %s does not support JSON schema validation", p.config.Name)
 	}
@@ -209,7 +209,7 @@ func (p *GenericProvider) SetDefaultOptions(config *config.Config) {
 }
 
 // SetOption sets a specific option for the provider.
-func (p *GenericProvider) SetOption(key string, value interface{}) {
+func (p *GenericProvider) SetOption(key string, value any) {
 	p.options[key] = value
 }
 
@@ -224,13 +224,13 @@ func (p *GenericProvider) SupportsStreaming() bool {
 }
 
 // PrepareStreamRequest creates a request body for streaming API calls.
-func (p *GenericProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *GenericProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
 	if !p.SupportsStreaming() {
 		return nil, fmt.Errorf("provider %s does not support streaming", p.config.Name)
 	}
 
 	// Add streaming flag to options
-	streamOptions := make(map[string]interface{})
+	streamOptions := make(map[string]any)
 	for k, v := range options {
 		streamOptions[k] = v
 	}
@@ -252,8 +252,8 @@ func (p *GenericProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 }
 
 // OpenAI implementation methods
-func (p *GenericProvider) prepareOpenAIRequest(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
-	requestOptions := make(map[string]interface{})
+func (p *GenericProvider) prepareOpenAIRequest(prompt string, options map[string]any, schema any) ([]byte, error) {
+	requestOptions := make(map[string]any)
 
 	// Copy default options
 	for k, v := range p.options {
@@ -271,7 +271,7 @@ func (p *GenericProvider) prepareOpenAIRequest(prompt string, options map[string
 	// Handle messages format
 	if _, ok := requestOptions["messages"]; !ok {
 		// Convert simple prompt to messages format
-		requestOptions["messages"] = []map[string]interface{}{
+		requestOptions["messages"] = []map[string]any{
 			{
 				"role":    "user",
 				"content": prompt,
@@ -287,7 +287,7 @@ func (p *GenericProvider) prepareOpenAIRequest(prompt string, options map[string
 		}
 
 		// Add function calling for schema
-		requestOptions["functions"] = []map[string]interface{}{
+		requestOptions["functions"] = []map[string]any{
 			{
 				"name":        "output_formatter",
 				"description": "Format the output according to the schema",
@@ -378,8 +378,8 @@ func (p *GenericProvider) parseOpenAIStreamResponse(chunk []byte) (*Response, er
 }
 
 // Anthropic implementation methods
-func (p *GenericProvider) prepareAnthropicRequest(prompt string, options map[string]interface{}) ([]byte, error) {
-	requestOptions := make(map[string]interface{})
+func (p *GenericProvider) prepareAnthropicRequest(prompt string, options map[string]any) ([]byte, error) {
+	requestOptions := make(map[string]any)
 
 	// Copy default options
 	for k, v := range p.options {
@@ -397,7 +397,7 @@ func (p *GenericProvider) prepareAnthropicRequest(prompt string, options map[str
 	// Handle messages format
 	if _, ok := requestOptions["messages"]; !ok {
 		// Convert simple prompt to messages format
-		requestOptions["messages"] = []map[string]interface{}{
+		requestOptions["messages"] = []map[string]any{
 			{
 				"role":    "user",
 				"content": prompt,
@@ -415,8 +415,8 @@ func (p *GenericProvider) prepareAnthropicRequest(prompt string, options map[str
 	return json.Marshal(requestOptions)
 }
 
-func (p *GenericProvider) prepareAnthropicStructuredRequest(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
-	requestOptions := make(map[string]interface{})
+func (p *GenericProvider) prepareAnthropicStructuredRequest(prompt string, options map[string]any, schema any) ([]byte, error) {
+	requestOptions := make(map[string]any)
 
 	// Copy original options
 	for k, v := range options {
@@ -503,7 +503,7 @@ func (p *GenericProvider) parseAnthropicStreamResponse(chunk []byte) (*Response,
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *GenericProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+func (p *GenericProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
 	switch p.config.Type {
 	case TypeOpenAI:
 		return p.prepareOpenAIRequestWithMessages(messages, options)
@@ -518,8 +518,8 @@ func (p *GenericProvider) PrepareRequestWithMessages(messages []types.MemoryMess
 }
 
 // prepareOpenAIRequestWithMessages creates a request for OpenAI APIs using structured messages
-func (p *GenericProvider) prepareOpenAIRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
-	requestOptions := make(map[string]interface{})
+func (p *GenericProvider) prepareOpenAIRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+	requestOptions := make(map[string]any)
 
 	// Copy default options
 	for k, v := range p.options {
@@ -535,11 +535,11 @@ func (p *GenericProvider) prepareOpenAIRequestWithMessages(messages []types.Memo
 	requestOptions["model"] = p.model
 
 	// Handle messages
-	openAIMessages := []map[string]interface{}{}
+	openAIMessages := []map[string]any{}
 
 	// Add system message first if present
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		openAIMessages = append(openAIMessages, map[string]interface{}{
+		openAIMessages = append(openAIMessages, map[string]any{
 			"role":    "system",
 			"content": systemPrompt,
 		})
@@ -547,7 +547,7 @@ func (p *GenericProvider) prepareOpenAIRequestWithMessages(messages []types.Memo
 
 	// Add all other messages
 	for _, msg := range messages {
-		message := map[string]interface{}{
+		message := map[string]any{
 			"role":    msg.Role,
 			"content": msg.Content,
 		}
@@ -560,8 +560,8 @@ func (p *GenericProvider) prepareOpenAIRequestWithMessages(messages []types.Memo
 }
 
 // prepareAnthropicRequestWithMessages creates a request for Anthropic APIs using structured messages
-func (p *GenericProvider) prepareAnthropicRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
-	requestOptions := make(map[string]interface{})
+func (p *GenericProvider) prepareAnthropicRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+	requestOptions := make(map[string]any)
 
 	// Copy default options
 	for k, v := range p.options {
@@ -582,9 +582,9 @@ func (p *GenericProvider) prepareAnthropicRequestWithMessages(messages []types.M
 	}
 
 	// Format messages for Anthropic
-	anthropicMessages := []map[string]interface{}{}
+	anthropicMessages := []map[string]any{}
 	for _, msg := range messages {
-		content := []map[string]interface{}{
+		content := []map[string]any{
 			{
 				"type": "text",
 				"text": msg.Content,
@@ -596,7 +596,7 @@ func (p *GenericProvider) prepareAnthropicRequestWithMessages(messages []types.M
 			content[0]["cache_control"] = map[string]string{"type": msg.CacheControl}
 		}
 
-		message := map[string]interface{}{
+		message := map[string]any{
 			"role":    msg.Role,
 			"content": content,
 		}

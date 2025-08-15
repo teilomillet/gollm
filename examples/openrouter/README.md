@@ -124,10 +124,10 @@ llm.SetOption("enable_prompt_caching", true)
 Generate structured outputs that conform to a specific JSON schema:
 
 ```go
-schema := map[string]interface{}{
+schema := map[string]any{
     "type": "object",
-    "properties": map[string]interface{}{
-        "name": map[string]interface{}{
+    "properties": map[string]any{
+        "name": map[string]any{
             "type": "string",
         },
         // ...
@@ -135,7 +135,7 @@ schema := map[string]interface{}{
     "required": []string{"name", "age", "interests"},
 }
 
-response, err = llm.GenerateWithSchema(ctx, prompt, schema)
+response, err = llm.Generate(ctx, prompt, llm.WithStructuredResponse(schema))
 ```
 
 ### Reasoning Tokens
@@ -151,8 +151,8 @@ llm.SetOption("enable_reasoning", true)
 Specify provider preferences for routing:
 
 ```go
-providerPrefs := map[string]interface{}{
-    "openai": map[string]interface{}{
+providerPrefs := map[string]any{
+    "openai": map[string]any{
         "weight": 1.0,
     },
 }
@@ -164,13 +164,13 @@ llm.SetOption("provider_preferences", providerPrefs)
 Use function/tool calling with compatible models:
 
 ```go
-tools := []interface{}{
-    map[string]interface{}{
+tools := []any{
+    map[string]any{
         "type": "function",
-        "function": map[string]interface{}{
+        "function": map[string]any{
             "name": "get_weather",
             "description": "Get the current weather in a given location",
-            "parameters": map[string]interface{}{
+            "parameters": map[string]any{
                 // ...
             },
         },

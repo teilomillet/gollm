@@ -147,7 +147,7 @@ func TestJSONSchemaGeneration(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, schema)
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	err = json.Unmarshal(schema, &schemaMap)
 	require.NoError(t, err)
 

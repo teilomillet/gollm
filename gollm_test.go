@@ -37,7 +37,7 @@ func (m *MockProvider) Headers() map[string]string {
 	return args.Get(0).(map[string]string)
 }
 
-func (m *MockProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (m *MockProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	args := m.Called(prompt, options)
 	return args.Get(0).([]byte), args.Error(1)
 }
@@ -52,7 +52,7 @@ func (m *MockProvider) SupportsJSONSchema() bool {
 	return args.Bool(0)
 }
 
-func (m *MockProvider) SetOption(key string, value interface{}) {
+func (m *MockProvider) SetOption(key string, value any) {
 	m.Called(key, value)
 }
 
@@ -140,25 +140,20 @@ func TestJSONSchemaValidation(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
-	schema := `{
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "age": {"type": "integer", "minimum": 18},
-            "interests": {"type": "array", "items": {"type": "string"}}
-        },
-        "required": ["name", "age", "interests"]
-    }`
-
 	prompt := gollm.NewPrompt("Generate a user profile",
-		gollm.WithOutput(schema),
-		gollm.WithSystemPrompt("You are a JSON-only assistant.", gollm.CacheTypeEphemeral),
+		gollm.WithSystemPrompt("You are data analyst who specializes in generating user data.", gollm.CacheTypeEphemeral),
 	)
 
-	response, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
+	response, err := llm.Generate(ctx, prompt, llm.WithStructuredResponseSchema(UserProfile{}))
 	assert.NoError(t, err)
 	assert.Equal(t, expectedJSON, response)
 
 	// Verify that all expected mock calls were made
 	mockProvider.AssertExpectations(t)
+}
+
+type UserProfile struct {
+	Name      string   `json:"name"`
+	Age       int      `json:"age"`
+	Interests []string `json:"interests"`
 }

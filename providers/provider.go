@@ -29,11 +29,11 @@ type Provider interface {
 
 	// PrepareRequest creates the request body for an API call.
 	// It takes a prompt string and additional options, returning the serialized request body.
-	PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error)
+	PrepareRequest(prompt string, options map[string]any) ([]byte, error)
 
 	// PrepareRequestWithSchema creates a request body that includes JSON schema validation.
 	// This is used for providers that support structured output validation.
-	PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error)
+	PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error)
 
 	// PrepareRequestWithMessages creates a request body using structured message objects
 	// rather than a flattened prompt string. This enables more efficient caching and
@@ -46,7 +46,7 @@ type Provider interface {
 	// Returns:
 	//   - Serialized JSON request body
 	//   - Any error encountered during preparation
-	PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error)
+	PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error)
 
 	// ParseResponse extracts the generated text from the API response.
 	// It handles provider-specific response formats and error cases.
@@ -67,7 +67,7 @@ type Provider interface {
 	SetDefaultOptions(config *config.Config)
 
 	// SetOption sets a specific option for the provider (e.g., temperature, max_tokens).
-	SetOption(key string, value interface{})
+	SetOption(key string, value any)
 
 	// SetLogger configures the logger for the provider instance.
 	SetLogger(logger utils.Logger)
@@ -77,7 +77,7 @@ type Provider interface {
 
 	// PrepareStreamRequest creates a request body for streaming API calls.
 	// It's similar to PrepareRequest but includes streaming-specific options.
-	PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error)
+	PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error)
 
 	// ParseStreamResponse processes a single chunk from a streaming response.
 	// It returns the token text and any error encountered.

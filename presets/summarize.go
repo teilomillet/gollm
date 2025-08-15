@@ -108,7 +108,7 @@ func Summarize(ctx context.Context, l gollm.LLM, text string, opts ...gollm.Prom
 		return "", fmt.Errorf("LLM instance cannot be nil")
 	}
 
-	prompt, err := summarizeTemplate.Execute(map[string]interface{}{
+	prompt, err := summarizeTemplate.Execute(map[string]any{
 		"Text": text,
 	})
 	if err != nil {
@@ -119,5 +119,5 @@ func Summarize(ctx context.Context, l gollm.LLM, text string, opts ...gollm.Prom
 	if err != nil {
 		return "", fmt.Errorf("failed to generate response: %w", err)
 	}
-	return response, nil
+	return response.AsText(), nil
 }

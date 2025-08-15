@@ -67,7 +67,6 @@ func main() {
 			gollm.SetMaxRetries(3),
 			gollm.SetRetryDelay(time.Second*2),
 			gollm.SetLogLevel(gollm.LogLevelInfo),
-			gollm.WithStream(true),
 		)
 		if err != nil {
 			log.Printf("Failed to create OpenAI LLM: %v", err)
@@ -96,7 +95,6 @@ func main() {
 			gollm.SetMaxRetries(3),
 			gollm.SetRetryDelay(time.Second*2),
 			gollm.SetLogLevel(gollm.LogLevelInfo),
-			gollm.WithStream(true),
 		)
 		if err != nil {
 			log.Printf("Failed to create Anthropic LLM: %v", err)

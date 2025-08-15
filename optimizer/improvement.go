@@ -119,10 +119,10 @@ func (po *PromptOptimizer) generateImprovedPrompt(ctx context.Context, prevEntry
 	}
 
 	// Log the raw response for debugging
-	po.debugManager.LogResponse(response.String())
+	po.debugManager.LogResponse(response.AsText())
 
 	// Extract and parse JSON response
-	cleanedResponse := cleanJSONResponse(response.String())
+	cleanedResponse := cleanJSONResponse(response.AsText())
 
 	var improvedPrompts struct {
 		IncrementalImprovement llm.Prompt `json:"incrementalImprovement"`

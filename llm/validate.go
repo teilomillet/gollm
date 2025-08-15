@@ -91,7 +91,7 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 //	if err := Validate(&config); err != nil {
 //	    log.Fatal(err)
 //	}
-func Validate(s interface{}) error {
+func Validate(s any) error {
 	return validate.Struct(s)
 }
 
@@ -108,7 +108,7 @@ func Validate(s interface{}) error {
 // Example:
 //
 //	func validateModel(fl validator.FieldLevel) bool {
-//	    return strings.HasPrefix(fl.Field().String(), "gpt-")
+//	    return strings.HasPrefix(fl.Field().AsText(), "gpt-")
 //	}
 //
 //	err := RegisterCustomValidation("model", validateModel)
@@ -135,8 +135,8 @@ func RegisterCustomValidation(tag string, fn validator.Func) error {
 //	}
 //
 //	schema, err := GenerateJSONSchema(&Prompt{})
-func GenerateJSONSchema(v interface{}) ([]byte, error) {
-	schema := make(map[string]interface{})
+func GenerateJSONSchema(v any) ([]byte, error) {
+	schema := make(map[string]any)
 	schema["type"] = "object"
 	properties, required, err := getStructProperties(reflect.TypeOf(v))
 	if err != nil {
@@ -156,11 +156,11 @@ func GenerateJSONSchema(v interface{}) ([]byte, error) {
 //   - t: The reflect.Type of the struct to analyze
 //
 // Returns:
-//   - map[string]interface{}: Schema properties
+//   - map[string]any: Schema properties
 //   - []string: List of required fields
 //   - error: Any error encountered during analysis
-func getStructProperties(t reflect.Type) (map[string]interface{}, []string, error) {
-	properties := make(map[string]interface{})
+func getStructProperties(t reflect.Type) (map[string]any, []string, error) {
+	properties := make(map[string]any)
 	var required []string
 
 	for i := 0; i < t.NumField(); i++ {
@@ -195,10 +195,10 @@ func getStructProperties(t reflect.Type) (map[string]interface{}, []string, erro
 //   - field: The reflect.StructField to generate schema for
 //
 // Returns:
-//   - map[string]interface{}: Field schema
+//   - map[string]any: Field schema
 //   - error: Any error encountered during generation
-func getFieldSchema(field reflect.StructField) (map[string]interface{}, error) {
-	schema := make(map[string]interface{})
+func getFieldSchema(field reflect.StructField) (map[string]any, error) {
+	schema := make(map[string]any)
 
 	switch field.Type.Kind() {
 	case reflect.String:
@@ -242,7 +242,7 @@ func getFieldSchema(field reflect.StructField) (map[string]interface{}, error) {
 // Parameters:
 //   - schema: The schema to add validation rules to
 //   - validateTag: The validation tag string to process
-func addValidationToSchema(schema map[string]interface{}, validateTag string) {
+func addValidationToSchema(schema map[string]any, validateTag string) {
 	rules := strings.Split(validateTag, ",")
 	for _, rule := range rules {
 		parts := strings.SplitN(rule, "=", 2)
@@ -300,18 +300,18 @@ func addValidationToSchema(schema map[string]interface{}, validateTag string) {
 
 		case "contains":
 			if schema["allOf"] == nil {
-				schema["allOf"] = []map[string]interface{}{}
+				schema["allOf"] = []map[string]any{}
 			}
-			schema["allOf"] = append(schema["allOf"].([]map[string]interface{}),
-				map[string]interface{}{
+			schema["allOf"] = append(schema["allOf"].([]map[string]any),
+				map[string]any{
 					"pattern": fmt.Sprintf(".*%s.*", regexp.QuoteMeta(value)),
 				})
 
 		case "excludes":
 			if schema["not"] == nil {
-				schema["not"] = map[string]interface{}{}
+				schema["not"] = map[string]any{}
 			}
-			schema["not"].(map[string]interface{})["pattern"] = fmt.Sprintf(".*%s.*", regexp.QuoteMeta(value))
+			schema["not"].(map[string]any)["pattern"] = fmt.Sprintf(".*%s.*", regexp.QuoteMeta(value))
 
 		case "unique":
 			if value == "true" {
@@ -349,23 +349,23 @@ func addValidationToSchema(schema map[string]interface{}, validateTag string) {
 //
 // Example:
 //
-//	schema := map[string]interface{}{
+//	schema := map[string]any{
 //	    "type": "object",
-//	    "properties": map[string]interface{}{
-//	        "text": map[string]interface{}{
+//	    "properties": map[string]any{
+//	        "text": map[string]any{
 //	            "type": "string",
 //	        },
 //	    },
 //	}
 //
 //	err := ValidateAgainstSchema(`{"text": "Hello"}`, schema)
-func ValidateAgainstSchema(response string, schema interface{}) error {
-	var responseData interface{}
+func ValidateAgainstSchema(response string, schema any) error {
+	var responseData any
 	if err := json.Unmarshal([]byte(response), &responseData); err != nil {
 		return fmt.Errorf("failed to parse response JSON: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	switch s := schema.(type) {
 	case string:
 		if err := json.Unmarshal([]byte(s), &schemaMap); err != nil {
@@ -375,7 +375,7 @@ func ValidateAgainstSchema(response string, schema interface{}) error {
 		if err := json.Unmarshal(s, &schemaMap); err != nil {
 			return fmt.Errorf("failed to parse schema JSON bytes: %w", err)
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		schemaMap = s
 	default:
 		// Try to marshal and unmarshal to ensure we have a proper object
@@ -404,7 +404,7 @@ func ValidateAgainstSchema(response string, schema interface{}) error {
 //
 // Returns:
 //   - error: nil if validation passes, otherwise returns validation errors
-func validateJSONAgainstSchema(data interface{}, schema map[string]interface{}) error {
+func validateJSONAgainstSchema(data any, schema map[string]any) error {
 	schemaType, ok := schema["type"].(string)
 	if !ok {
 		return fmt.Errorf("schema missing 'type' field")
@@ -431,13 +431,13 @@ func validateJSONAgainstSchema(data interface{}, schema map[string]interface{}) 
 //
 // Returns:
 //   - error: nil if validation passes, otherwise returns validation errors
-func validateObject(data interface{}, schema map[string]interface{}) error {
-	dataMap, ok := data.(map[string]interface{})
+func validateObject(data any, schema map[string]any) error {
+	dataMap, ok := data.(map[string]any)
 	if !ok {
 		return fmt.Errorf("expected object, got %T", data)
 	}
 
-	properties, ok := schema["properties"].(map[string]interface{})
+	properties, ok := schema["properties"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("invalid 'properties' in schema")
 	}
@@ -445,7 +445,7 @@ func validateObject(data interface{}, schema map[string]interface{}) error {
 	for key, propSchema := range properties {
 		propData, exists := dataMap[key]
 		if !exists {
-			if required, ok := schema["required"].([]interface{}); ok {
+			if required, ok := schema["required"].([]any); ok {
 				for _, req := range required {
 					if req.(string) == key {
 						return fmt.Errorf("missing required field: %s", key)
@@ -455,7 +455,7 @@ func validateObject(data interface{}, schema map[string]interface{}) error {
 			continue
 		}
 
-		if err := validateJSONAgainstSchema(propData, propSchema.(map[string]interface{})); err != nil {
+		if err := validateJSONAgainstSchema(propData, propSchema.(map[string]any)); err != nil {
 			return fmt.Errorf("invalid field '%s': %w", key, err)
 		}
 	}
@@ -472,13 +472,13 @@ func validateObject(data interface{}, schema map[string]interface{}) error {
 //
 // Returns:
 //   - error: nil if validation passes, otherwise returns validation errors
-func validateArray(data interface{}, schema map[string]interface{}) error {
-	dataSlice, ok := data.([]interface{})
+func validateArray(data any, schema map[string]any) error {
+	dataSlice, ok := data.([]any)
 	if !ok {
 		return fmt.Errorf("expected array, got %T", data)
 	}
 
-	items, ok := schema["items"].(map[string]interface{})
+	items, ok := schema["items"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("invalid 'items' in schema")
 	}
@@ -501,7 +501,7 @@ func validateArray(data interface{}, schema map[string]interface{}) error {
 //
 // Returns:
 //   - error: nil if validation passes, otherwise returns validation errors
-func validatePrimitive(data interface{}, expectedType string) error {
+func validatePrimitive(data any, expectedType string) error {
 	switch expectedType {
 	case "string":
 		if _, ok := data.(string); !ok {

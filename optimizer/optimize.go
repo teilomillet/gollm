@@ -4,9 +4,8 @@ package optimizer
 import (
 	"context"
 	"fmt"
-	"github.com/teilomillet/gollm/providers"
-
 	"github.com/teilomillet/gollm/llm"
+	"github.com/teilomillet/gollm/providers"
 	"github.com/teilomillet/gollm/utils"
 )
 

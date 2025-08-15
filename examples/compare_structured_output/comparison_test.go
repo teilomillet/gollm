@@ -118,12 +118,12 @@ func TestJSONSchemaGeneration(t *testing.T) {
 	assert.NotEmpty(t, schema, "Generated schema should not be empty")
 
 	// Parse the schema to verify its structure
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	err = json.Unmarshal(schema, &schemaMap)
 	assert.NoError(t, err, "Should parse schema as JSON")
 
 	// Check required fields
-	required, ok := schemaMap["required"].([]interface{})
+	required, ok := schemaMap["required"].([]any)
 	assert.True(t, ok, "Schema should have required fields")
 	assert.Contains(t, required, "name", "Name should be required")
 	assert.Contains(t, required, "age", "Age should be required")

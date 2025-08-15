@@ -25,7 +25,7 @@ type ComplexPerson struct {
 	LuckyNumber   int      `json:"luckyNumber" validate:"required,gte=1,lte=100"`
 }
 
-func debugLog(level gollm.LogLevel, format string, args ...interface{}) {
+func debugLog(level gollm.LogLevel, format string, args ...any) {
 	if level == gollm.LogLevelDebug {
 		fmt.Printf("[DEBUG] "+format+"\n", args...)
 	}

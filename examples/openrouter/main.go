@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/teilomillet/gollm"
+	llmopts "github.com/teilomillet/gollm/llm"
 )
 
 func main() {
@@ -124,18 +125,18 @@ func main() {
 
 	// Example 5: JSON Schema Validation
 	fmt.Println("\n=== Example 5: JSON Schema Validation ===")
-	schema := map[string]interface{}{
+	schema := map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"name": map[string]interface{}{
+		"properties": map[string]any{
+			"name": map[string]any{
 				"type": "string",
 			},
-			"age": map[string]interface{}{
+			"age": map[string]any{
 				"type": "integer",
 			},
-			"interests": map[string]interface{}{
+			"interests": map[string]any{
 				"type": "array",
-				"items": map[string]interface{}{
+				"items": map[string]any{
 					"type": "string",
 				},
 			},
@@ -144,7 +145,7 @@ func main() {
 	}
 
 	prompt = gollm.NewPrompt("Create a profile for a fictional person who loves technology")
-	response, err = llm.GenerateWithSchema(ctx, prompt, schema)
+	response, err = llm.Generate(ctx, prompt, llmopts.WithStructuredResponse(schema))
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
@@ -191,8 +192,8 @@ func main() {
 	}
 
 	// Set provider routing preferences
-	providerPrefs := map[string]interface{}{
-		"openai": map[string]interface{}{
+	providerPrefs := map[string]any{
+		"openai": map[string]any{
 			"weight": 1.0,
 		},
 	}
@@ -221,20 +222,20 @@ func main() {
 	}
 
 	// Define tools
-	tools := []interface{}{
-		map[string]interface{}{
+	tools := []any{
+		map[string]any{
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name":        "get_weather",
 				"description": "Get the current weather in a given location",
-				"parameters": map[string]interface{}{
+				"parameters": map[string]any{
 					"type": "object",
-					"properties": map[string]interface{}{
-						"location": map[string]interface{}{
+					"properties": map[string]any{
+						"location": map[string]any{
 							"type":        "string",
 							"description": "The city and state, e.g. San Francisco, CA",
 						},
-						"unit": map[string]interface{}{
+						"unit": map[string]any{
 							"type":        "string",
 							"enum":        []string{"celsius", "fahrenheit"},
 							"description": "The temperature unit to use",

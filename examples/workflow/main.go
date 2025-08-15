@@ -32,25 +32,25 @@ func main() {
 	if err != nil {
 		log.Fatalf("Research failed: %v", err)
 	}
-	fmt.Printf("Research:\n%s\n\n", research)
+	fmt.Printf("Research:\n%s\n\n", research.AsText())
 
 	// Step 2: Ideation phase
 	// Generate article ideas based on the research
 	ideaPrompt := gollm.NewPrompt(
 		"Generate 3 article ideas about quantum computing for a general audience",
-		gollm.WithContext(research), // Use the research as context for generating ideas
+		gollm.WithContext(research.AsText()), // Use the research as context for generating ideas
 	)
 	ideas, err := llm.Generate(ctx, ideaPrompt)
 	if err != nil {
 		log.Fatalf("Ideation failed: %v", err)
 	}
-	fmt.Printf("Article Ideas:\n%s\n\n", ideas)
+	fmt.Printf("Article Ideas:\n%s\n\n", ideas.AsText())
 
 	// Step 3: Writing refinement
 	// Improve a paragraph using specific directives
 	refinementPrompt := gollm.NewPrompt(
 		"Improve the following paragraph about quantum computing:",
-		gollm.WithContext(research), // Use the research as the paragraph to improve
+		gollm.WithContext(research.AsText()), // Use the research as the paragraph to improve
 		gollm.WithDirectives( // Provide specific instructions for improvement
 			"Use simpler language for a general audience",
 			"Add an engaging opening sentence",
@@ -61,5 +61,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("Refinement failed: %v", err)
 	}
-	fmt.Printf("Refined Paragraph:\n%s\n", refinedParagraph)
+	fmt.Printf("Refined Paragraph:\n%s\n", refinedParagraph.AsText())
 }

@@ -26,7 +26,7 @@ type StreamToken struct {
 	OutputTokens int64
 
 	// Metadata contains provider-specific metadata
-	Metadata map[string]interface{}
+	Metadata map[string]any
 }
 
 // TokenStream represents a stream of tokens from the LLM.

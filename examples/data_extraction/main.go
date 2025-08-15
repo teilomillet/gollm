@@ -153,7 +153,7 @@ func main() {
 }
 
 // printReview is a helper function to print the review in a more readable format
-func printReview(review interface{}) {
+func printReview(review any) {
 	v := reflect.ValueOf(review).Elem()
 	t := v.Type()
 

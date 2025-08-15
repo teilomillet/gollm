@@ -134,7 +134,7 @@ func ExtractStructuredData[T any](ctx context.Context, l gollm.LLM, text string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate text content: %w", err)
 	}
-	if strings.TrimSpace(strings.ToLower(validationResponse)) != "yes" {
+	if strings.TrimSpace(strings.ToLower(validationResponse.AsText())) != "yes" {
 		return nil, fmt.Errorf("text does not contain enough extractable information")
 	}
 
@@ -154,7 +154,7 @@ func ExtractStructuredData[T any](ctx context.Context, l gollm.LLM, text string,
 		return nil, fmt.Errorf("failed to generate structured data: %w", err)
 	}
 	var result T
-	if err := json.Unmarshal([]byte(response), &result); err != nil {
+	if err := json.Unmarshal([]byte(response.AsText()), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 	if err := gollm.Validate(&result); err != nil {

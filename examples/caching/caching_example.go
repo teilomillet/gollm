@@ -102,7 +102,7 @@ func main() {
 			}
 
 			fmt.Printf("Attempt %d - %s - Time: %v\n", attempt+1, cacheStatus, duration)
-			fmt.Printf("Response: %s\n\n", strings.TrimSpace(response))
+			fmt.Printf("Response: %s\n\n", strings.TrimSpace(response.AsText()))
 		}
 
 		time.Sleep(2 * time.Second) // Short pause between queries

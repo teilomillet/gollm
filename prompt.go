@@ -4,11 +4,9 @@
 package gollm
 
 import (
-	"strings"
-
-	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/teilomillet/gollm/providers"
+	"github.com/teilomillet/gollm/types"
 )
 
 // The following types are re-exported from the llm package to provide a cleaner API surface.
@@ -29,11 +27,11 @@ type (
 
 	// Function defines a callable function that can be used by the LLM.
 	// It includes metadata like name, description, and parameter schemas.
-	Function = utils.Function
+	Function = types.Function
 
 	// Tool represents a tool that can be used by the LLM during generation.
 	// Tools are higher-level abstractions over functions that include usage policies.
-	Tool = utils.Tool
+	Tool = types.Tool
 
 	// PromptOption defines a function that can modify a prompt's configuration.
 	// These are used to customize prompt behavior in a flexible, chainable way.
@@ -54,6 +52,9 @@ type (
 	// PromptTemplate defines a reusable template for generating prompts.
 	// Templates can include variables that are filled in at runtime.
 	PromptTemplate = llm.PromptTemplate
+
+	// Response represents the output from an LLM after processing a prompt.
+	Response = providers.Response
 )
 
 // Cache type constants define the available caching strategies.
@@ -110,35 +111,14 @@ var (
 
 	// WithPromptOptions adds multiple prompt options at once.
 	WithPromptOptions = llm.WithPromptOptions
-
-	// WithJSONSchemaValidation enables JSON schema validation.
-	WithJSONSchemaValidation = llm.WithJSONSchemaValidation
-
-	// WithStream enables or disables streaming responses.
-	WithStream = config.WithStream
 )
 
-// CleanResponse processes and cleans up LLM responses by removing markdown formatting
-// and extracting JSON content. It performs the following operations:
-//  1. Removes markdown code block delimiters (```json)
-//  2. Extracts JSON content between the first '{' and last '}'
-//  3. Trims any remaining whitespace
-//
-// This is particularly useful when working with LLMs that return formatted markdown
-// or when you need to extract clean JSON from a response.
-//
-// Parameters:
-//   - response: The raw response string from the LLM
-//
-// Returns:
-//   - A cleaned string containing only the relevant content
-func CleanResponse(response string) string {
-	response = strings.TrimPrefix(response, "```json")
-	response = strings.TrimSuffix(response, "```")
-	start := strings.Index(response, "{")
-	end := strings.LastIndex(response, "}")
-	if start != -1 && end != -1 && end > start {
-		response = response[start : end+1]
-	}
-	return strings.TrimSpace(response)
+// WithStructuredResponseSchema re-exports the llm generic option while preserving the type parameter.
+func WithStructuredResponseSchema[T any]() llm.GenerateOption {
+	return llm.WithStructuredResponseSchema[T]()
+}
+
+// WithStructuredResponse re-exports the non-generic structured response option.
+func WithStructuredResponse(schema any) llm.GenerateOption {
+	return llm.WithStructuredResponse(schema)
 }

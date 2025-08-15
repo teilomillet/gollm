@@ -36,10 +36,10 @@ func main() {
 	getWeatherFunction := gollm.Function{
 		Name:        "get_weather",
 		Description: "Get the current weather in a given location",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"location": map[string]interface{}{
+			"properties": map[string]any{
+				"location": map[string]any{
 					"type":        "string",
 					"description": "The city and state, e.g. San Francisco, CA",
 				},
@@ -64,11 +64,12 @@ func main() {
 	}
 
 	// Parse the response
-	if strings.Contains(response, "<function_call>") {
+	if strings.Contains(response.AsText(), "<function_call>") {
 		fmt.Println("Function call detected:")
-		start := strings.Index(response, "<function_call>") + len("<function_call>")
-		end := strings.Index(response, "</function_call>")
-		functionCallJSON := response[start:end]
+		respText := response.AsText()
+		start := strings.Index(respText, "<function_call>") + len("<function_call>")
+		end := strings.Index(respText, "</function_call>")
+		functionCallJSON := respText[start:end]
 
 		var functionCall struct {
 			Name      string          `json:"name"`
@@ -80,7 +81,7 @@ func main() {
 		fmt.Printf("Arguments: %s\n", string(functionCall.Arguments))
 
 		// Simulate function execution
-		weatherData := map[string]interface{}{
+		weatherData := map[string]any{
 			"temperature": 22,
 			"unit":        "celsius",
 			"description": "Partly cloudy",
@@ -94,8 +95,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to generate final response: %v", err)
 		}
-		fmt.Printf("Final response: %s\n", finalResponse)
+		fmt.Printf("Final response: %s\n", finalResponse.AsText())
 	} else {
-		fmt.Printf("Regular response: %s\n", response)
+		fmt.Printf("Regular response: %s\n", response.AsText())
 	}
 }

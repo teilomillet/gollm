@@ -62,7 +62,7 @@ func main() {
 	}
 
 	for _, topic := range topics {
-		prompt, err := analysisPrompt.Execute(map[string]interface{}{
+		prompt, err := analysisPrompt.Execute(map[string]any{
 			"Topic": topic,
 		})
 		if err != nil {
@@ -70,8 +70,7 @@ func main() {
 			continue
 		}
 
-		// Use JSON schema validation for the prompt
-		analysis, err := llm.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
+		analysis, err := llm.Generate(ctx, prompt)
 		if err != nil {
 			log.Printf("Failed to generate analysis for topic '%s': %v\n", topic, err)
 			continue

@@ -18,7 +18,7 @@ import (
 //   - email: Email format validation
 //   - url: URL format validation
 //   - regex: Pattern matching
-//   - contains/excludes: String content validation
+//   - contains/excludes: AsText content validation
 //   - unique: Array unique items validation
 //   - minItems/maxItems: Array length validation
 //   - password: Password strength validation
@@ -31,7 +31,7 @@ import (
 //	    Email     string `validate:"required,email"`
 //	    Password  string `validate:"required,password=strong"`
 //	}
-//	
+//
 //	config := Config{
 //	    Model:     "gpt-4",
 //	    MaxTokens: 2048,
@@ -45,7 +45,7 @@ import (
 //
 // Returns:
 //   - error: nil if validation passes, otherwise returns detailed validation errors
-func Validate(s interface{}) error {
+func Validate(s any) error {
 	return llm.Validate(s)
 }
 
@@ -70,13 +70,13 @@ func Validate(s interface{}) error {
 //	    Tokens   int      `json:"tokens,omitempty" validate:"min=0"`
 //	    Tags     []string `json:"tags,omitempty" validate:"unique"`
 //	}
-//	
+//
 //	type Conversation struct {
 //	    ID       string    `json:"id" validate:"required,uuid"`
 //	    Messages []Message `json:"messages" validate:"required,min=1"`
 //	    Model    string    `json:"model" validate:"required,model"`
 //	}
-//	
+//
 //	schema, err := GenerateJSONSchema(&Conversation{})
 //
 // Parameters:
@@ -85,6 +85,6 @@ func Validate(s interface{}) error {
 // Returns:
 //   - []byte: The generated JSON schema as a byte slice
 //   - error: Any error encountered during schema generation
-func GenerateJSONSchema(v interface{}) ([]byte, error) {
+func GenerateJSONSchema(v any) ([]byte, error) {
 	return llm.GenerateJSONSchema(v)
 }

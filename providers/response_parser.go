@@ -1,4 +1,4 @@
-package utils
+package providers
 
 import (
 	"encoding/json"
@@ -9,21 +9,21 @@ import (
 
 // ExtractFunctionCalls extracts JSON function calls encapsulated within <function_call> tags.
 // It returns a slice of function call objects, each containing a name and arguments.
-func ExtractFunctionCalls(response string) ([]map[string]interface{}, error) {
+func ExtractFunctionCalls(response string) ([]map[string]any, error) {
 	functionCallRegex := regexp.MustCompile(`<function_call>(.*?)</function_call>`)
 	matches := functionCallRegex.FindAllStringSubmatch(response, -1)
 
-	var functionCalls []map[string]interface{}
+	var functionCalls []map[string]any
 	for _, match := range matches {
 		if len(match) > 1 {
-			var functionCall map[string]interface{}
+			var functionCall map[string]any
 			if err := json.Unmarshal([]byte(match[1]), &functionCall); err != nil {
 				return nil, fmt.Errorf("error unmarshaling function call: %w", err)
 			}
 
 			// Handle string arguments by attempting to parse them as JSON
 			if args, ok := functionCall["arguments"].(string); ok {
-				var parsedArgs map[string]interface{}
+				var parsedArgs map[string]any
 				if err := json.Unmarshal([]byte(args), &parsedArgs); err != nil {
 					return nil, fmt.Errorf("error parsing string arguments: %w", err)
 				}
@@ -66,16 +66,16 @@ func CleanResponse(rawResponse string) (string, []string, error) {
 
 // FormatFunctionCall creates a properly formatted function call string
 // that can be embedded in the response.
-func FormatFunctionCall(name string, arguments interface{}) (string, error) {
+func FormatFunctionCall(name string, arguments any) (string, error) {
 	// If arguments is a string, try to parse it as JSON first
 	if argsStr, ok := arguments.(string); ok {
-		var parsedArgs map[string]interface{}
+		var parsedArgs map[string]any
 		if err := json.Unmarshal([]byte(argsStr), &parsedArgs); err == nil {
 			arguments = parsedArgs
 		}
 	}
 
-	functionCall := map[string]interface{}{
+	functionCall := map[string]any{
 		"name":      name,
 		"arguments": arguments,
 	}

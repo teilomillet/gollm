@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/teilomillet/gollm/llm"
 	"log"
 	"os"
 	"strings"
@@ -101,7 +102,7 @@ Please structure your response as a JSON object with the following format:
 		fmt.Printf("Analyzing topic: %s\n", topic)
 
 		// Execute the prompt template
-		prompt, err := balancedAnalysisTemplate.Execute(map[string]interface{}{
+		prompt, err := balancedAnalysisTemplate.Execute(map[string]any{
 			"Topic": topic,
 		})
 		if err != nil {
@@ -109,20 +110,17 @@ Please structure your response as a JSON object with the following format:
 		}
 
 		// Generate the analysis
-		analysisJSON, err := llmClient.Generate(ctx, prompt, gollm.WithJSONSchemaValidation())
+		analysisResp, err := llmClient.Generate(ctx, prompt, llm.WithStructuredResponseSchema[AnalysisResult]())
 		if err != nil {
 			log.Fatalf("Failed to generate analysis for topic '%s': %v", topic, err)
 		}
 
-		// Clean the JSON response
-		cleanedJSON := cleanJSONResponse(analysisJSON)
-
 		// Parse the JSON response
 		var result AnalysisResult
-		err = json.Unmarshal([]byte(cleanedJSON), &result)
+		err = json.Unmarshal([]byte(analysisResp.AsText()), &result)
 		if err != nil {
 			log.Printf("Warning: Failed to parse analysis JSON for topic '%s': %v", topic, err)
-			log.Printf("Raw response: %s", cleanedJSON)
+			log.Printf("Raw response: %s", analysisResp.AsText())
 			continue // Skip to the next topic instead of exiting
 		}
 
@@ -137,17 +135,12 @@ Please structure your response as a JSON object with the following format:
 		fmt.Printf("  Summary: %s\n\n", result.Summary)
 
 		// Demonstrate additional gollm package features
-		summary, err := presets.Summarize(ctx, llmClient, analysisJSON, gollm.WithMaxLength(50))
+		summary, err := presets.Summarize(ctx, llmClient, analysisResp.AsText(), gollm.WithMaxLength(50))
 		if err != nil {
 			log.Fatalf("Failed to generate summary: %v", err)
 		}
-		fmt.Printf("Brief summary (50 words): %s\n", summary)
 
-		keyPoints, err := presets.ChainOfThought(ctx, llmClient, fmt.Sprintf("Extract 3 key points from this analysis:\n%s", analysisJSON))
-		if err != nil {
-			log.Fatalf("Failed to extract key points: %v", err)
-		}
-		fmt.Printf("Key points:\n%s\n\n", keyPoints)
+		fmt.Printf("Brief summary (50 words): %s\n", summary)
 	}
 
 	// Demonstrate error handling and retries

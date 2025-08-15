@@ -199,7 +199,7 @@ func (moa *MOA) processLayer(ctx context.Context, layer MOALayer, input string) 
 				errors[index] = err
 				return
 			}
-			results[index] = output.String()
+			results[index] = output.AsText()
 		}(i, model)
 	}
 
@@ -249,5 +249,5 @@ func (moa *MOA) aggregate(ctx context.Context, outputs []string) (string, error)
 		return "", fmt.Errorf("error during aggregation: %w", err)
 	}
 
-	return response.String(), err
+	return response.AsText(), err
 }

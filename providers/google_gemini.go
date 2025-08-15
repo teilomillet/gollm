@@ -17,11 +17,11 @@ import (
 // It supports chat completions with system instructions, function/tool calling with JSON schemas,
 // streaming via Server-Sent Events (SSE), and usage reporting.
 type GeminiProvider struct {
-	apiKey       string                 // API key or Bearer token for authentication
-	model        string                 // Model name (e.g., "gemini-2.0-pro", "gemini-1.5-pro")
-	extraHeaders map[string]string      // Additional HTTP headers
-	options      map[string]interface{} // Provider-specific options (temperature, max_tokens, etc.)
-	logger       utils.Logger           // Logger instance for debugging
+	apiKey       string            // API key or Bearer token for authentication
+	model        string            // Model name (e.g., "gemini-2.0-pro", "gemini-1.5-pro")
+	extraHeaders map[string]string // Additional HTTP headers
+	options      map[string]any    // Provider-specific options (temperature, max_tokens, etc.)
+	logger       utils.Logger      // Logger instance for debugging
 }
 
 // NewGeminiProvider creates a new Google Gemini API provider instance.
@@ -39,7 +39,7 @@ func NewGeminiProvider(apiKey, model string, extraHeaders map[string]string) Pro
 		apiKey:       apiKey,
 		model:        model,
 		extraHeaders: make(map[string]string),
-		options:      make(map[string]interface{}),
+		options:      make(map[string]any),
 		logger:       utils.NewLogger(utils.LogLevelInfo), // default logger
 	}
 	// Copy any provided extra headers
@@ -94,7 +94,7 @@ func (p *GeminiProvider) SetLogger(logger utils.Logger) {
 
 // SetOption sets a specific option for the Google provider (e.g., "temperature", "max_tokens").
 // Supported options include temperature, max_tokens, top_p, top_k, stop_sequences, etc.
-func (p *GeminiProvider) SetOption(key string, value interface{}) {
+func (p *GeminiProvider) SetOption(key string, value any) {
 	p.options[key] = value
 }
 
@@ -119,17 +119,17 @@ func (p *GeminiProvider) SupportsStreaming() bool {
 
 // PrepareRequest builds the JSON request body for a single-turn completion or prompt.
 // It includes the user prompt (as content with role "user"), optional system instruction, tools, and generation parameters.
-func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	// Base request structure
-	requestBody := map[string]interface{}{
-		"model":    p.model,                    // model ID (the API also requires it in path, set in Endpoint())
-		"contents": []map[string]interface{}{}, // conversation content list
+	requestBody := map[string]any{
+		"model":    p.model,            // model ID (the API also requires it in path, set in Endpoint())
+		"contents": []map[string]any{}, // conversation content list
 	}
 
 	// Handle system instruction if provided
 	if sys, ok := options["system_prompt"].(string); ok && sys != "" {
 		// Add a systemInstruction content with the system text
-		requestBody["systemInstruction"] = map[string]interface{}{
+		requestBody["systemInstruction"] = map[string]any{
 			"parts": []map[string]string{
 				{"text": sys},
 			},
@@ -137,33 +137,33 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]interf
 	}
 
 	// Prepare the user message content
-	userContent := map[string]interface{}{
+	userContent := map[string]any{
 		"role": "user",
 		"parts": []map[string]string{
 			{"text": prompt},
 		},
 	}
-	requestBody["contents"] = append(requestBody["contents"].([]map[string]interface{}), userContent)
+	requestBody["contents"] = append(requestBody["contents"].([]map[string]any), userContent)
 
 	// Include tool definitions if any are provided
-	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
+	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
 		// Build functionDeclarations for each provided tool (function)
-		funcDecls := make([]map[string]interface{}, 0, len(tools))
+		funcDecls := make([]map[string]any, 0, len(tools))
 		for _, tool := range tools {
-			decl := map[string]interface{}{
+			decl := map[string]any{
 				"name":        tool.Function.Name,
 				"description": tool.Function.Description,
 				"parameters":  tool.Function.Parameters,
 			}
 			funcDecls = append(funcDecls, decl)
 		}
-		requestBody["tools"] = []map[string]interface{}{
+		requestBody["tools"] = []map[string]any{
 			{"functionDeclarations": funcDecls},
 		}
 		// Optionally, set function calling mode if specified (e.g., "NONE", "AUTO", "ANY")
 		if mode, ok := options["function_call_mode"].(string); ok && mode != "" {
-			requestBody["toolConfig"] = map[string]interface{}{
-				"functionCallingConfig": map[string]interface{}{
+			requestBody["toolConfig"] = map[string]any{
+				"functionCallingConfig": map[string]any{
 					"mode": mode,
 				},
 			}
@@ -171,7 +171,7 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]interf
 	}
 
 	// Handle generation parameters (temperature, max_tokens, etc.) via generationConfig
-	genConfig := make(map[string]interface{})
+	genConfig := make(map[string]any)
 	// If the max_tokens option is set, map it to maxOutputTokens
 	if maxTokens, ok := p.options["max_tokens"].(int); ok && maxTokens > 0 {
 		genConfig["maxOutputTokens"] = maxTokens
@@ -213,15 +213,15 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]interf
 
 // PrepareRequestWithMessages creates a request body from a sequence of structured messages (conversation history).
 // It maps each MemoryMessage to a Gemini API Content, preserving roles and content. System prompts and tools are handled similarly to PrepareRequest.
-func (p *GeminiProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
-	requestBody := map[string]interface{}{
+func (p *GeminiProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+	requestBody := map[string]any{
 		"model":    p.model,
-		"contents": []map[string]interface{}{},
+		"contents": []map[string]any{},
 	}
 
 	// Include system instruction if provided via options
 	if sys, ok := options["system_prompt"].(string); ok && sys != "" {
-		requestBody["systemInstruction"] = map[string]interface{}{
+		requestBody["systemInstruction"] = map[string]any{
 			"parts": []map[string]string{
 				{"text": sys},
 			},
@@ -229,22 +229,22 @@ func (p *GeminiProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 	}
 
 	// Tools and function calling support
-	if tools, ok := options["tools"].([]utils.Tool); ok && len(tools) > 0 {
-		funcDecls := make([]map[string]interface{}, 0, len(tools))
+	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
+		funcDecls := make([]map[string]any, 0, len(tools))
 		for _, tool := range tools {
-			funcDecl := map[string]interface{}{
+			funcDecl := map[string]any{
 				"name":        tool.Function.Name,
 				"description": tool.Function.Description,
 				"parameters":  tool.Function.Parameters,
 			}
 			funcDecls = append(funcDecls, funcDecl)
 		}
-		requestBody["tools"] = []map[string]interface{}{
+		requestBody["tools"] = []map[string]any{
 			{"functionDeclarations": funcDecls},
 		}
 		if mode, ok := options["function_call_mode"].(string); ok && mode != "" {
-			requestBody["toolConfig"] = map[string]interface{}{
-				"functionCallingConfig": map[string]interface{}{
+			requestBody["toolConfig"] = map[string]any{
+				"functionCallingConfig": map[string]any{
 					"mode": mode,
 				},
 			}
@@ -262,19 +262,19 @@ func (p *GeminiProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 			// Unknown role, skip or continue
 			continue
 		}
-		contentParts := []map[string]interface{}{
+		contentParts := []map[string]any{
 			{"text": msg.Content},
 		}
 		// Build content entry
-		contentEntry := map[string]interface{}{
+		contentEntry := map[string]any{
 			"role":  role,
 			"parts": contentParts,
 		}
-		requestBody["contents"] = append(requestBody["contents"].([]map[string]interface{}), contentEntry)
+		requestBody["contents"] = append(requestBody["contents"].([]map[string]any), contentEntry)
 	}
 
 	// Add generationConfig parameters similar to PrepareRequest
-	genConfig := make(map[string]interface{})
+	genConfig := make(map[string]any)
 	if maxTokens, ok := p.options["max_tokens"].(int); ok && maxTokens > 0 {
 		genConfig["maxOutputTokens"] = maxTokens
 	}
@@ -299,11 +299,11 @@ func (p *GeminiProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 
 // PrepareRequestWithSchema builds a request similar to PrepareRequest but enforces a JSON output schema.
 // It uses the GenerationConfig.responseMimeType and responseSchema fields to instruct the model to return JSON adhering to the schema.
-func (p *GeminiProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+func (p *GeminiProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
 	// Base content with user prompt
-	requestBody := map[string]interface{}{
+	requestBody := map[string]any{
 		"model": p.model,
-		"contents": []map[string]interface{}{
+		"contents": []map[string]any{
 			{
 				"role": "user",
 				"parts": []map[string]string{
@@ -315,7 +315,7 @@ func (p *GeminiProvider) PrepareRequestWithSchema(prompt string, options map[str
 	// If a system prompt is provided, it is ignored here to avoid conflicting instructions
 	// (We rely on the schema enforcement to structure the output)
 	// Merge generation options
-	genConfig := map[string]interface{}{
+	genConfig := map[string]any{
 		"responseMimeType": "application/json",
 		"responseSchema":   schema, // JSON schema for desired output format
 	}
@@ -350,9 +350,9 @@ func (p *GeminiProvider) ParseResponse(body []byte) (*Response, error) {
 		Candidates []struct {
 			Content struct {
 				Parts []struct {
-					Text             *string                 `json:"text,omitempty"`
-					FunctionCall     *map[string]interface{} `json:"functionCall,omitempty"`
-					FunctionResponse *map[string]interface{} `json:"functionResponse,omitempty"`
+					Text             *string         `json:"text,omitempty"`
+					FunctionCall     *map[string]any `json:"functionCall,omitempty"`
+					FunctionResponse *map[string]any `json:"functionResponse,omitempty"`
 				} `json:"parts"`
 			} `json:"content"`
 			// finishReason and safetyRatings could be present, but not needed for core content parsing
@@ -443,7 +443,7 @@ func (p *GeminiProvider) ParseResponse(body []byte) (*Response, error) {
 func (p *GeminiProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	p.logger.Debug("Extracting function calls from response content")
 	content := string(body)
-	calls, err := utils.ExtractFunctionCalls(content)
+	calls, err := ExtractFunctionCalls(content)
 	if err != nil {
 		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
@@ -456,7 +456,7 @@ func (p *GeminiProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 
 // PrepareStreamRequest creates the request body for a streaming content request.
 // It is similar to PrepareRequest, but (in usage) the endpoint called will be streamGenerateContent with SSE.
-func (p *GeminiProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *GeminiProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
 	// We can reuse the same payload as PrepareRequest.
 	// (The streaming vs non-streaming is determined by using the streaming endpoint and alt=sse.)
 	return p.PrepareRequest(prompt, options)
@@ -480,9 +480,9 @@ func (p *GeminiProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 		Candidates []struct {
 			Content struct {
 				Parts []struct {
-					Text             *string                 `json:"text,omitempty"`
-					FunctionCall     *map[string]interface{} `json:"functionCall,omitempty"`
-					FunctionResponse *map[string]interface{} `json:"functionResponse,omitempty"`
+					Text             *string         `json:"text,omitempty"`
+					FunctionCall     *map[string]any `json:"functionCall,omitempty"`
+					FunctionResponse *map[string]any `json:"functionResponse,omitempty"`
 				} `json:"parts"`
 			} `json:"content"`
 			FinishReason string `json:"finishReason,omitempty"`

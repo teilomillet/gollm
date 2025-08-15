@@ -16,11 +16,11 @@ import (
 // It provides access to multiple LLMs through a single API, with features like
 // model routing, fallbacks, prompt caching.
 type OpenRouterProvider struct {
-	apiKey       string                 // API key for authentication
-	model        string                 // Model identifier (e.g., "openai/gpt-4", "anthropic/claude-3-opus")
-	extraHeaders map[string]string      // Additional HTTP headers
-	options      map[string]interface{} // Model-specific options
-	logger       utils.Logger           // Logger instance
+	apiKey       string            // API key for authentication
+	model        string            // Model identifier (e.g., "openai/gpt-4", "anthropic/claude-3-opus")
+	extraHeaders map[string]string // Additional HTTP headers
+	options      map[string]any    // Model-specific options
+	logger       utils.Logger      // Logger instance
 }
 
 // NewOpenRouterProvider creates a new OpenRouter provider instance.
@@ -41,7 +41,7 @@ func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string)
 		apiKey:       apiKey,
 		model:        model,
 		extraHeaders: extraHeaders,
-		options:      make(map[string]interface{}),
+		options:      make(map[string]any),
 		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
 }
@@ -81,7 +81,7 @@ func (p *OpenRouterProvider) GenerationEndpoint(generationID string) string {
 //   - route: Routing strategy (e.g., "fallback", "lowest-latency")
 //   - transforms: Array of transformations to apply to the response
 //   - provider: Provider preferences for routing
-func (p *OpenRouterProvider) SetOption(key string, value interface{}) {
+func (p *OpenRouterProvider) SetOption(key string, value any) {
 	p.options[key] = value
 }
 
@@ -126,9 +126,9 @@ func (p *OpenRouterProvider) Headers() map[string]string {
 }
 
 // PrepareRequest creates a chat completion request for the OpenRouter API.
-func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	// Start with the passed options
-	req := map[string]interface{}{}
+	req := map[string]any{}
 	for k, v := range options {
 		req[k] = v
 	}
@@ -154,17 +154,17 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]in
 	}
 
 	// Handle provider routing preferences if provided
-	if providerPrefs, ok := req["provider_preferences"].(map[string]interface{}); ok {
+	if providerPrefs, ok := req["provider_preferences"].(map[string]any); ok {
 		req["provider"] = providerPrefs
 		delete(req, "provider_preferences")
 	}
 
 	// Create messages array with system and user messages
-	messages := []map[string]interface{}{}
+	messages := []map[string]any{}
 
 	// If there's a system message in the options, use it
 	if sysMsg, ok := req["system_message"].(string); ok {
-		messages = append(messages, map[string]interface{}{
+		messages = append(messages, map[string]any{
 			"role":    "system",
 			"content": sysMsg,
 		})
@@ -172,7 +172,7 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]in
 	}
 
 	// Add the user prompt
-	messages = append(messages, map[string]interface{}{
+	messages = append(messages, map[string]any{
 		"role":    "user",
 		"content": prompt,
 	})
@@ -180,7 +180,7 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]in
 	req["messages"] = messages
 
 	// Handle tools/function calling if provided
-	if tools, ok := req["tools"].([]interface{}); ok && len(tools) > 0 {
+	if tools, ok := req["tools"].([]any); ok && len(tools) > 0 {
 		req["tools"] = tools
 	}
 
@@ -204,9 +204,9 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]in
 
 // PrepareCompletionRequest creates a text completion request for the OpenRouter API.
 // This uses the legacy completions endpoint rather than chat completions.
-func (p *OpenRouterProvider) PrepareCompletionRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *OpenRouterProvider) PrepareCompletionRequest(prompt string, options map[string]any) ([]byte, error) {
 	// Start with the passed options
-	req := map[string]interface{}{}
+	req := map[string]any{}
 	for k, v := range options {
 		req[k] = v
 	}
@@ -235,7 +235,7 @@ func (p *OpenRouterProvider) PrepareCompletionRequest(prompt string, options map
 	req["prompt"] = prompt
 
 	// Handle provider routing preferences if provided
-	if providerPrefs, ok := req["provider_preferences"].(map[string]interface{}); ok {
+	if providerPrefs, ok := req["provider_preferences"].(map[string]any); ok {
 		req["provider"] = providerPrefs
 		delete(req, "provider_preferences")
 	}
@@ -249,9 +249,9 @@ func (p *OpenRouterProvider) PrepareCompletionRequest(prompt string, options map
 }
 
 // PrepareRequestWithSchema creates a request with JSON schema validation.
-func (p *OpenRouterProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+func (p *OpenRouterProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
 	// Start with standard request preparation
-	req := map[string]interface{}{}
+	req := map[string]any{}
 	for k, v := range options {
 		req[k] = v
 	}
@@ -277,17 +277,17 @@ func (p *OpenRouterProvider) PrepareRequestWithSchema(prompt string, options map
 	}
 
 	// Handle provider routing preferences if provided
-	if providerPrefs, ok := req["provider_preferences"].(map[string]interface{}); ok {
+	if providerPrefs, ok := req["provider_preferences"].(map[string]any); ok {
 		req["provider"] = providerPrefs
 		delete(req, "provider_preferences")
 	}
 
 	// Create messages array with system and user messages
-	messages := []map[string]interface{}{}
+	messages := []map[string]any{}
 
 	// If there's a system message in the options, use it
 	if sysMsg, ok := req["system_message"].(string); ok {
-		messages = append(messages, map[string]interface{}{
+		messages = append(messages, map[string]any{
 			"role":    "system",
 			"content": sysMsg,
 		})
@@ -295,7 +295,7 @@ func (p *OpenRouterProvider) PrepareRequestWithSchema(prompt string, options map
 	}
 
 	// Add the user prompt
-	messages = append(messages, map[string]interface{}{
+	messages = append(messages, map[string]any{
 		"role":    "user",
 		"content": prompt,
 	})
@@ -303,13 +303,13 @@ func (p *OpenRouterProvider) PrepareRequestWithSchema(prompt string, options map
 	req["messages"] = messages
 
 	// Add JSON schema to the response format
-	req["response_format"] = map[string]interface{}{
+	req["response_format"] = map[string]any{
 		"type":   "json_object",
 		"schema": schema,
 	}
 
 	// Handle tools/function calling if provided
-	if tools, ok := req["tools"].([]interface{}); ok && len(tools) > 0 {
+	if tools, ok := req["tools"].([]any); ok && len(tools) > 0 {
 		req["tools"] = tools
 	}
 
@@ -491,8 +491,8 @@ func (p *OpenRouterProvider) SupportsStreaming() bool {
 }
 
 // PrepareStreamRequest creates a streaming request for the OpenRouter API.
-func (p *OpenRouterProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
-	streamOptions := make(map[string]interface{})
+func (p *OpenRouterProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
+	streamOptions := make(map[string]any)
 	for k, v := range options {
 		streamOptions[k] = v
 	}
@@ -585,9 +585,9 @@ func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error
 }
 
 // PrepareRequestWithMessages creates a request with structured message objects.
-func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
 	// Start with the passed options
-	req := map[string]interface{}{}
+	req := map[string]any{}
 	for k, v := range options {
 		req[k] = v
 	}
@@ -613,15 +613,15 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 	}
 
 	// Handle provider routing preferences if provided
-	if providerPrefs, ok := req["provider_preferences"].(map[string]interface{}); ok {
+	if providerPrefs, ok := req["provider_preferences"].(map[string]any); ok {
 		req["provider"] = providerPrefs
 		delete(req, "provider_preferences")
 	}
 
 	// Convert memory messages to OpenRouter format
-	formattedMessages := make([]map[string]interface{}, 0, len(messages))
+	formattedMessages := make([]map[string]any, 0, len(messages))
 	for _, msg := range messages {
-		formattedMsg := map[string]interface{}{
+		formattedMsg := map[string]any{
 			"role":    msg.Role,
 			"content": msg.Content,
 		}
@@ -632,7 +632,7 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 			if len(msg.Content) > 1000 {
 				// For Anthropic models, we need to use multipart messages with cache_control
 				if strings.HasPrefix(p.model, "anthropic/") {
-					formattedMsg["content"] = []map[string]interface{}{
+					formattedMsg["content"] = []map[string]any{
 						{
 							"type": "text",
 							"text": msg.Content,
@@ -651,7 +651,7 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 	req["messages"] = formattedMessages
 
 	// Handle tools/function calling if provided
-	if tools, ok := req["tools"].([]interface{}); ok && len(tools) > 0 {
+	if tools, ok := req["tools"].([]any); ok && len(tools) > 0 {
 		req["tools"] = tools
 	}
 

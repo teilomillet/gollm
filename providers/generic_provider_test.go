@@ -30,7 +30,7 @@ func TestGenericProviderBasics(t *testing.T) {
 		model:        "test-model",
 		config:       testConfig,
 		extraHeaders: map[string]string{"Extra-Header": "value"},
-		options:      make(map[string]interface{}),
+		options:      make(map[string]any),
 		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
 
@@ -89,7 +89,7 @@ func TestGenericProviderBasics(t *testing.T) {
 			apiKey:  "test-key",
 			model:   "test-model",
 			config:  noSchemaConfig,
-			options: make(map[string]interface{}),
+			options: make(map[string]any),
 			logger:  utils.NewLogger(utils.LogLevelInfo),
 		}
 
@@ -106,7 +106,7 @@ func TestGenericProviderBasics(t *testing.T) {
 			apiKey:  "test-key",
 			model:   "test-model",
 			config:  noStreamConfig,
-			options: make(map[string]interface{}),
+			options: make(map[string]any),
 			logger:  utils.NewLogger(utils.LogLevelInfo),
 		}
 
@@ -120,7 +120,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		apiKey:  "test-key",
 		model:   "gpt-4",
 		config:  ProviderConfig{Type: TypeOpenAI},
-		options: make(map[string]interface{}),
+		options: make(map[string]any),
 		logger:  utils.NewLogger(utils.LogLevelInfo),
 	}
 
@@ -129,7 +129,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		apiKey:  "test-key",
 		model:   "claude-3",
 		config:  ProviderConfig{Type: TypeAnthropic},
-		options: make(map[string]interface{}),
+		options: make(map[string]any),
 		logger:  utils.NewLogger(utils.LogLevelInfo),
 	}
 
@@ -138,16 +138,16 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		body, err := openAIProvider.PrepareRequest(prompt, nil)
 		require.NoError(t, err)
 
-		var request map[string]interface{}
+		var request map[string]any
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
 		assert.Equal(t, "gpt-4", request["model"])
-		messages, ok := request["messages"].([]interface{})
+		messages, ok := request["messages"].([]any)
 		require.True(t, ok, "messages should be an array")
 		require.Len(t, messages, 1)
 
-		message, ok := messages[0].(map[string]interface{})
+		message, ok := messages[0].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "user", message["role"])
 		assert.Equal(t, prompt, message["content"])
@@ -158,16 +158,16 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		body, err := anthropicProvider.PrepareRequest(prompt, nil)
 		require.NoError(t, err)
 
-		var request map[string]interface{}
+		var request map[string]any
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
 		assert.Equal(t, "claude-3", request["model"])
-		messages, ok := request["messages"].([]interface{})
+		messages, ok := request["messages"].([]any)
 		require.True(t, ok, "messages should be an array")
 		require.Len(t, messages, 1)
 
-		message, ok := messages[0].(map[string]interface{})
+		message, ok := messages[0].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "user", message["role"])
 		assert.Equal(t, prompt, message["content"])
@@ -179,7 +179,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		body, err := openAIProvider.PrepareRequest("test", nil)
 		require.NoError(t, err)
 
-		var request map[string]interface{}
+		var request map[string]any
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
@@ -189,14 +189,14 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 	t.Run("Options can be overridden in request", func(t *testing.T) {
 		openAIProvider.SetOption("temperature", 0.8)
 
-		options := map[string]interface{}{
+		options := map[string]any{
 			"temperature": 0.5,
 		}
 
 		body, err := openAIProvider.PrepareRequest("test", options)
 		require.NoError(t, err)
 
-		var request map[string]interface{}
+		var request map[string]any
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
@@ -210,7 +210,7 @@ func TestGenericProviderResponseParsing(t *testing.T) {
 		apiKey:  "test-key",
 		model:   "gpt-4",
 		config:  ProviderConfig{Type: TypeOpenAI},
-		options: make(map[string]interface{}),
+		options: make(map[string]any),
 		logger:  utils.NewLogger(utils.LogLevelInfo),
 	}
 
@@ -219,7 +219,7 @@ func TestGenericProviderResponseParsing(t *testing.T) {
 		apiKey:  "test-key",
 		model:   "claude-3",
 		config:  ProviderConfig{Type: TypeAnthropic},
-		options: make(map[string]interface{}),
+		options: make(map[string]any),
 		logger:  utils.NewLogger(utils.LogLevelInfo),
 	}
 
@@ -289,7 +289,7 @@ func TestGenericProviderStreamHandling(t *testing.T) {
 		apiKey:  "test-key",
 		model:   "gpt-4",
 		config:  ProviderConfig{Type: TypeOpenAI, SupportsStreaming: true},
-		options: make(map[string]interface{}),
+		options: make(map[string]any),
 		logger:  utils.NewLogger(utils.LogLevelInfo),
 	}
 
@@ -297,7 +297,7 @@ func TestGenericProviderStreamHandling(t *testing.T) {
 		body, err := openAIProvider.PrepareStreamRequest("test", nil)
 		require.NoError(t, err)
 
-		var request map[string]interface{}
+		var request map[string]any
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
@@ -404,7 +404,7 @@ func TestAzureOpenAIProvider(t *testing.T) {
 		apiKey:  apiKey,
 		model:   deploymentName,
 		config:  azureConfig,
-		options: make(map[string]interface{}),
+		options: make(map[string]any),
 		logger:  utils.NewLogger(utils.LogLevelInfo),
 	}
 
@@ -412,16 +412,16 @@ func TestAzureOpenAIProvider(t *testing.T) {
 		body, err := provider.PrepareRequest("Hello", nil)
 		require.NoError(t, err)
 
-		var request map[string]interface{}
+		var request map[string]any
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
 		// Azure OpenAI uses deployment name as model
 		assert.Equal(t, deploymentName, request["model"])
 
-		messages := request["messages"].([]interface{})
+		messages := request["messages"].([]any)
 		require.Len(t, messages, 1)
-		message := messages[0].(map[string]interface{})
+		message := messages[0].(map[string]any)
 		assert.Equal(t, "Hello", message["content"])
 	})
 

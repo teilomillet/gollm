@@ -26,7 +26,7 @@ type OllamaProvider struct {
 	// extraHeaders are additional HTTP headers for requests
 	extraHeaders map[string]string // Additional HTTP headers
 	// options are model-specific options for the provider
-	options map[string]interface{} // Model-specific options
+	options map[string]any // Model-specific options
 	// logger is the logger instance for this provider
 	logger utils.Logger // Logger instance
 }
@@ -51,7 +51,7 @@ func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Pro
 		endpoint:     endpoint,
 		model:        model,
 		extraHeaders: extraHeaders,
-		options:      make(map[string]interface{}),
+		options:      make(map[string]any),
 		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
 }
@@ -80,7 +80,7 @@ func (p *OllamaProvider) Endpoint() string {
 //   - top_p: Nucleus sampling parameter
 //   - top_k: Top-k sampling parameter
 //   - stop: Custom stop sequences
-func (p *OllamaProvider) SetOption(key string, value interface{}) {
+func (p *OllamaProvider) SetOption(key string, value any) {
 	p.options[key] = value
 	if p.logger != nil {
 		p.logger.Debug("Setting option for Ollama", "key", key, "value", value)
@@ -132,8 +132,8 @@ func (p *OllamaProvider) Headers() map[string]string {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *OllamaProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
-	requestBody := map[string]interface{}{
+func (p *OllamaProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
+	requestBody := map[string]any{
 		"model":  p.model,
 		"prompt": prompt,
 	}
@@ -148,7 +148,7 @@ func (p *OllamaProvider) PrepareRequest(prompt string, options map[string]interf
 // PrepareRequestWithSchema creates a request with JSON schema validation.
 // Since Ollama doesn't support schema validation natively, this falls back to
 // standard request preparation.
-func (p *OllamaProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+func (p *OllamaProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
 	// Ollama doesn't support JSON schema validation natively
 	// We'll just use the regular PrepareRequest method
 	return p.PrepareRequest(prompt, options)
@@ -208,7 +208,7 @@ func (p *OllamaProvider) ParseResponse(body []byte) (*Response, error) {
 // Since Ollama doesn't support function calling natively, this returns nil.
 func (p *OllamaProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	response := string(body)
-	functionCalls, err := utils.ExtractFunctionCalls(response)
+	functionCalls, err := ExtractFunctionCalls(response)
 	if err != nil {
 		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
@@ -292,7 +292,7 @@ func (p *OllamaProvider) SupportsStreaming() bool {
 }
 
 // PrepareStreamRequest prepares a request body for streaming
-func (p *OllamaProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *OllamaProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
 	options["stream"] = true
 	return p.PrepareRequest(prompt, options)
 }
@@ -332,7 +332,7 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *OllamaProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+func (p *OllamaProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
 	// Ollama doesn't natively support structured messages like Anthropic/OpenAI
 	// Convert to flattened format
 	var flattenedPrompt strings.Builder

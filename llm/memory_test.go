@@ -20,13 +20,13 @@ type MockProvider struct {
 	flattened  string
 	structured bool
 	logger     utils.Logger
-	options    map[string]interface{}
+	options    map[string]any
 }
 
 func NewMockProvider() *MockProvider {
 	return &MockProvider{
 		logger:  utils.NewLogger(utils.LogLevelDebug),
-		options: make(map[string]interface{}),
+		options: make(map[string]any),
 	}
 }
 
@@ -34,17 +34,17 @@ func NewMockProvider() *MockProvider {
 func (p *MockProvider) Name() string               { return "mock" }
 func (p *MockProvider) Endpoint() string           { return "mock://endpoint" }
 func (p *MockProvider) Headers() map[string]string { return map[string]string{} }
-func (p *MockProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *MockProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	p.flattened = prompt
 	p.structured = false
 	return []byte(`{"prompt":"` + prompt + `"}`), nil
 }
-func (p *MockProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+func (p *MockProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
 	p.messages = messages
 	p.structured = true
 	return []byte(`{"messages":"structured"}`), nil
 }
-func (p *MockProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
+func (p *MockProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
 	return []byte(`{}`), nil
 }
 func (p *MockProvider) ParseResponse(body []byte) (string, error)       { return "mock response", nil }
@@ -52,10 +52,10 @@ func (p *MockProvider) SetExtraHeaders(extraHeaders map[string]string)  {}
 func (p *MockProvider) HandleFunctionCalls(body []byte) ([]byte, error) { return nil, nil }
 func (p *MockProvider) SupportsJSONSchema() bool                        { return false }
 func (p *MockProvider) SetDefaultOptions(config *config.Config)         {}
-func (p *MockProvider) SetOption(key string, value interface{})         {}
+func (p *MockProvider) SetOption(key string, value any)                 {}
 func (p *MockProvider) SetLogger(logger utils.Logger)                   { p.logger = logger }
 func (p *MockProvider) SupportsStreaming() bool                         { return false }
-func (p *MockProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *MockProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
 	return []byte(`{}`), nil
 }
 func (p *MockProvider) ParseStreamResponse(chunk []byte) (string, error) { return "", nil }
@@ -94,17 +94,17 @@ func (l *MockLLM) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 	return "mock response", nil
 }
 
-func (l *MockLLM) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (string, error) {
+func (l *MockLLM) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema any, opts ...GenerateOption) (string, error) {
 	return "mock schema response", nil
 }
 func (l *MockLLM) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOption) (TokenStream, error) {
 	return nil, nil
 }
 func (l *MockLLM) SupportsStreaming() bool { return false }
-func (l *MockLLM) SetOption(key string, value interface{}) {
+func (l *MockLLM) SetOption(key string, value any) {
 	if key == "structured_messages" {
 		if messages, ok := value.([]types.MemoryMessage); ok {
-			l.provider.options = map[string]interface{}{
+			l.provider.options = map[string]any{
 				"structured_messages": messages,
 			}
 		}

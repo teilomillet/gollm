@@ -49,16 +49,16 @@ func main() {
 	fmt.Printf("Simple JSON response:\n%s\n", response)
 
 	// Example 2: Structured JSON with Schema Validation
-	colorSchema := map[string]interface{}{
+	colorSchema := map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"colors": map[string]interface{}{
+		"properties": map[string]any{
+			"colors": map[string]any{
 				"type": "array",
-				"items": map[string]interface{}{
+				"items": map[string]any{
 					"type": "object",
-					"properties": map[string]interface{}{
-						"name": map[string]interface{}{"type": "string"},
-						"hex":  map[string]interface{}{"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+					"properties": map[string]any{
+						"name": map[string]any{"type": "string"},
+						"hex":  map[string]any{"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
 					},
 					"required": []string{"name", "hex"},
 				},
@@ -68,7 +68,7 @@ func main() {
 	}
 
 	schemaPrompt := gollm.NewPrompt("List three colors with their hex codes")
-	response, err = llm.GenerateWithSchema(ctx, schemaPrompt, colorSchema)
+	response, err = llm.Generate(ctx, schemaPrompt, gollm.WithStructuredResponse(colorSchema))
 	if err != nil {
 		log.Fatalf("Failed to generate with schema: %v", err)
 	}
@@ -78,41 +78,8 @@ func main() {
 	fmt.Println("\nExample 3: Complex Nested JSON Structure")
 	fmt.Println("This example shows handling of nested JSON objects with strict validation")
 
-	userSchema := `{
-		"type": "object",
-		"properties": {
-			"user": {
-				"type": "object",
-				"properties": {
-					"name": {"type": "string"},
-					"age": {"type": "integer", "minimum": 0},
-					"preferences": {
-						"type": "object",
-						"properties": {
-							"favoriteColors": {
-								"type": "array",
-								"items": {"type": "string"}
-							},
-							"settings": {
-								"type": "object",
-								"properties": {
-									"darkMode": {"type": "boolean"},
-									"notifications": {"type": "boolean"}
-								},
-								"required": ["darkMode", "notifications"]
-							}
-						},
-						"required": ["favoriteColors", "settings"]
-					}
-				},
-				"required": ["name", "age", "preferences"]
-			}
-		},
-		"required": ["user"]
-	}`
-
 	userPrompt := gollm.NewPrompt("Generate a user profile with preferences")
-	response, err = llm.GenerateWithSchema(ctx, userPrompt, userSchema)
+	response, err = llm.Generate(ctx, userPrompt, gollm.WithStructuredResponseSchema[UserEnvelope]())
 	if err != nil {
 		log.Fatalf("Failed to generate complex JSON: %v", err)
 	}
@@ -145,4 +112,31 @@ func main() {
 	fmt.Printf("Mixed format response:\n%s\n", response)
 
 	fmt.Println("\nJSON examples completed.")
+}
+
+// UserEnvelope is the top-level object with a required "user" field.
+type UserEnvelope struct {
+	User User `json:"user"`
+}
+
+// User corresponds to the schema's "user" object.
+// Required fields: name, age, preferences.
+type User struct {
+	Name        string      `json:"name"`
+	Age         int         `json:"age"` // integer >= 0
+	Preferences Preferences `json:"preferences"`
+}
+
+// Preferences corresponds to the "preferences" object.
+// Required fields: favoriteColors, settings.
+type Preferences struct {
+	FavoriteColors []string `json:"favoriteColors"`
+	Settings       Settings `json:"settings"`
+}
+
+// Settings corresponds to the "settings" object.
+// Required fields: darkMode, notifications.
+type Settings struct {
+	DarkMode      bool `json:"darkMode"`
+	Notifications bool `json:"notifications"`
 }

@@ -4,6 +4,7 @@ package assess
 import (
 	"context"
 	"fmt"
+	"github.com/invopop/jsonschema"
 	"github.com/teilomillet/gollm/providers"
 	"os"
 	"regexp"
@@ -54,10 +55,10 @@ type TestCase struct {
 	Name           string
 	Input          string
 	SystemPrompt   string
-	ExpectedSchema interface{}
+	ExpectedSchema any
 	Timeout        time.Duration
 	Validations    []ValidationFunc
-	options        map[string]interface{}
+	options        map[string]any
 	directives     []string
 	context        string
 	maxLength      int
@@ -136,7 +137,7 @@ func (tc *TestCase) WithTimeout(timeout time.Duration) *TestCase {
 	return tc
 }
 
-func (tc *TestCase) ExpectSchema(schema interface{}) *TestCase {
+func (tc *TestCase) ExpectSchema(schema any) *TestCase {
 	tc.ExpectedSchema = schema
 	return tc
 }
@@ -146,9 +147,9 @@ func (tc *TestCase) Validate(fn ValidationFunc) *TestCase {
 	return tc
 }
 
-func (tc *TestCase) WithOption(key string, value interface{}) *TestCase {
+func (tc *TestCase) WithOption(key string, value any) *TestCase {
 	if tc.options == nil {
-		tc.options = make(map[string]interface{})
+		tc.options = make(map[string]any)
 	}
 	tc.options[key] = value
 	return tc
@@ -159,7 +160,7 @@ func (tr *TestRunner) AddCase(name, input string) *TestCase {
 		Name:    name,
 		Input:   input,
 		Timeout: 30 * time.Second,
-		options: make(map[string]interface{}),
+		options: make(map[string]any),
 	}
 	tr.cases = append(tr.cases, tc)
 	return tc
@@ -365,8 +366,8 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 	var err error
 
 	if tc.ExpectedSchema != nil {
-		// Use JSON schema validation for all providers
-		response, err = client.GenerateWithSchema(ctx, prompt, tc.ExpectedSchema)
+		schema := jsonschema.Reflect(tc.ExpectedSchema)
+		response, err = client.Generate(ctx, prompt, gollm.WithStructuredResponse(schema))
 	} else {
 		response, err = client.Generate(ctx, prompt)
 	}
@@ -377,12 +378,12 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 
 	// Run validations
 	for _, validate := range tc.Validations {
-		if err := validate(response.String()); err != nil {
+		if err := validate(response.AsText()); err != nil {
 			t.Errorf("Validation failed: %v", err)
 		}
 	}
 
-	return response.String(), nil
+	return response.AsText(), nil
 }
 
 func (tr *TestRunner) setupClient(provider TestProvider) llm.LLM {
@@ -495,7 +496,8 @@ func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM,
 	var err error
 
 	if tc.ExpectedSchema != nil {
-		response, err = client.GenerateWithSchema(ctx, prompt, tc.ExpectedSchema)
+		schema := jsonschema.Reflect(tc.ExpectedSchema)
+		response, err = client.Generate(ctx, prompt, gollm.WithStructuredResponse(schema))
 	} else {
 		response, err = client.Generate(ctx, prompt)
 	}
@@ -511,7 +513,7 @@ func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM,
 
 	// Run validations
 	for _, validate := range tc.Validations {
-		if err := validate(response.String()); err != nil {
+		if err := validate(response.AsText()); err != nil {
 			t.Errorf("Validation failed: %v", err)
 		}
 	}

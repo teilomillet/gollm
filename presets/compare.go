@@ -1,4 +1,4 @@
-// Package presets provides utilities for enhancing Language Learning Model interactions
+// Package presets provide utilities for enhancing Language Learning Model interactions
 // with specific reasoning patterns and comparison capabilities.
 package presets
 
@@ -18,25 +18,25 @@ import (
 // It is a generic type that can hold any structured response data along with metadata
 // about the generation attempt.
 type ComparisonResult[T any] struct {
-	Provider string // The LLM provider (e.g., "openai", "anthropic")
-	Model    string // The specific model used (e.g., "gpt-4", "claude-2")
-	Response string // Raw response from the model
-	Data     T      // Parsed and validated response data
-	Error    error  // Any error encountered during generation or validation
-	Attempts int    // Number of attempts made to get a valid response
+	Provider string              // The LLM provider (e.g., "openai", "anthropic")
+	Model    string              // The specific model used (e.g., "gpt-4", "claude-2")
+	Response *providers.Response // Response object including content and usage metadata
+	Data     T                   // Parsed and validated response data
+	Error    error               // Any error encountered during generation or validation
+	Attempts int                 // Number of attempts made to get a valid response
 }
 
 // debugLog outputs debug information when debug logging is enabled in the config.
 // It helps track the comparison process and troubleshoot issues.
-func debugLog(config *config.Config, format string, args ...interface{}) {
+func debugLog(config *config.Config, format string, args ...any) {
 	if config.LogLevel == utils.LogLevelDebug {
 		fmt.Printf("[DEBUG] "+format+"\n", args...)
 	}
 }
 
 // cleanResponse processes the raw model response to extract valid JSON.
-// It handles common response formats including:
-// - Responses wrapped in markdown code blocks
+// It handles common response formats including
+// - Responses wrapped in Markdown code blocks
 // - Responses with additional text before/after JSON
 // - Responses with multiple JSON objects
 func cleanResponse(response string) string {
@@ -154,69 +154,69 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 			break
 		}
 
-		newRemainingConfigs := []*config.Config{}
+		var newRemainingConfigs []*config.Config
 
-		for _, config := range remainingConfigs {
-			debugLog(config, "Attempting generation for %s %s (Attempt %d)", config.Provider, config.Model, attempt)
+		for _, remainingConfig := range remainingConfigs {
+			debugLog(remainingConfig, "Attempting generation for %s %s (Attempt %d)", remainingConfig.Provider, remainingConfig.Model, attempt)
 
 			registry := providers.NewProviderRegistry()
-			llmInstance, err := llm.NewLLM(config, logger, registry)
+			llmInstance, err := llm.NewLLM(remainingConfig, logger, registry)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create LLM for %s: %w", config.Provider, err)
+				return nil, fmt.Errorf("failed to create LLM for %s: %w", remainingConfig.Provider, err)
 			}
 
 			response, err := llmInstance.Generate(ctx, llm.NewPrompt(prompt))
-
-			index := findConfigIndex(configs, config)
-			results[index].Provider = config.Provider
-			results[index].Model = config.Model
-			results[index].Response = response
-			results[index].Error = err
-			results[index].Attempts = attempt
-
 			if err != nil {
-				debugLog(config, "Error generating response: %v", err)
+				debugLog(remainingConfig, "Error generating response: %v", err)
 				// Immediately propagate API errors (like invalid keys)
 				if strings.Contains(err.Error(), "API error") {
-					return nil, fmt.Errorf("API error for %s %s: %w", config.Provider, config.Model, err)
+					return nil, fmt.Errorf("API error for %s %s: %w", remainingConfig.Provider, remainingConfig.Model, err)
 				}
 				if attempt == 3 {
 					return nil, fmt.Errorf("failed to generate response after all attempts: %w", err)
 				}
-				newRemainingConfigs = append(newRemainingConfigs, config)
+				newRemainingConfigs = append(newRemainingConfigs, remainingConfig)
 				continue
 			}
 
-			debugLog(config, "Raw response received: %s", response)
+			index := findConfigIndex(configs, remainingConfig)
+			results[index].Provider = remainingConfig.Provider
+			results[index].Model = remainingConfig.Model
+			results[index].Response = response
+			results[index].Error = err
+			results[index].Attempts = attempt
 
-			cleanedResponse := cleanResponse(response)
-			debugLog(config, "Cleaned response: %s", cleanedResponse)
+			debugLog(remainingConfig, "Raw response received: %s", response)
 
-			results[index].Response = cleanedResponse
+			cleanedResponse := cleanResponse(response.AsText())
+
+			debugLog(remainingConfig, "Cleaned response: %s", cleanedResponse)
+
+			results[index].Response.Content = providers.Text{Value: cleanedResponse}
 
 			var data T
 			if err := json.Unmarshal([]byte(cleanedResponse), &data); err != nil {
-				debugLog(config, "Invalid JSON: %v", err)
+				debugLog(remainingConfig, "Invalid JSON: %v", err)
 				results[index].Error = fmt.Errorf("invalid JSON: %w", err)
 				if attempt == 3 {
 					return nil, fmt.Errorf("failed to parse JSON after all attempts: %w", err)
 				}
-				newRemainingConfigs = append(newRemainingConfigs, config)
+				newRemainingConfigs = append(newRemainingConfigs, remainingConfig)
 				continue
 			}
 
 			if err := validateFunc(data); err != nil {
-				debugLog(config, "Validation failed: %v", err)
+				debugLog(remainingConfig, "Validation failed: %v", err)
 				results[index].Error = fmt.Errorf("validation failed: %w", err)
 				if attempt == 3 {
 					return nil, fmt.Errorf("validation failed after all attempts: %w", err)
 				}
-				newRemainingConfigs = append(newRemainingConfigs, config)
+				newRemainingConfigs = append(newRemainingConfigs, remainingConfig)
 				continue
 			}
 
 			results[index].Data = data
-			debugLog(config, "Valid response received for %s %s", config.Provider, config.Model)
+			debugLog(remainingConfig, "Valid response received for %s %s", remainingConfig.Provider, remainingConfig.Model)
 		}
 
 		remainingConfigs = newRemainingConfigs
@@ -228,8 +228,8 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 // findConfigIndex finds the index of a config in the original config slice.
 // This helps maintain result ordering consistent with input configs.
 func findConfigIndex(configs []*config.Config, target *config.Config) int {
-	for i, config := range configs {
-		if config.Provider == target.Provider && config.Model == target.Model {
+	for i, llmConfig := range configs {
+		if llmConfig.Provider == target.Provider && llmConfig.Model == target.Model {
 			return i
 		}
 	}

@@ -73,7 +73,7 @@ func TestCustomConfigExample(t *testing.T) {
 		)
 
 		// Test template execution
-		prompt, err := analysisPrompt.Execute(map[string]interface{}{
+		prompt, err := analysisPrompt.Execute(map[string]any{
 			"Topic": "The widespread adoption of artificial intelligence",
 		})
 		assert.NoError(t, err, "Should execute template without error")
@@ -152,7 +152,7 @@ func TestCustomConfigErrorHandling(t *testing.T) {
 			"test",
 			"{{.Topic", // Invalid template syntax - missing closing brace
 		)
-		_, err := invalidTemplate.Execute(map[string]interface{}{
+		_, err := invalidTemplate.Execute(map[string]any{
 			"Topic": "test",
 		})
 		assert.Error(t, err, "Should fail with invalid template syntax")

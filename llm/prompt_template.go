@@ -18,8 +18,8 @@ import (
 //	    "Translate the following text to {{.language}}:\n{{.text}}",
 //	    WithPromptOptions(WithMaxLength(100)),
 //	)
-//	
-//	prompt, err := template.Execute(map[string]interface{}{
+//
+//	prompt, err := template.Execute(map[string]any{
 //	    "language": "French",
 //	    "text": "Hello, world!",
 //	})
@@ -112,14 +112,14 @@ func WithPromptOptions(options ...PromptOption) PromptTemplateOption {
 //
 // Example:
 //
-//	prompt, err := template.Execute(map[string]interface{}{
+//	prompt, err := template.Execute(map[string]any{
 //	    "text": "Long article to summarize...",
 //	    "maxWords": 50,
 //	})
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-func (pt *PromptTemplate) Execute(data map[string]interface{}) (*Prompt, error) {
+func (pt *PromptTemplate) Execute(data map[string]any) (*Prompt, error) {
 	tmpl, err := template.New(pt.Name).Parse(pt.Template)
 	if err != nil {
 		return nil, err

@@ -158,7 +158,7 @@ func TestCompareProviders(t *testing.T) {
 		assert.NoError(t, err, "Should generate JSON schema")
 		assert.NotEmpty(t, schemaBytes, "JSON schema should not be empty")
 
-		var schema map[string]interface{}
+		var schema map[string]any
 		err = json.Unmarshal(schemaBytes, &schema)
 		assert.NoError(t, err, "Should parse JSON schema")
 
@@ -167,7 +167,7 @@ func TestCompareProviders(t *testing.T) {
 			"Schema should have either a type or $ref field")
 
 		// Test template execution
-		prompt, err := templatePrompt.Execute(map[string]interface{}{
+		prompt, err := templatePrompt.Execute(map[string]any{
 			"Topic": "The adoption of autonomous vehicles",
 		})
 		assert.NoError(t, err, "Should execute prompt template")

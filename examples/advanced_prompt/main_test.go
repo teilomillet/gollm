@@ -79,7 +79,7 @@ Please structure your response as a JSON object with the following format:
 		testName := fmt.Sprintf("analyze_%s", strings.ReplaceAll(topic, " ", "_"))
 
 		// Execute the template for this topic
-		prompt, err := balancedAnalysisTemplate.Execute(map[string]interface{}{
+		prompt, err := balancedAnalysisTemplate.Execute(map[string]any{
 			"Topic": topic,
 		})
 		assert.NoError(t, err)

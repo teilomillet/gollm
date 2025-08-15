@@ -18,10 +18,10 @@ const (
 )
 
 type Logger interface {
-	Debug(msg string, keysAndValues ...interface{})
-	Info(msg string, keysAndValues ...interface{})
-	Warn(msg string, keysAndValues ...interface{})
-	Error(msg string, keysAndValues ...interface{})
+	Debug(msg string, keysAndValues ...any)
+	Info(msg string, keysAndValues ...any)
+	Warn(msg string, keysAndValues ...any)
+	Error(msg string, keysAndValues ...any)
 	SetLevel(level LogLevel)
 }
 
@@ -41,25 +41,25 @@ func (l *DefaultLogger) SetLevel(level LogLevel) {
 	l.level = level
 }
 
-func (l *DefaultLogger) log(level LogLevel, msg string, keysAndValues ...interface{}) {
+func (l *DefaultLogger) log(level LogLevel, msg string, keysAndValues ...any) {
 	if level <= l.level {
 		l.logger.Printf("%s: %s %v", level, msg, keysAndValues)
 	}
 }
 
-func (l *DefaultLogger) Debug(msg string, keysAndValues ...interface{}) {
+func (l *DefaultLogger) Debug(msg string, keysAndValues ...any) {
 	l.log(LogLevelDebug, msg, keysAndValues...)
 }
 
-func (l *DefaultLogger) Info(msg string, keysAndValues ...interface{}) {
+func (l *DefaultLogger) Info(msg string, keysAndValues ...any) {
 	l.log(LogLevelInfo, msg, keysAndValues...)
 }
 
-func (l *DefaultLogger) Warn(msg string, keysAndValues ...interface{}) {
+func (l *DefaultLogger) Warn(msg string, keysAndValues ...any) {
 	l.log(LogLevelWarn, msg, keysAndValues...)
 }
 
-func (l *DefaultLogger) Error(msg string, keysAndValues ...interface{}) {
+func (l *DefaultLogger) Error(msg string, keysAndValues ...any) {
 	l.log(LogLevelError, msg, keysAndValues...)
 }
 

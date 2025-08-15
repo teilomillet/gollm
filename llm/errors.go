@@ -48,10 +48,10 @@ type LLMError struct {
 	Err     error     // The underlying error, if any
 }
 
-// LoggableFields returns a slice of interface{} containing error information
+// LoggableFields returns a slice of any containing error information
 // in a format suitable for structured logging.
-func (e *LLMError) LoggableFields() []interface{} {
-	return []interface{}{
+func (e *LLMError) LoggableFields() []any {
+	return []any{
 		"error_type", e.TypeString(),
 		"message", e.Message,
 		"error", e.Err,

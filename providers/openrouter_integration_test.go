@@ -34,7 +34,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 		prompt := "What is the capital of France? Answer in one word."
 
 		// Prepare the request
-		requestBody, err := provider.PrepareRequest(prompt, map[string]interface{}{
+		requestBody, err := provider.PrepareRequest(prompt, map[string]any{
 			"temperature": 0.0, // Use 0 temperature for deterministic results
 			"max_tokens":  10,  // Short response
 		})
@@ -60,7 +60,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 		provider.SetLogger(logger)
 
 		// Prepare the request with fallbacks
-		requestBody, err := provider.PrepareRequest("What is 2+2?", map[string]interface{}{
+		requestBody, err := provider.PrepareRequest("What is 2+2?", map[string]any{
 			"temperature":     0.0,
 			"max_tokens":      10,
 			"fallback_models": []string{"anthropic/claude-3-haiku", "openai/gpt-3.5-turbo"},
@@ -80,7 +80,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 		require.Contains(t, response, "4")
 
 		// Check which model was actually used from the response
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal(respBody, &parsed)
 		require.NoError(t, err)
 
@@ -98,13 +98,13 @@ func TestOpenRouterIntegration(t *testing.T) {
 		provider.SetLogger(logger)
 
 		// Define the schema
-		schema := map[string]interface{}{
+		schema := map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"name": map[string]interface{}{
+			"properties": map[string]any{
+				"name": map[string]any{
 					"type": "string",
 				},
-				"age": map[string]interface{}{
+				"age": map[string]any{
 					"type": "integer",
 				},
 			},
@@ -114,7 +114,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 		// Prepare the request with schema
 		requestBody, err := provider.PrepareRequestWithSchema(
 			"Create a JSON object for a person named Alex who is 25 years old.",
-			map[string]interface{}{
+			map[string]any{
 				"temperature": 0.0,
 				"max_tokens":  100,
 			},
@@ -132,7 +132,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Validate the response is valid JSON conforming to the schema
-		var personData map[string]interface{}
+		var personData map[string]any
 		err = json.Unmarshal([]byte(response), &personData)
 		require.NoError(t, err, "Response should be valid JSON")
 
@@ -157,7 +157,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 		}
 
 		// Prepare the request with message history and reasoning tokens
-		requestBody, err := provider.PrepareRequestWithMessages(messages, map[string]interface{}{
+		requestBody, err := provider.PrepareRequestWithMessages(messages, map[string]any{
 			"temperature": 0.0,
 			"max_tokens":  200,
 			"transforms":  []string{"reasoning"},
@@ -186,16 +186,16 @@ func TestOpenRouterIntegration(t *testing.T) {
 		provider.SetLogger(logger)
 
 		// Define the tools
-		tools := []interface{}{
-			map[string]interface{}{
+		tools := []any{
+			map[string]any{
 				"type": "function",
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":        "get_weather",
 					"description": "Get the current weather in a given location",
-					"parameters": map[string]interface{}{
+					"parameters": map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"location": map[string]interface{}{
+						"properties": map[string]any{
+							"location": map[string]any{
 								"type":        "string",
 								"description": "The city and state, e.g. San Francisco, CA",
 							},
@@ -210,7 +210,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 		prompt := "What's the weather in Tokyo today?"
 
 		// Prepare the request with tools
-		requestBody, err := provider.PrepareRequest(prompt, map[string]interface{}{
+		requestBody, err := provider.PrepareRequest(prompt, map[string]any{
 			"temperature": 0.0,
 			"max_tokens":  100,
 			"tools":       tools,
@@ -229,32 +229,32 @@ func TestOpenRouterIntegration(t *testing.T) {
 		require.NotNil(t, toolCallResp, "Should detect a tool call")
 
 		// Verify that we get a tool call for weather in Tokyo
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal(toolCallResp, &parsed)
 		require.NoError(t, err)
 
 		// Extract the tool call details
-		choices, ok := parsed["choices"].([]interface{})
+		choices, ok := parsed["choices"].([]any)
 		require.True(t, ok)
 		require.NotEmpty(t, choices)
 
-		message, ok := choices[0].(map[string]interface{})["message"].(map[string]interface{})
+		message, ok := choices[0].(map[string]any)["message"].(map[string]any)
 		require.True(t, ok)
 
-		toolCalls, ok := message["tool_calls"].([]interface{})
+		toolCalls, ok := message["tool_calls"].([]any)
 		require.True(t, ok)
 		require.NotEmpty(t, toolCalls)
 
 		// Verify it's calling the weather function
-		toolCall := toolCalls[0].(map[string]interface{})
+		toolCall := toolCalls[0].(map[string]any)
 		require.Equal(t, "function", toolCall["type"])
 
-		functionCall := toolCall["function"].(map[string]interface{})
+		functionCall := toolCall["function"].(map[string]any)
 		require.Equal(t, "get_weather", functionCall["name"])
 
 		// Check the location is Tokyo
 		args := functionCall["arguments"].(string)
-		var argsMap map[string]interface{}
+		var argsMap map[string]any
 		err = json.Unmarshal([]byte(args), &argsMap)
 		require.NoError(t, err)
 

@@ -68,11 +68,11 @@ func TestOpenRouterProvider(t *testing.T) {
 
 	t.Run("PrepareRequest formats chat completion request correctly", func(t *testing.T) {
 		// Reset options
-		provider.options = make(map[string]interface{})
+		provider.options = make(map[string]any)
 
 		// Test with a basic prompt
 		prompt := "Hello, world!"
-		options := map[string]interface{}{
+		options := map[string]any{
 			"temperature": 0.7,
 			"max_tokens":  100,
 		}
@@ -81,7 +81,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Parse the request to verify structure
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
@@ -93,29 +93,29 @@ func TestOpenRouterProvider(t *testing.T) {
 		assert.Equal(t, float64(100), req["max_tokens"])
 
 		// Verify messages format
-		messages, ok := req["messages"].([]interface{})
+		messages, ok := req["messages"].([]any)
 		assert.True(t, ok)
 		assert.Equal(t, 1, len(messages))
 
-		userMsg := messages[0].(map[string]interface{})
+		userMsg := messages[0].(map[string]any)
 		assert.Equal(t, "user", userMsg["role"])
 		assert.Equal(t, "Hello, world!", userMsg["content"])
 	})
 
 	t.Run("PrepareRequest handles fallback models", func(t *testing.T) {
-		options := map[string]interface{}{
+		options := map[string]any{
 			"fallback_models": []string{"openai/gpt-4o", "mistral/mistral-large"},
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
 		assert.NoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
 		// Check fallback models were set correctly
-		models, ok := req["models"].([]interface{})
+		models, ok := req["models"].([]any)
 		assert.True(t, ok)
 		assert.Equal(t, 3, len(models))
 		assert.Equal(t, model, models[0])
@@ -128,14 +128,14 @@ func TestOpenRouterProvider(t *testing.T) {
 	})
 
 	t.Run("PrepareRequest handles auto routing", func(t *testing.T) {
-		options := map[string]interface{}{
+		options := map[string]any{
 			"auto_route": true,
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
 		assert.NoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
@@ -148,25 +148,25 @@ func TestOpenRouterProvider(t *testing.T) {
 	})
 
 	t.Run("PrepareRequest handles provider preferences", func(t *testing.T) {
-		providerPrefs := map[string]interface{}{
-			"openai": map[string]interface{}{
+		providerPrefs := map[string]any{
+			"openai": map[string]any{
 				"weight": 2.0,
 			},
 		}
 
-		options := map[string]interface{}{
+		options := map[string]any{
 			"provider_preferences": providerPrefs,
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
 		assert.NoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
 		// Check provider preferences were set correctly
-		provider, ok := req["provider"].(map[string]interface{})
+		provider, ok := req["provider"].(map[string]any)
 		assert.True(t, ok)
 		assert.Equal(t, providerPrefs, provider)
 
@@ -176,21 +176,21 @@ func TestOpenRouterProvider(t *testing.T) {
 	})
 
 	t.Run("PrepareRequest handles tools", func(t *testing.T) {
-		tools := []interface{}{
-			map[string]interface{}{
+		tools := []any{
+			map[string]any{
 				"type": "function",
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":        "get_weather",
 					"description": "Get weather",
-					"parameters": map[string]interface{}{
+					"parameters": map[string]any{
 						"type":       "object",
-						"properties": map[string]interface{}{},
+						"properties": map[string]any{},
 					},
 				},
 			},
 		}
 
-		options := map[string]interface{}{
+		options := map[string]any{
 			"tools":       tools,
 			"tool_choice": "auto",
 		}
@@ -198,12 +198,12 @@ func TestOpenRouterProvider(t *testing.T) {
 		body, err := provider.PrepareRequest("test prompt", options)
 		assert.NoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
 		// Check tools were set correctly
-		reqTools, ok := req["tools"].([]interface{})
+		reqTools, ok := req["tools"].([]any)
 		assert.True(t, ok)
 		assert.Equal(t, 1, len(reqTools))
 
@@ -212,10 +212,10 @@ func TestOpenRouterProvider(t *testing.T) {
 	})
 
 	t.Run("PrepareRequestWithSchema includes JSON schema", func(t *testing.T) {
-		schema := map[string]interface{}{
+		schema := map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"name": map[string]interface{}{
+			"properties": map[string]any{
+				"name": map[string]any{
 					"type": "string",
 				},
 			},
@@ -224,12 +224,12 @@ func TestOpenRouterProvider(t *testing.T) {
 		body, err := provider.PrepareRequestWithSchema("test prompt", nil, schema)
 		assert.NoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
 		// Check response format was set correctly
-		responseFormat, ok := req["response_format"].(map[string]interface{})
+		responseFormat, ok := req["response_format"].(map[string]any)
 		assert.True(t, ok)
 		assert.Equal(t, "json_object", responseFormat["type"])
 		assert.Equal(t, schema, responseFormat["schema"])
@@ -246,31 +246,31 @@ func TestOpenRouterProvider(t *testing.T) {
 		body, err := provider.PrepareRequestWithMessages(messages, nil)
 		assert.NoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
 		// Check messages were formatted correctly
-		reqMessages, ok := req["messages"].([]interface{})
+		reqMessages, ok := req["messages"].([]any)
 		assert.True(t, ok)
 		assert.Equal(t, 4, len(reqMessages))
 
 		// Check roles are preserved
-		assert.Equal(t, "system", reqMessages[0].(map[string]interface{})["role"])
-		assert.Equal(t, "user", reqMessages[1].(map[string]interface{})["role"])
-		assert.Equal(t, "assistant", reqMessages[2].(map[string]interface{})["role"])
-		assert.Equal(t, "user", reqMessages[3].(map[string]interface{})["role"])
+		assert.Equal(t, "system", reqMessages[0].(map[string]any)["role"])
+		assert.Equal(t, "user", reqMessages[1].(map[string]any)["role"])
+		assert.Equal(t, "assistant", reqMessages[2].(map[string]any)["role"])
+		assert.Equal(t, "user", reqMessages[3].(map[string]any)["role"])
 
 		// Check content is preserved
-		assert.Equal(t, "You are a helpful assistant", reqMessages[0].(map[string]interface{})["content"])
-		assert.Equal(t, "Hello, world!", reqMessages[1].(map[string]interface{})["content"])
-		assert.Equal(t, "How can I help you?", reqMessages[2].(map[string]interface{})["content"])
-		assert.Equal(t, "Tell me a joke", reqMessages[3].(map[string]interface{})["content"])
+		assert.Equal(t, "You are a helpful assistant", reqMessages[0].(map[string]any)["content"])
+		assert.Equal(t, "Hello, world!", reqMessages[1].(map[string]any)["content"])
+		assert.Equal(t, "How can I help you?", reqMessages[2].(map[string]any)["content"])
+		assert.Equal(t, "Tell me a joke", reqMessages[3].(map[string]any)["content"])
 	})
 
 	t.Run("PrepareCompletionRequest formats prompt correctly", func(t *testing.T) {
 		prompt := "Write a poem about nature"
-		options := map[string]interface{}{
+		options := map[string]any{
 			"temperature": 0.8,
 			"max_tokens":  200,
 		}
@@ -278,7 +278,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		body, err := provider.PrepareCompletionRequest(prompt, options)
 		assert.NoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
@@ -411,7 +411,7 @@ func TestOpenRouterProvider(t *testing.T) {
 
 	t.Run("Reasoning tokens are enabled correctly", func(t *testing.T) {
 		// Reset options
-		provider.options = make(map[string]interface{})
+		provider.options = make(map[string]any)
 
 		// Enable reasoning
 		provider.options["enable_reasoning"] = true

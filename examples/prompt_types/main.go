@@ -41,7 +41,7 @@ func main() {
 	if err != nil {
 		log.Printf("Failed to generate basic response: %v", err)
 	} else {
-		fmt.Printf("Basic Prompt Response:\n%s\n", basicResponse)
+		fmt.Printf("Basic Prompt Response:\n%s\n", basicResponse.AsText())
 	}
 
 	// Example 2: Prompt with Directives, Output, and Context
@@ -59,7 +59,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate directive response: %v", err)
 	}
-	fmt.Printf("Directive Prompt Response:\n%s\n", directiveResponse)
+	fmt.Printf("Directive Prompt Response:\n%s\n", directiveResponse.AsText())
 
 	// Example 3: Prompt with Examples and Max Length
 	fmt.Println("\nExample 3: Prompt with Examples and Max Length")
@@ -74,7 +74,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate examples response: %v", err)
 	}
-	fmt.Printf("Examples Prompt Response:\n%s\n", examplesResponse)
+	fmt.Printf("Examples Prompt Response:\n%s\n", examplesResponse.AsText())
 
 	// Example 4: Prompt Template with Dynamic Content
 	fmt.Println("\nExample 4: Prompt Template with Dynamic Content")
@@ -92,7 +92,7 @@ func main() {
 		),
 	)
 
-	prompt, err := templatePrompt.Execute(map[string]interface{}{
+	prompt, err := templatePrompt.Execute(map[string]any{
 		"ProductType":    "smartwatch",
 		"ProductName":    "TimeWise X1",
 		"TargetAudience": "fitness enthusiasts",
@@ -106,7 +106,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate template response: %v", err)
 	}
-	fmt.Printf("Template Prompt Response:\n%s\n", templateResponse)
+	fmt.Printf("Template Prompt Response:\n%s\n", templateResponse.AsText())
 
 	// Example 5: JSON Schema Generation and Validation
 	fmt.Println("\nExample 5: JSON Schema Generation and Validation")
@@ -147,7 +147,7 @@ func main() {
 		log.Fatalf("Failed to generate idea: %v", err)
 	}
 
-	analysisPrompt := gollm.NewPrompt(fmt.Sprintf("Analyze the following business idea: %s", ideaResponse),
+	analysisPrompt := gollm.NewPrompt(fmt.Sprintf("Analyze the following business idea: %s", ideaResponse.AsText()),
 		gollm.WithDirectives(
 			"Identify potential challenges",
 			"Suggest target market",
@@ -160,32 +160,22 @@ func main() {
 		log.Fatalf("Failed to generate analysis: %v", err)
 	}
 
-	fmt.Printf("Chained Prompts Response:\nIdea: %s\nAnalysis: %s\n", ideaResponse, analysisResponse)
+	fmt.Printf("Chained Prompts Response:\nIdea: %s\nAnalysis: %s\n", ideaResponse.AsText(), analysisResponse.AsText())
 
 	// Example 7: Prompt with JSON Schema Validation
 	fmt.Println("\nExample 7: Prompt with JSON Schema Validation")
-	jsonSchemaPrompt := gollm.NewPrompt("Generate a user profile",
-		gollm.WithOutput(`{
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "age": {"type": "integer", "minimum": 18},
-            "interests": {"type": "array", "items": {"type": "string"}}
-        },
-        "required": ["name", "age", "interests"]
-    }`),
-	)
+	jsonSchemaPrompt := gollm.NewPrompt("Generate a user profile")
 
-	jsonSchemaResponse, err := llm.Generate(ctx, jsonSchemaPrompt, gollm.WithJSONSchemaValidation())
+	jsonSchemaResponse, err := llm.Generate(ctx, jsonSchemaPrompt, gollm.WithStructuredResponseSchema[UserProfile]())
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema validated response: %v", err)
 	}
 
 	// Print the raw response to debug
-	fmt.Printf("Raw JSON Schema Response:\n%s\n", jsonSchemaResponse)
+	fmt.Printf("Raw JSON Schema Response:\n%s\n", jsonSchemaResponse.AsText())
 
-	var userProfile map[string]interface{}
-	err = json.Unmarshal([]byte(jsonSchemaResponse), &userProfile)
+	var userProfile UserProfile
+	err = json.Unmarshal([]byte(jsonSchemaResponse.AsText()), &userProfile)
 	if err != nil {
 		log.Fatalf("Failed to parse JSON response: %v", err)
 	}
@@ -193,4 +183,10 @@ func main() {
 	fmt.Printf("JSON Schema Validated Response:\n%+v\n", userProfile)
 
 	fmt.Println("\nExample completed.")
+}
+
+type UserProfile struct {
+	Name      string   `json:"name"`
+	Age       int      `json:"age"`
+	Interests []string `json:"interests"`
 }

@@ -107,7 +107,7 @@ func TestTraditionalVsStructured(memLLM *llm.LLMWithMemory) {
 	}
 
 	// Truncate response for display
-	displayResp := resp1
+	displayResp := resp1.AsText()
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
@@ -121,7 +121,7 @@ func TestTraditionalVsStructured(memLLM *llm.LLMWithMemory) {
 	}
 
 	// Truncate response for display
-	displayResp = resp2
+	displayResp = resp2.AsText()
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
@@ -142,7 +142,7 @@ func TestTraditionalVsStructured(memLLM *llm.LLMWithMemory) {
 	}
 
 	// Truncate response for display
-	displayResp = resp1
+	displayResp = resp1.AsText()
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
@@ -156,7 +156,7 @@ func TestTraditionalVsStructured(memLLM *llm.LLMWithMemory) {
 	}
 
 	// Truncate response for display
-	displayResp = resp2
+	displayResp = resp2.AsText()
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
@@ -186,7 +186,7 @@ func TestCachingPerformance(memLLM *llm.LLMWithMemory) {
 	}
 
 	// Truncate response for display
-	displayResp := resp
+	displayResp := resp.AsText()
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
@@ -206,7 +206,7 @@ func TestCachingPerformance(memLLM *llm.LLMWithMemory) {
 	}
 
 	// Truncate response for display
-	displayResp = resp
+	displayResp = resp.AsText()
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}

@@ -229,12 +229,12 @@ func (p *CohereProvider) ParseResponse(body []byte) (*Response, error) {
 
 	for _, toolCall := range response.Message.ToolCalls {
 		// Parse arguments as raw JSON to preserve the exact format
-		var args interface{}
+		var args any
 		if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
 			return nil, fmt.Errorf("error parsing function arguments: %w", err)
 		}
 
-		functionCall, err := utils.FormatFunctionCall(toolCall.Function.Name, args)
+		functionCall, err := FormatFunctionCall(toolCall.Function.Name, args)
 		if err != nil {
 			return nil, fmt.Errorf("error formatting function call: %w", err)
 		}
@@ -252,7 +252,7 @@ func (p *CohereProvider) ParseResponse(body []byte) (*Response, error) {
 // This supports Cohere's response formatting capabilities.
 func (p *CohereProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	response := string(body)
-	functionCalls, err := utils.ExtractFunctionCalls(response)
+	functionCalls, err := ExtractFunctionCalls(response)
 	if err != nil {
 		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
@@ -277,7 +277,7 @@ func (p *CohereProvider) SupportsStreaming() bool {
 }
 
 // PrepareStreamRequest prepares a request body for streaming
-func (p *CohereProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *CohereProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
 	options["stream"] = true
 	return p.PrepareRequest(prompt, options)
 }
@@ -297,9 +297,9 @@ func (p *CohereProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 }
 
 // PrepareRequestWithMessages creates a request using structured message objects.
-func (p *CohereProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
+func (p *CohereProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
 	// Cohere uses a chat history format
-	chatHistory := []map[string]interface{}{}
+	chatHistory := []map[string]any{}
 	var userMessage string
 
 	// Process messages and build chat history
@@ -309,7 +309,7 @@ func (p *CohereProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 			userMessage = msg.Content
 		} else {
 			// Previous messages go into chat history
-			chatHistory = append(chatHistory, map[string]interface{}{
+			chatHistory = append(chatHistory, map[string]any{
 				"role":    msg.Role,
 				"message": msg.Content,
 			})
@@ -317,7 +317,7 @@ func (p *CohereProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 	}
 
 	// Build request
-	request := map[string]interface{}{
+	request := map[string]any{
 		"model":        p.model,
 		"message":      userMessage,
 		"chat_history": chatHistory,

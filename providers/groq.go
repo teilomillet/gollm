@@ -4,7 +4,6 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
@@ -14,11 +13,11 @@ import (
 // It supports Groq's optimized language models and provides access to their
 // high-performance inference capabilities.
 type GroqProvider struct {
-	apiKey       string                 // API key for authentication
-	model        string                 // Model identifier (e.g., "llama2-70b", "mixtral-8x7b")
-	extraHeaders map[string]string      // Additional HTTP headers
-	options      map[string]interface{} // Model-specific options
-	logger       utils.Logger           // Logger instance
+	apiKey       string            // API key for authentication
+	model        string            // Model identifier (e.g., "llama2-70b", "mixtral-8x7b")
+	extraHeaders map[string]string // Additional HTTP headers
+	options      map[string]any    // Model-specific options
+	logger       utils.Logger      // Logger instance
 }
 
 // NewGroqProvider creates a new Groq provider instance.
@@ -39,7 +38,7 @@ func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provi
 		apiKey:       apiKey,
 		model:        model,
 		extraHeaders: extraHeaders,
-		options:      make(map[string]interface{}),
+		options:      make(map[string]any),
 		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
 }
@@ -67,7 +66,7 @@ func (p *GroqProvider) Endpoint() string {
 //   - max_tokens: Maximum tokens in the response
 //   - top_p: Nucleus sampling parameter
 //   - top_k: Top-k sampling parameter
-func (p *GroqProvider) SetOption(key string, value interface{}) {
+func (p *GroqProvider) SetOption(key string, value any) {
 	p.options[key] = value
 }
 
@@ -112,8 +111,8 @@ func (p *GroqProvider) Headers() map[string]string {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *GroqProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
-	requestBody := map[string]interface{}{
+func (p *GroqProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
+	requestBody := map[string]any{
 		"model": p.model,
 		"messages": []map[string]string{
 			{"role": "user", "content": prompt},
@@ -136,13 +135,13 @@ func (p *GroqProvider) PrepareRequest(prompt string, options map[string]interfac
 // PrepareRequestWithSchema creates a request with JSON schema validation.
 // Since Groq doesn't support schema validation natively, this falls back to
 // standard request preparation.
-func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
-	requestBody := map[string]interface{}{
+func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
+	requestBody := map[string]any{
 		"model": p.model,
 		"messages": []map[string]string{
 			{"role": "user", "content": prompt},
 		},
-		"response_format": map[string]interface{}{
+		"response_format": map[string]any{
 			"type":   "json_schema",
 			"schema": schema,
 		},
@@ -155,7 +154,7 @@ func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[strin
 
 	// Add strict option if provided
 	if strict, ok := options["strict"].(bool); ok && strict {
-		requestBody["response_format"].(map[string]interface{})["strict"] = true
+		requestBody["response_format"].(map[string]any)["strict"] = true
 	}
 
 	return json.Marshal(requestBody)
@@ -204,7 +203,7 @@ func (p *GroqProvider) ParseResponse(body []byte) (*Response, error) {
 // Since Groq doesn't support function calling natively, this returns nil.
 func (p *GroqProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	response := string(body)
-	functionCalls, err := utils.ExtractFunctionCalls(response)
+	functionCalls, err := ExtractFunctionCalls(response)
 	if err != nil {
 		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
@@ -228,7 +227,7 @@ func (p *GroqProvider) SupportsStreaming() bool {
 }
 
 // PrepareStreamRequest prepares a request body for streaming
-func (p *GroqProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *GroqProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
 	options["stream"] = true
 	return p.PrepareRequest(prompt, options)
 }
@@ -253,15 +252,15 @@ func (p *GroqProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 
 // PrepareRequestWithMessages creates a request body using structured message objects
 // rather than a flattened prompt string.
-func (p *GroqProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
-	request := map[string]interface{}{
+func (p *GroqProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+	request := map[string]any{
 		"model":    p.model,
-		"messages": []map[string]interface{}{},
+		"messages": []map[string]any{},
 	}
 
 	// Add system prompt if present
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
 			"role":    "system",
 			"content": systemPrompt,
 		})
@@ -269,7 +268,7 @@ func (p *GroqProvider) PrepareRequestWithMessages(messages []types.MemoryMessage
 
 	// Convert structured messages to Groq format (OpenAI compatible)
 	for _, msg := range messages {
-		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
 			"role":    msg.Role,
 			"content": msg.Content,
 		})

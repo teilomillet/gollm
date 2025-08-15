@@ -73,7 +73,7 @@ func main() {
 	fmt.Printf("JSON Schema for Prompts:\n%s\n", string(schemaBytes))
 
 	// Execute the template and generate responses
-	prompt, err := templatePrompt.Execute(map[string]interface{}{
+	prompt, err := templatePrompt.Execute(map[string]any{
 		"Topic": "The adoption of autonomous vehicles",
 	})
 	if err != nil {

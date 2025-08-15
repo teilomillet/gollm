@@ -90,16 +90,16 @@ func TestJSONHandlingExamples(t *testing.T) {
 		})
 
 	// Example 2: Structured JSON with Schema Validation
-	colorSchema := map[string]interface{}{
+	colorSchema := map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"colors": map[string]interface{}{
+		"properties": map[string]any{
+			"colors": map[string]any{
 				"type": "array",
-				"items": map[string]interface{}{
+				"items": map[string]any{
 					"type": "object",
-					"properties": map[string]interface{}{
-						"name": map[string]interface{}{"type": "string"},
-						"hex":  map[string]interface{}{"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+					"properties": map[string]any{
+						"name": map[string]any{"type": "string"},
+						"hex":  map[string]any{"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
 					},
 					"required": []string{"name", "hex"},
 				},
@@ -115,11 +115,11 @@ func TestJSONHandlingExamples(t *testing.T) {
 		ExpectSchema(colorSchema).
 		Validate(func(response string) error {
 			cleanResponse := cleanJSONResponse(response)
-			var result map[string]interface{}
+			var result map[string]any
 			if err := json.Unmarshal([]byte(cleanResponse), &result); err != nil {
 				return fmt.Errorf("invalid JSON: %v", err)
 			}
-			colors, ok := result["colors"].([]interface{})
+			colors, ok := result["colors"].([]any)
 			if !ok {
 				return fmt.Errorf("colors field not found or invalid")
 			}
@@ -170,12 +170,12 @@ func TestJSONHandlingExamples(t *testing.T) {
 		ExpectSchema(userSchema).
 		Validate(func(response string) error {
 			cleanResponse := cleanJSONResponse(response)
-			var result map[string]interface{}
+			var result map[string]any
 			if err := json.Unmarshal([]byte(cleanResponse), &result); err != nil {
 				return fmt.Errorf("invalid JSON: %v", err)
 			}
 
-			user, ok := result["user"].(map[string]interface{})
+			user, ok := result["user"].(map[string]any)
 			if !ok {
 				return fmt.Errorf("user object not found or invalid")
 			}
@@ -240,11 +240,11 @@ func TestJSONHandlingExamples(t *testing.T) {
 
 			// Try to extract and validate JSON if present
 			if jsonStr, err := extractJSONFromText(response); err == nil {
-				var data map[string]interface{}
+				var data map[string]any
 				if err := json.Unmarshal([]byte(jsonStr), &data); err == nil {
-					if tech, ok := data["technical"].(map[string]interface{}); ok {
+					if tech, ok := data["technical"].(map[string]any); ok {
 						if rgb, hasRGB := tech["rgb"]; hasRGB {
-							if rgbArr, isArray := rgb.([]interface{}); isArray && len(rgbArr) == 3 {
+							if rgbArr, isArray := rgb.([]any); isArray && len(rgbArr) == 3 {
 								// Valid RGB array found
 								return nil
 							}

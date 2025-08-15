@@ -6,7 +6,6 @@ package gollm
 import (
 	"context"
 	"fmt"
-
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/llm"
 	"github.com/teilomillet/gollm/providers"
@@ -28,7 +27,7 @@ type LLM interface {
 	// UpdateLogLevel changes the logging verbosity for both gollm and internal LLM operations.
 	UpdateLogLevel(level LogLevel)
 	// Debug logs a debug message with optional key-value pairs for detailed logging.
-	Debug(msg string, keysAndValues ...interface{})
+	Debug(msg string, keysAndValues ...any)
 	// GetLogLevel returns the current logging verbosity level.
 	GetLogLevel() LogLevel
 	// SetOllamaEndpoint configures a custom endpoint for Ollama provider.
@@ -67,7 +66,7 @@ func (l *llmImpl) GetModel() string {
 }
 
 // Debug logs a debug message with optional key-value pairs.
-func (l *llmImpl) Debug(msg string, keysAndValues ...interface{}) {
+func (l *llmImpl) Debug(msg string, keysAndValues ...any) {
 	l.logger.Debug(msg, keysAndValues...)
 }
 
@@ -77,7 +76,7 @@ func (l *llmImpl) GetLogLevel() LogLevel {
 }
 
 // SetOption sets an option for the LLM with the given key and value.
-func (l *llmImpl) SetOption(key string, value interface{}) {
+func (l *llmImpl) SetOption(key string, value any) {
 	l.logger.Debug("Setting option", "key", key, "value", value)
 	l.LLM.SetOption(key, value)
 	l.logger.Debug("Option set successfully")
@@ -109,17 +108,6 @@ func (l *llmImpl) UpdateLogLevel(level LogLevel) {
 // Generate Implement the base Generate method (if not already provided by embedded llm.LLM)
 func (l *llmImpl) Generate(ctx context.Context, prompt *llm.Prompt, opts ...llm.GenerateOption) (*providers.Response, error) {
 	l.logger.Debug("Starting Generate method", "prompt_length", len(prompt.String()), "context", ctx)
-
-	generateConfig := &llm.GenerateConfig{}
-	for _, opt := range opts {
-		opt(generateConfig)
-	}
-
-	if generateConfig.UseJSONSchema {
-		if err := prompt.Validate(); err != nil {
-			return nil, fmt.Errorf("invalid prompt: %w", err)
-		}
-	}
 
 	// Call the base LLM's Generate method
 	response, err := l.LLM.Generate(ctx, prompt, opts...)

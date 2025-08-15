@@ -15,11 +15,11 @@ import (
 // It supports Mistral's language models and provides access to their capabilities,
 // including chat completion and structured output.
 type MistralProvider struct {
-	apiKey       string                 // API key for authentication
-	model        string                 // Model identifier (e.g., "mistral-large", "mistral-medium")
-	extraHeaders map[string]string      // Additional HTTP headers
-	options      map[string]interface{} // Model-specific options
-	logger       utils.Logger           // Logger instance
+	apiKey       string            // API key for authentication
+	model        string            // Model identifier (e.g., "mistral-large", "mistral-medium")
+	extraHeaders map[string]string // Additional HTTP headers
+	options      map[string]any    // Model-specific options
+	logger       utils.Logger      // Logger instance
 }
 
 // NewMistralProvider creates a new Mistral provider instance.
@@ -40,7 +40,7 @@ func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) Pr
 		apiKey:       apiKey,
 		model:        model,
 		extraHeaders: extraHeaders,
-		options:      make(map[string]interface{}),
+		options:      make(map[string]any),
 		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
 }
@@ -57,7 +57,7 @@ func (p *MistralProvider) SetLogger(logger utils.Logger) {
 //   - max_tokens: Maximum tokens in the response
 //   - top_p: Nucleus sampling parameter
 //   - random_seed: Random seed for deterministic sampling
-func (p *MistralProvider) SetOption(key string, value interface{}) {
+func (p *MistralProvider) SetOption(key string, value any) {
 	p.options[key] = value
 }
 
@@ -120,10 +120,10 @@ func (p *MistralProvider) Headers() map[string]string {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *MistralProvider) PrepareRequest(prompt string, options map[string]interface{}) ([]byte, error) {
-	requestBody := map[string]interface{}{
+func (p *MistralProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
+	requestBody := map[string]any{
 		"model": p.model,
-		"messages": []map[string]interface{}{
+		"messages": []map[string]any{
 			{"role": "user", "content": prompt},
 		},
 	}
@@ -152,13 +152,13 @@ func (p *MistralProvider) PrepareRequest(prompt string, options map[string]inter
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *MistralProvider) PrepareRequestWithSchema(prompt string, options map[string]interface{}, schema interface{}) ([]byte, error) {
-	requestBody := map[string]interface{}{
+func (p *MistralProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
+	requestBody := map[string]any{
 		"model": p.model,
 		"messages": []map[string]string{
 			{"role": "user", "content": prompt},
 		},
-		"response_format": map[string]interface{}{
+		"response_format": map[string]any{
 			"type":   "json_schema",
 			"schema": schema,
 		},
@@ -171,7 +171,7 @@ func (p *MistralProvider) PrepareRequestWithSchema(prompt string, options map[st
 
 	// Add strict option if provided
 	if strict, ok := options["strict"].(bool); ok && strict {
-		requestBody["response_format"].(map[string]interface{})["strict"] = true
+		requestBody["response_format"].(map[string]any)["strict"] = true
 	}
 
 	return json.Marshal(requestBody)
@@ -216,12 +216,12 @@ func (p *MistralProvider) ParseResponse(body []byte) (*Response, error) {
 	// Process tool calls if present
 	for _, toolCall := range response.Choices[0].Message.ToolCalls {
 		// Parse arguments as raw JSON to preserve the exact format
-		var args interface{}
+		var args any
 		if err := json.Unmarshal(toolCall.Function.Arguments, &args); err != nil {
 			return nil, fmt.Errorf("error parsing function arguments: %w", err)
 		}
 
-		functionCall, err := utils.FormatFunctionCall(toolCall.Function.Name, args)
+		functionCall, err := FormatFunctionCall(toolCall.Function.Name, args)
 		if err != nil {
 			return nil, fmt.Errorf("error formatting function call: %w", err)
 		}
@@ -238,7 +238,7 @@ func (p *MistralProvider) ParseResponse(body []byte) (*Response, error) {
 // This supports Mistral's response formatting capabilities.
 func (p *MistralProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	response := string(body)
-	functionCalls, err := utils.ExtractFunctionCalls(response)
+	functionCalls, err := ExtractFunctionCalls(response)
 	if err != nil {
 		return nil, fmt.Errorf("error extracting function calls: %w", err)
 	}
@@ -262,7 +262,7 @@ func (p *MistralProvider) SupportsStreaming() bool {
 }
 
 // PrepareStreamRequest prepares a request body for streaming
-func (p *MistralProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
+func (p *MistralProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
 	options["stream"] = true
 	return p.PrepareRequest(prompt, options)
 }
@@ -286,15 +286,15 @@ func (p *MistralProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 }
 
 // PrepareRequestWithMessages creates a request using structured message objects.
-func (p *MistralProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
-	request := map[string]interface{}{
+func (p *MistralProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+	request := map[string]any{
 		"model":    p.model,
-		"messages": []map[string]interface{}{},
+		"messages": []map[string]any{},
 	}
 
 	// Add system prompt if present
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
 			"role":    "system",
 			"content": systemPrompt,
 		})
@@ -302,7 +302,7 @@ func (p *MistralProvider) PrepareRequestWithMessages(messages []types.MemoryMess
 
 	// Convert memory messages to Mistral format
 	for _, msg := range messages {
-		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
 			"role":    msg.Role,
 			"content": msg.Content,
 		})

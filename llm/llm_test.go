@@ -16,7 +16,7 @@ func TestConcurrentOptionsAccess(t *testing.T) {
 	mockLogger.On("Debug", mock.Anything, mock.Anything).Return()
 
 	llm := &LLMImpl{
-		Options: make(map[string]interface{}),
+		Options: make(map[string]any),
 		logger:  mockLogger,
 	}
 

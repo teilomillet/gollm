@@ -27,36 +27,23 @@ type LLM interface {
 	// Returns ErrorTypeRequest for request preparation failures,
 	// ErrorTypeAPI for provider API errors, or ErrorTypeResponse for response processing issues.
 	Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (response *providers.Response, err error)
-
-	// GenerateWithSchema generates text that conforms to a specific JSON schema.
-	// Returns ErrorTypeInvalidInput for schema validation failures,
-	// or other error types as per Generate.
-	GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (*providers.Response, error)
-
 	// Stream initiates a streaming response from the LLM.
 	// Returns ErrorTypeUnsupported if the provider doesn't support streaming.
 	Stream(ctx context.Context, prompt *Prompt, opts ...StreamOption) (TokenStream, error)
-
 	// SupportsStreaming checks if the provider supports streaming responses.
 	SupportsStreaming() bool
-
 	// SetOption configures a provider-specific option.
 	// Returns ErrorTypeInvalidInput if the option is not supported.
-	SetOption(key string, value interface{})
-
+	SetOption(key string, value any)
 	// SetLogLevel adjusts the logging verbosity.
 	SetLogLevel(level utils.LogLevel)
-
 	// SetEndpoint updates the API endpoint (primarily for local models).
 	// Returns ErrorTypeProvider if the provider doesn't support endpoint configuration.
 	SetEndpoint(endpoint string)
-
 	// NewPrompt creates a new prompt instance.
 	NewPrompt(input string) *Prompt
-
 	// GetLogger returns the current logger instance.
 	GetLogger() utils.Logger
-
 	// SupportsJSONSchema checks if the provider supports JSON schema validation.
 	SupportsJSONSchema() bool
 }
@@ -64,22 +51,41 @@ type LLM interface {
 // LLMImpl implements the LLM interface and manages interactions with specific providers.
 // It handles provider communication, error management, and logging.
 type LLMImpl struct {
-	Provider     providers.Provider     // The underlying LLM provider
-	Options      map[string]interface{} // Provider-specific options
-	optionsMutex sync.RWMutex           // Mutex to protect concurrent access to Options map
-	client       *http.Client           // HTTP client for API requests
-	logger       utils.Logger           // Logger for debugging and monitoring
-	config       *config.Config         // Configuration settings
-	MaxRetries   int                    // Maximum number of retry attempts
-	RetryDelay   time.Duration          // Delay between retry attempts
+	Provider     providers.Provider // The underlying LLM provider
+	Options      map[string]any     // Provider-specific options
+	optionsMutex sync.RWMutex       // Mutex to protect concurrent access to Options map
+	client       *http.Client       // HTTP client for API requests
+	logger       utils.Logger       // Logger for debugging and monitoring
+	config       *config.Config     // Configuration settings
+	MaxRetries   int                // Maximum number of retry attempts
+	RetryDelay   time.Duration      // Delay between retry attempts
 }
 
 // GenerateOption is a function type for configuring generation behavior.
 type GenerateOption func(*GenerateConfig)
 
+// WithStructuredResponseSchema configures Generate to produce output conforming to the provided schema type.
+// The generic type parameter T should be a struct type describing the expected JSON structure.
+func WithStructuredResponseSchema[T any]() GenerateOption {
+	return func(cfg *GenerateConfig) {
+		cfg.StructuredResponseSchema = *new(T)
+	}
+}
+
+// WithStructuredResponse configures Generate to produce output conforming to the provided schema value.
+// Use this when you already have a JSON Schema or example instance at runtime (e.g., map[string]any or a struct instance).
+func WithStructuredResponse(schema any) GenerateOption {
+	return func(cfg *GenerateConfig) {
+		cfg.StructuredResponseSchema = schema
+	}
+}
+
 // GenerateConfig holds configuration options for text generation.
 type GenerateConfig struct {
-	UseJSONSchema bool // Whether to use JSON schema validation
+	// StructuredResponseSchema, when non-nil, requests that the response conform to the provided schema.
+	// Providers that support JSON Schema will receive it directly; others will have the schema
+	// embedded into the prompt, and the result validated client-side.
+	StructuredResponseSchema any
 }
 
 // NewLLM creates a new LLM instance with the specified configuration.
@@ -116,7 +122,7 @@ func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.Provide
 		config:     cfg,
 		MaxRetries: cfg.MaxRetries,
 		RetryDelay: cfg.RetryDelay,
-		Options:    make(map[string]interface{}),
+		Options:    make(map[string]any),
 	}
 
 	return llmClient, nil
@@ -124,7 +130,7 @@ func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.Provide
 
 // SetOption sets a provider-specific option with the given key and value.
 // The option is logged at debug level for troubleshooting.
-func (l *LLMImpl) SetOption(key string, value interface{}) {
+func (l *LLMImpl) SetOption(key string, value any) {
 	l.optionsMutex.Lock()
 	defer l.optionsMutex.Unlock()
 
@@ -178,6 +184,28 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 	if prompt.SystemPrompt != "" {
 		l.SetOption("system_prompt", prompt.SystemPrompt)
 	}
+
+	// If a Structured Response schema is provided, use the schema-aware generation path
+	if generateConfig.StructuredResponseSchema != nil {
+		var result *providers.Response
+		var lastErr error
+		for attempt := 0; attempt <= l.MaxRetries; attempt++ {
+			l.logger.Debug("Generating text (schema)", "provider", l.Provider.Name(), "prompt", prompt.String(), "attempt", attempt+1)
+			result, _, lastErr = l.attemptGenerateWithSchema(ctx, prompt.String(), generateConfig.StructuredResponseSchema)
+			if lastErr == nil {
+				return result, nil
+			}
+			l.logger.Warn("Generation attempt with schema failed", "error", lastErr, "attempt", attempt+1)
+			if attempt < l.MaxRetries {
+				l.logger.Debug("Retrying", "delay", l.RetryDelay)
+				if err := l.wait(ctx); err != nil {
+					return nil, err
+				}
+			}
+		}
+		return nil, fmt.Errorf("failed to generate with schema after %d attempts: %w", l.MaxRetries+1, lastErr)
+	}
+
 	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
 		l.logger.Debug("Generating text", "provider", l.Provider.Name(), "prompt", prompt.String(), "system_prompt", prompt.SystemPrompt, "attempt", attempt+1)
 		// Pass the entire Prompt struct to attemptGenerate
@@ -220,7 +248,7 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (*provide
 	response := &providers.Response{}
 
 	// Create a new options map that includes both l.Options and prompt-specific options
-	options := make(map[string]interface{})
+	options := make(map[string]any)
 
 	// Safely read from the Options map
 	l.optionsMutex.RLock()
@@ -249,7 +277,7 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (*provide
 	if hasStructuredMessages {
 		// Use the structured messages API if the provider supports it
 		if prepareWithMessages, ok := l.Provider.(interface {
-			PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error)
+			PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error)
 		}); ok {
 			// Convert to the expected type
 			messages, ok := structuredMessages.([]types.MemoryMessage)
@@ -304,31 +332,6 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (*provide
 		return response, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
 	}
 
-	// Extract and log caching information
-	var fullResponse map[string]interface{}
-	if err := json.Unmarshal(body, &fullResponse); err != nil {
-		// Try parsing as JSONL if JSON parsing fails
-		lines := bytes.Split(bytes.TrimSpace(body), []byte("\n"))
-		if len(lines) > 0 {
-			// the last line is *usually* the full response
-			if err := json.Unmarshal(lines[len(lines)-1], &fullResponse); err != nil {
-				l.logger.Warn("Failed to parse response as both JSON and JSONL", "error", err)
-			}
-		}
-	}
-
-	// Process usage information regardless of format
-	if usage, ok := fullResponse["usage"].(map[string]interface{}); ok {
-		l.logger.Debug("Usage information", "usage", usage)
-		cacheInfo := map[string]interface{}{
-			"cache_creation_input_tokens": usage["cache_creation_input_tokens"],
-			"cache_read_input_tokens":     usage["cache_read_input_tokens"],
-		}
-		l.logger.Debug("Cache information", "info", cacheInfo)
-	} else {
-		l.logger.Debug("Cache information not available in the response")
-	}
-
 	result, err := l.Provider.ParseResponse(body)
 	if err != nil {
 		return response, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
@@ -336,46 +339,6 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (*provide
 
 	l.logger.Debug("Text generated successfully", "result", result)
 	return result, nil
-}
-
-// GenerateWithSchema generates text that conforms to a specific JSON schema.
-// It handles retries, logging, and error management.
-//
-// Returns:
-//   - Generated text response
-//   - ErrorTypeInvalidInput for schema validation failures
-//   - Other error types as per Generate
-func (l *LLMImpl) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (*providers.Response, error) {
-	generateConfig := &GenerateConfig{}
-	for _, opt := range opts {
-		opt(generateConfig)
-	}
-
-	var result *providers.Response
-	var lastErr error
-
-	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
-		l.logger.Debug("Generating text with schema", "provider", l.Provider.Name(), "prompt", prompt.String(), "attempt", attempt+1)
-
-		result, _, lastErr = l.attemptGenerateWithSchema(ctx, prompt.String(), schema)
-		if lastErr == nil {
-			return result, nil
-		}
-
-		l.logger.Warn("Generation attempt with schema failed", "error", lastErr, "attempt", attempt+1)
-
-		if attempt < l.MaxRetries {
-			l.logger.Debug("Retrying", "delay", l.RetryDelay)
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(l.RetryDelay):
-				// Continue to next attempt
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("failed to generate with schema after %d attempts: %w", l.MaxRetries+1, lastErr)
 }
 
 // attemptGenerateWithSchema makes a single attempt to generate text using the provider and a JSON schema.
@@ -386,13 +349,13 @@ func (l *LLMImpl) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema
 //   - Full prompt used for generation
 //   - ErrorTypeInvalidInput for schema validation failures
 //   - Other error types as per attemptGenerate
-func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, schema interface{}) (*providers.Response, string, error) {
+func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, schema any) (*providers.Response, string, error) {
 	var reqBody []byte
 	var err error
 	var fullPrompt string
 
 	l.optionsMutex.RLock()
-	options := make(map[string]interface{})
+	options := make(map[string]any)
 	for k, v := range l.Options {
 		options[k] = v
 	}
@@ -453,7 +416,7 @@ func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, 
 
 // preparePromptWithSchema prepares a prompt with a JSON schema for providers that do not support JSON schema validation.
 // Returns the original prompt if schema marshaling fails (with a warning log).
-func (l *LLMImpl) preparePromptWithSchema(prompt string, schema interface{}) string {
+func (l *LLMImpl) preparePromptWithSchema(prompt string, schema any) string {
 	schemaJSON, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
 		l.logger.Warn("Failed to marshal schema", "error", err)
@@ -483,7 +446,7 @@ func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOpti
 	}
 
 	// Prepare request with streaming enabled
-	options := make(map[string]interface{})
+	options := make(map[string]any)
 	l.optionsMutex.RLock()
 	for k, v := range l.Options {
 		options[k] = v
@@ -593,7 +556,7 @@ func (s *providerStream) Next(ctx context.Context) (*StreamToken, error) {
 			}
 
 			if resp.Content != nil {
-				streamToken.Text = resp.String()
+				streamToken.Text = resp.AsText()
 			}
 
 			if resp.Usage != nil {

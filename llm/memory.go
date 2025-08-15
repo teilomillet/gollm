@@ -209,7 +209,7 @@ func (l *LLMWithMemory) SetEndpoint(endpoint string) {
 }
 
 // SetOption configures a provider-specific option.
-func (l *LLMWithMemory) SetOption(key string, value interface{}) {
+func (l *LLMWithMemory) SetOption(key string, value any) {
 	l.LLM.SetOption(key, value)
 }
 
@@ -266,7 +266,6 @@ func NewLLMWithMemory(llm LLM, maxTokens int, model string) (LLM, error) {
 //   - Generated text response
 //   - Error types as per the base LLM's Generate method
 func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (*providers.Response, error) {
-	// Add user message to memory
 	l.memory.Add("user", prompt.Input)
 
 	var response *providers.Response
@@ -319,7 +318,7 @@ func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...Ge
 	}
 
 	// Add assistant response to memory
-	l.memory.Add("assistant", response.String())
+	l.memory.Add("assistant", response.AsText())
 	return response, nil
 }
 
@@ -344,36 +343,6 @@ func (l *LLMWithMemory) ClearMemory() {
 //   - Slice of MemoryMessage containing the conversation history
 func (l *LLMWithMemory) GetMemory() []types.MemoryMessage {
 	return l.memory.GetMessages()
-}
-
-// GenerateWithSchema generates text conforming to a schema, with conversation history.
-// It automatically adds the prompt and response to memory.
-//
-// Parameters:
-//   - ctx: Context for cancellation and timeout
-//   - prompt: Input prompt
-//   - schema: JSON schema for response validation
-//   - opts: Generation options
-//
-// Returns:
-//   - Generated text response
-//   - Error types as per the base LLM's GenerateWithSchema method
-func (l *LLMWithMemory) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (*providers.Response, error) {
-	l.memory.Add("user", prompt.Input)
-	fullPrompt := l.memory.GetPrompt()
-
-	memoryPrompt := &Prompt{
-		Input: fullPrompt,
-		// Copy other fields from the original prompt if needed
-	}
-
-	response, err := l.LLM.GenerateWithSchema(ctx, memoryPrompt, schema, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	l.memory.Add("assistant", response.String())
-	return response, nil
 }
 
 // AddToMemory adds a message to memory with the default role format.
