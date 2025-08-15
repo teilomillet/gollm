@@ -30,7 +30,7 @@ type DefaultLogger struct {
 	level  LogLevel
 }
 
-func NewLogger(level LogLevel) Logger {
+func NewLogger(level LogLevel) *DefaultLogger {
 	return &DefaultLogger{
 		logger: log.New(os.Stderr, "", log.LstdFlags),
 		level:  level,

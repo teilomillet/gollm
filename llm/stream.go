@@ -10,23 +10,12 @@ import (
 
 // StreamToken represents a single token from the streaming response.
 type StreamToken struct {
-	// Text is the actual token text
-	Text string
-
-	// Type indicates the type of token (e.g., "text", "function_call", "error")
-	Type string
-
-	// Index is the position of this token in the sequence
-	Index int
-
-	// Number of input tokens processed before this token
-	InputTokens int64
-
-	// Number of output tokens generated up to this token
+	Metadata     map[string]any
+	Text         string
+	Type         string
+	Index        int
+	InputTokens  int64
 	OutputTokens int64
-
-	// Metadata contains provider-specific metadata
-	Metadata map[string]any
 }
 
 // TokenStream represents a stream of tokens from the LLM.
@@ -45,11 +34,8 @@ type StreamOption func(*StreamConfig)
 
 // StreamConfig holds configuration options for streaming.
 type StreamConfig struct {
-	// BufferSize is the size of the token buffer
-	BufferSize int
-
-	// RetryStrategy defines how to handle stream interruptions
 	RetryStrategy RetryStrategy
+	BufferSize    int
 }
 
 // RetryStrategy defines how to handle stream interruptions.
@@ -91,9 +77,9 @@ func (s *DefaultRetryStrategy) Reset() {
 
 // SSEDecoder handles Server-Sent Events (SSE) streaming
 type SSEDecoder struct {
+	err     error
 	reader  *bufio.Scanner
 	current Event
-	err     error
 }
 
 type Event struct {

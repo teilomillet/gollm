@@ -147,7 +147,7 @@ func main() {
 		log.Fatalf("Failed to generate idea: %v", err)
 	}
 
-	analysisPrompt := gollm.NewPrompt(fmt.Sprintf("Analyze the following business idea: %s", ideaResponse.AsText()),
+	analysisPrompt := gollm.NewPrompt("Analyze the following business idea: "+ideaResponse.AsText(),
 		gollm.WithDirectives(
 			"Identify potential challenges",
 			"Suggest target market",
@@ -187,6 +187,6 @@ func main() {
 
 type UserProfile struct {
 	Name      string   `json:"name"`
-	Age       int      `json:"age"`
 	Interests []string `json:"interests"`
+	Age       int      `json:"age"`
 }

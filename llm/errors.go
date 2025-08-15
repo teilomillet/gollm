@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/teilomillet/gollm/utils"
@@ -43,9 +44,9 @@ const (
 // It implements the error interface and provides additional context
 // about the error type and underlying cause.
 type LLMError struct {
-	Type    ErrorType // The category of the error
-	Message string    // A human-readable error message
-	Err     error     // The underlying error, if any
+	Err     error
+	Message string
+	Type    ErrorType
 }
 
 // LoggableFields returns a slice of any containing error information
@@ -130,7 +131,8 @@ func HandleError(err error, fatal bool, logger utils.Logger) {
 		return
 	}
 
-	if llmErr, ok := err.(*LLMError); ok {
+	llmErr := &LLMError{}
+	if errors.As(err, &llmErr) {
 		logger.Error(llmErr.Message, "error_type", llmErr.TypeString(), "error", llmErr.Err)
 	} else {
 		logger.Error("An error occurred", "error", err)

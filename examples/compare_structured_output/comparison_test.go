@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -17,13 +17,13 @@ import (
 // validateComplexPerson validates the ComplexPerson struct according to the defined rules
 func validateComplexPerson(person ComplexPerson) error {
 	if person.Age < 0 || person.Age > 150 {
-		return fmt.Errorf("age must be between 0 and 150")
+		return errors.New("age must be between 0 and 150")
 	}
 	if len(person.Hobbies) < 1 || len(person.Hobbies) > 5 {
-		return fmt.Errorf("number of hobbies must be between 1 and 5")
+		return errors.New("number of hobbies must be between 1 and 5")
 	}
 	if person.LuckyNumber < 1 || person.LuckyNumber > 100 {
-		return fmt.Errorf("lucky number must be between 1 and 100")
+		return errors.New("lucky number must be between 1 and 100")
 	}
 	return nil
 }
@@ -148,7 +148,7 @@ func TestCompareModels(t *testing.T) {
 
 	configs := make([]*gollm.Config, 0, len(models))
 	for _, m := range models {
-		apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(m.provider))
+		apiKeyEnv := strings.ToUpper(m.provider) + "_API_KEY"
 		apiKey := os.Getenv(apiKeyEnv)
 		if apiKey == "" {
 			t.Logf("Skipping %s %s: API key not set", m.provider, m.model)
@@ -176,11 +176,9 @@ func TestCompareModels(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Create prompt
-	promptText := fmt.Sprintf(`Generate information about a fictional person.
-Create a fictional person with the following attributes: name, age, occupation, city, country, favorite color, hobbies (1-5), education, pet name, and lucky number (1-100).
-Ensure all fields are filled and adhere to the specified constraints.
-Return the data as a JSON object that adheres to this schema:
-%s`, string(schema))
+	promptText := "Generate information about a fictional person.\nCreate a fictional person with the following attributes: name, age, occupation, city, country, favorite color, hobbies (1-5), education, pet name, and lucky number (1-100).\nEnsure all fields are filled and adhere to the specified constraints.\nReturn the data as a JSON object that adheres to this schema:\n" + string(
+		schema,
+	)
 
 	// Compare models
 	results, err := presets.CompareModels(ctx, promptText, validateComplexPerson, configs...)

@@ -2,7 +2,6 @@ package providers
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -95,7 +94,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		// Verify messages format
 		messages, ok := req["messages"].([]any)
 		assert.True(t, ok)
-		assert.Equal(t, 1, len(messages))
+		assert.Len(t, messages, 1)
 
 		userMsg := messages[0].(map[string]any)
 		assert.Equal(t, "user", userMsg["role"])
@@ -117,7 +116,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		// Check fallback models were set correctly
 		models, ok := req["models"].([]any)
 		assert.True(t, ok)
-		assert.Equal(t, 3, len(models))
+		assert.Len(t, models, 3)
 		assert.Equal(t, model, models[0])
 		assert.Equal(t, "openai/gpt-4o", models[1])
 		assert.Equal(t, "mistral/mistral-large", models[2])
@@ -205,7 +204,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		// Check tools were set correctly
 		reqTools, ok := req["tools"].([]any)
 		assert.True(t, ok)
-		assert.Equal(t, 1, len(reqTools))
+		assert.Len(t, reqTools, 1)
 
 		// Check tool_choice was set correctly
 		assert.Equal(t, "auto", req["tool_choice"])
@@ -253,7 +252,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		// Check messages were formatted correctly
 		reqMessages, ok := req["messages"].([]any)
 		assert.True(t, ok)
-		assert.Equal(t, 4, len(reqMessages))
+		assert.Len(t, reqMessages, 4)
 
 		// Check roles are preserved
 		assert.Equal(t, "system", reqMessages[0].(map[string]any)["role"])
@@ -361,7 +360,7 @@ func TestOpenRouterProvider(t *testing.T) {
 
 		content, err := provider.ParseStreamResponse([]byte(streamChunk))
 		assert.NoError(t, err)
-		assert.Equal(t, "", content)
+		assert.Empty(t, content)
 	})
 
 	t.Run("HandleFunctionCalls identifies and returns function calls", func(t *testing.T) {
@@ -394,8 +393,8 @@ func TestOpenRouterProvider(t *testing.T) {
 		assert.NotNil(t, result)
 
 		// Check that the original response was returned
-		assert.True(t, strings.Contains(string(result), "get_weather"))
-		assert.True(t, strings.Contains(string(result), "San Francisco"))
+		assert.Contains(t, string(result), "get_weather")
+		assert.Contains(t, string(result), "San Francisco")
 	})
 
 	t.Run("SetExtraHeaders adds custom headers", func(t *testing.T) {

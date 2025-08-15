@@ -3,6 +3,7 @@ package providers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -33,7 +34,7 @@ type OpenRouterProvider struct {
 //
 // Returns:
 //   - A configured OpenRouter Provider instance
-func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string) *OpenRouterProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -70,7 +71,7 @@ func (p *OpenRouterProvider) CompletionsEndpoint() string {
 // GenerationEndpoint returns the OpenRouter API endpoint for retrieving generation details.
 // This can be used to query stats like cost and token usage after a request.
 func (p *OpenRouterProvider) GenerationEndpoint(generationID string) string {
-	return fmt.Sprintf("https://openrouter.ai/api/v1/generation?id=%s", generationID)
+	return "https://openrouter.ai/api/v1/generation?id=" + generationID
 }
 
 // SetOption sets a model-specific option for the OpenRouter provider.
@@ -249,7 +250,11 @@ func (p *OpenRouterProvider) PrepareCompletionRequest(prompt string, options map
 }
 
 // PrepareRequestWithSchema creates a request with JSON schema validation.
-func (p *OpenRouterProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
+func (p *OpenRouterProvider) PrepareRequestWithSchema(
+	prompt string,
+	options map[string]any,
+	schema any,
+) ([]byte, error) {
 	// Start with standard request preparation
 	req := map[string]any{}
 	for k, v := range options {
@@ -373,7 +378,12 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 
 		resp := &Response{Content: Text{Value: chatResp.Choices[0].Message.Content}}
 		if chatResp.Usage != nil {
-			resp.Usage = NewUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CacheCreationInputTokens+chatResp.Usage.CacheReadInputTokens, chatResp.Usage.CompletionTokens, 0)
+			resp.Usage = NewUsage(
+				chatResp.Usage.PromptTokens,
+				chatResp.Usage.CacheCreationInputTokens+chatResp.Usage.CacheReadInputTokens,
+				chatResp.Usage.CompletionTokens,
+				0,
+			)
 		}
 		return resp, nil
 	}
@@ -409,7 +419,7 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 
 	// Check if we have at least one choice
 	if len(textResp.Choices) == 0 {
-		return nil, fmt.Errorf("no completion choices in OpenRouter response")
+		return nil, errors.New("no completion choices in OpenRouter response")
 	}
 
 	// Store the generation ID and used model in the logger for potential later use
@@ -424,7 +434,12 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 
 	resp := &Response{Content: Text{Value: textResp.Choices[0].Text}}
 	if textResp.Usage != nil {
-		resp.Usage = NewUsage(textResp.Usage.PromptTokens, textResp.Usage.CacheCreationInputTokens+textResp.Usage.CacheReadInputTokens, textResp.Usage.CompletionTokens, 0)
+		resp.Usage = NewUsage(
+			textResp.Usage.PromptTokens,
+			textResp.Usage.CacheCreationInputTokens+textResp.Usage.CacheReadInputTokens,
+			textResp.Usage.CompletionTokens,
+			0,
+		)
 	}
 	return resp, nil
 }
@@ -504,7 +519,7 @@ func (p *OpenRouterProvider) PrepareStreamRequest(prompt string, options map[str
 func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty chunks
 	if len(chunk) == 0 {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 	// Handle "[DONE]" marker
 	if string(chunk) == "[DONE]" {
@@ -568,7 +583,7 @@ func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error
 
 	// Check if we have at least one choice with content
 	if len(resp.Choices) == 0 || resp.Choices[0].Delta.Content == "" {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 
 	// Handle tool calls in streaming mode (log only)
@@ -585,7 +600,10 @@ func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error
 }
 
 // PrepareRequestWithMessages creates a request with structured message objects.
-func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *OpenRouterProvider) PrepareRequestWithMessages(
+	messages []types.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	// Start with the passed options
 	req := map[string]any{}
 	for k, v := range options {

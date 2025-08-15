@@ -21,15 +21,21 @@ type GoogleProvider struct {
 //
 // Returns:
 //   - A configured Google Provider instance
-func NewGoogleProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewGoogleProvider(apiKey, model string, extraHeaders map[string]string) *GoogleProvider {
+	// Create a base OpenAI provider directly
+	baseProvider := &OpenAIProvider{
+		apiKey:       apiKey,
+		model:        model,
+		extraHeaders: extraHeaders,
+	}
 	provider := &GoogleProvider{
-		OpenAIProvider: *NewOpenAIProvider(apiKey, model, extraHeaders).(*OpenAIProvider),
+		OpenAIProvider: *baseProvider,
 	}
 
 	return provider
 }
 
- // Name returns "google-openai" as the provider identifier.
+// Name returns "google-openai" as the provider identifier.
 func (p *GoogleProvider) Name() string {
 	return "google-openai"
 }

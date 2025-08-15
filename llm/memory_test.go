@@ -39,7 +39,11 @@ func (p *MockProvider) PrepareRequest(prompt string, options map[string]any) ([]
 	p.structured = false
 	return []byte(`{"prompt":"` + prompt + `"}`), nil
 }
-func (p *MockProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+
+func (p *MockProvider) PrepareRequestWithMessages(
+	messages []types.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	p.messages = messages
 	p.structured = true
 	return []byte(`{"messages":"structured"}`), nil
@@ -94,7 +98,12 @@ func (l *MockLLM) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 	return "mock response", nil
 }
 
-func (l *MockLLM) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema any, opts ...GenerateOption) (string, error) {
+func (l *MockLLM) GenerateWithSchema(
+	ctx context.Context,
+	prompt *Prompt,
+	schema any,
+	opts ...GenerateOption,
+) (string, error) {
 	return "mock schema response", nil
 }
 func (l *MockLLM) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOption) (TokenStream, error) {
@@ -140,12 +149,12 @@ func TestStructuredMessageStorage(t *testing.T) {
 	allMessages := memory.GetMessages()
 
 	// Verify message count
-	assert.Equal(t, 2, len(allMessages))
+	assert.Len(t, allMessages, 2)
 
 	// Verify regular message
 	assert.Equal(t, "user", allMessages[0].Role)
 	assert.Equal(t, "Hello, how are you?", allMessages[0].Content)
-	assert.Equal(t, "", allMessages[0].CacheControl)
+	assert.Empty(t, allMessages[0].CacheControl)
 
 	// Verify structured message with cache control
 	assert.Equal(t, "user", allMessages[1].Role)
@@ -168,19 +177,19 @@ func TestAddStructuredMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create LLMWithMemory
-	llmWithMemory := &LLMWithMemory{
+	memoryLLMory := &LLMWithMemory{
 		memory:                memory,
 		useStructuredMessages: true,
 	}
 
 	// Add message with cache control
-	llmWithMemory.AddStructuredMessage("user", "Hello with cache", "ephemeral")
+	memoryLLMory.AddStructuredMessage("user", "Hello with cache", "ephemeral")
 
 	// Get messages
-	messages := llmWithMemory.GetMemory()
+	messages := memoryLLMory.GetMemory()
 
 	// Verify message was added with correct cache control
-	assert.Equal(t, 1, len(messages))
+	assert.Len(t, messages, 1)
 	assert.Equal(t, "user", messages[0].Role)
 	assert.Equal(t, "Hello with cache", messages[0].Content)
 	assert.Equal(t, "ephemeral", messages[0].CacheControl)
@@ -223,34 +232,30 @@ func TestCachingBenefit(t *testing.T) {
 	memoryLLM, err := NewLLMWithMemory(baseLLM, 4000, cfg.Model)
 	require.NoError(t, err)
 
-	// Cast to LLMWithMemory to access methods
-	llmWithMem, ok := memoryLLM.(*LLMWithMemory)
-	require.True(t, ok)
-
 	// Set up structured messages
-	llmWithMem.SetUseStructuredMessages(true)
-	llmWithMem.ClearMemory()
+	memoryLLM.SetUseStructuredMessages(true)
+	memoryLLM.ClearMemory()
 
 	// Add message with cache control
-	llmWithMem.AddStructuredMessage("user", "Hello, who are you?", "ephemeral")
+	memoryLLM.AddStructuredMessage("user", "Hello, who are you?", "ephemeral")
 
 	// Create test prompt
-	prompt := llmWithMem.NewPrompt("Give me a 30-word description of machine learning.")
+	prompt := memoryLLM.NewPrompt("Give me a 30-word description of machine learning.")
 	prompt.SystemPrompt = "You are a helpful assistant that provides concise responses."
 
 	// First run (no cache)
 	ctx := context.Background()
 	start := time.Now()
-	_, err = llmWithMem.Generate(ctx, prompt)
+	_, err = memoryLLM.Generate(ctx, prompt)
 	require.NoError(t, err)
 	firstRunDuration := time.Since(start)
 
 	// Second run (should use cache)
-	llmWithMem.ClearMemory()
-	llmWithMem.AddStructuredMessage("user", "Hello, who are you?", "ephemeral")
+	memoryLLM.ClearMemory()
+	memoryLLM.AddStructuredMessage("user", "Hello, who are you?", "ephemeral")
 
 	start = time.Now()
-	_, err = llmWithMem.Generate(ctx, prompt)
+	_, err = memoryLLM.Generate(ctx, prompt)
 	require.NoError(t, err)
 	secondRunDuration := time.Since(start)
 

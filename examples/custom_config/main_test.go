@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -89,7 +90,7 @@ func TestCustomConfigExample(t *testing.T) {
 	}
 
 	for _, topic := range topics {
-		testName := fmt.Sprintf("topic_analysis_%s", strings.ReplaceAll(topic, " ", "_"))
+		testName := "topic_analysis_" + strings.ReplaceAll(topic, " ", "_")
 		test.AddCase(testName, fmt.Sprintf(`Analyze the following topic: %s
 
 Please structure your response in exactly this format:
@@ -112,19 +113,19 @@ Your response MUST include all these sections with the exact headings shown.`, t
 			Validate(func(response string) error {
 				// Check for implications section
 				if !strings.Contains(strings.ToLower(response), "implications:") {
-					return fmt.Errorf("response should contain implications analysis")
+					return errors.New("response should contain implications analysis")
 				}
 
 				// Check for outcomes section with both positive and negative
 				hasPositive := strings.Contains(strings.ToLower(response), "positive outcomes:")
 				hasNegative := strings.Contains(strings.ToLower(response), "negative outcomes:")
 				if !hasPositive || !hasNegative {
-					return fmt.Errorf("response should contain both positive and negative outcomes")
+					return errors.New("response should contain both positive and negative outcomes")
 				}
 
 				// Check for summary section
 				if !strings.Contains(strings.ToLower(response), "summary:") {
-					return fmt.Errorf("response should contain a summary")
+					return errors.New("response should contain a summary")
 				}
 				return nil
 			})

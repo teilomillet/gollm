@@ -58,7 +58,7 @@ func TestAllProvidersImplementStructuredMessages(t *testing.T) {
 			require.NotNil(t, result, "PrepareRequestWithMessages should return non-nil result")
 
 			// Result should be valid JSON
-			assert.True(t, len(result) > 0, "Result should not be empty")
+			assert.NotEmpty(t, result, "Result should not be empty")
 
 			// Test the type assertion works (the provider correctly implements the method)
 			_, ok := p.provider.(interface {

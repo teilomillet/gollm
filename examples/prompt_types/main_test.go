@@ -127,7 +127,7 @@ func TestJSONSchemaValidation(t *testing.T) {
 
 	prompt := gollm.NewPrompt("Generate a user profile")
 
-	response, err := llm.Generate(ctx, prompt, gollm.WithStructuredResponseSchema(&UserProfile{}))
+	response, err := llm.Generate(ctx, prompt, gollm.WithStructuredResponseSchema[*UserProfile]())
 	require.NoError(t, err)
 	require.NotEmpty(t, response)
 
@@ -176,7 +176,7 @@ func TestChainedPrompts(t *testing.T) {
 		),
 	)
 
-	analysisResponse, err := llm.Generate(ctx, analysisPrompt, gollm.WithStructuredResponseSchema(&IdeaAnalysis{}))
+	analysisResponse, err := llm.Generate(ctx, analysisPrompt, gollm.WithStructuredResponseSchema[*IdeaAnalysis]())
 	require.NoError(t, err)
 	require.NotEmpty(t, analysisResponse)
 	require.NoError(t, err)

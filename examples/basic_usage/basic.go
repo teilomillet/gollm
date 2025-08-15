@@ -69,8 +69,11 @@ func main() {
 
 	// Example 3: Prompt with Context
 	fmt.Println("\nExample 3: Prompt with Context")
-	contextPrompt := gollm.NewPrompt("Summarize the main points",
-		gollm.WithContext("The Internet of Things (IoT) refers to the interconnected network of physical devices embedded with electronics, software, sensors, and network connectivity, which enables these objects to collect and exchange data."),
+	contextPrompt := gollm.NewPrompt(
+		"Summarize the main points",
+		gollm.WithContext(
+			"The Internet of Things (IoT) refers to the interconnected network of physical devices embedded with electronics, software, sensors, and network connectivity, which enables these objects to collect and exchange data.",
+		),
 		gollm.WithMaxLength(100),
 	)
 	fmt.Printf("Context prompt created: %+v\n", contextPrompt)
@@ -100,7 +103,10 @@ func main() {
 	validPrompt := gollm.NewPrompt("Provide an overview of Go language.")
 
 	// Print the prompt contents so we can see what we're validating
-	validPromptJSON, _ := json.MarshalIndent(validPrompt, "", "  ")
+	validPromptJSON, err := json.MarshalIndent(validPrompt, "", "  ")
+	if err != nil {
+		log.Printf("Warning: Failed to format valid prompt JSON: %v", err)
+	}
 	fmt.Printf("\nPrompt contents:\n%s\n", string(validPromptJSON))
 
 	// Validate the prompt
@@ -117,7 +123,10 @@ func main() {
 	invalidPrompt := gollm.NewPrompt("")
 
 	// Print the prompt contents so we can see what we're validating
-	invalidPromptJSON, _ := json.MarshalIndent(invalidPrompt, "", "  ")
+	invalidPromptJSON, err := json.MarshalIndent(invalidPrompt, "", "  ")
+	if err != nil {
+		log.Printf("Warning: Failed to format invalid prompt JSON: %v", err)
+	}
 	fmt.Printf("\nPrompt contents:\n%s\n", string(invalidPromptJSON))
 
 	// Validate the prompt

@@ -109,12 +109,12 @@ func TestProviderConcurrentRequests(t *testing.T) {
 				errors <- err
 				return
 			}
-			results <- response
+			results <- response.AsText()
 		}(p)
 	}
 
 	// Collect results
-	for i := 0; i < len(prompts); i++ {
+	for range prompts {
 		select {
 		case err := <-errors:
 			t.Errorf("Concurrent request failed: %v", err)

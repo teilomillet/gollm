@@ -3,6 +3,7 @@ package gollm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -17,19 +18,9 @@ import (
 // MOA is an ensemble learning approach that combines multiple language models
 // to produce higher quality outputs through iterative refinement and aggregation.
 type MOAConfig struct {
-	// Iterations specifies the number of refinement cycles to perform
-	Iterations int
-
-	// Models defines the set of language models to use in the mixture
-	// Each model is configured using ConfigOption functions
-	Models []ConfigOption
-
-	// MaxParallel limits the number of concurrent model executions
-	// If set to 0, all models run concurrently without limitation
-	MaxParallel int
-
-	// AgentTimeout specifies the maximum duration for each agent's execution
-	// If set to 0, no timeout is applied
+	Models       []ConfigOption
+	Iterations   int
+	MaxParallel  int
 	AgentTimeout time.Duration
 }
 
@@ -45,14 +36,9 @@ type MOALayer struct {
 // through multiple layers and iterations, then aggregates the results using a
 // designated aggregator model.
 type MOA struct {
-	// Config holds the MOA system configuration
-	Config MOAConfig
-
-	// Layers contains the processing layers, each with one or more models
-	Layers []MOALayer
-
-	// Aggregator is the LLM instance used to synthesize outputs from multiple models
 	Aggregator llm.LLM
+	Layers     []MOALayer
+	Config     MOAConfig
 }
 
 // NewMOA creates a new Mixture of Agents instance with the specified configuration
@@ -75,7 +61,7 @@ type MOA struct {
 //	})
 func NewMOA(moaConfig MOAConfig, aggregatorOpts ...ConfigOption) (*MOA, error) {
 	if len(moaConfig.Models) == 0 {
-		return nil, fmt.Errorf("invalid model configuration: at least one model must be specified")
+		return nil, errors.New("invalid model configuration: at least one model must be specified")
 	}
 
 	registry := providers.NewProviderRegistry()
@@ -134,7 +120,7 @@ func (moa *MOA) Generate(ctx context.Context, input string) (string, error) {
 	var layerOutputs []string
 
 	// Process through each iteration
-	for i := 0; i < moa.Config.Iterations; i++ {
+	for range moa.Config.Iterations {
 		layerInput := input
 		// Process each layer
 		for _, layer := range moa.Layers {
@@ -188,13 +174,14 @@ func (moa *MOA) processLayer(ctx context.Context, layer MOALayer, input string) 
 			}
 
 			// Create a context with timeout if AgentTimeout is set
-			var cancel context.CancelFunc
+			ctxToUse := ctx
 			if moa.Config.AgentTimeout > 0 {
-				ctx, cancel = context.WithTimeout(ctx, moa.Config.AgentTimeout)
+				var cancel context.CancelFunc
+				ctxToUse, cancel = context.WithTimeout(ctx, moa.Config.AgentTimeout)
 				defer cancel()
 			}
 
-			output, err := llmInstance.Generate(ctx, llm.NewPrompt(input))
+			output, err := llmInstance.Generate(ctxToUse, llm.NewPrompt(input))
 			if err != nil {
 				errors[index] = err
 				return
@@ -226,7 +213,7 @@ func (moa *MOA) processLayer(ctx context.Context, layer MOALayer, input string) 
 func (moa *MOA) combineResults(results []string) string {
 	var combined string
 	for _, result := range results {
-		combined += fmt.Sprintf("\n---\n%s", result)
+		combined += "\n---\n" + result
 	}
 	return combined
 }
@@ -243,8 +230,7 @@ func (moa *MOA) combineResults(results []string) string {
 //   - Any error encountered during aggregation
 func (moa *MOA) aggregate(ctx context.Context, outputs []string) (string, error) {
 	response, err := moa.Aggregator.Generate(ctx, llm.NewPrompt(
-		fmt.Sprintf("Synthesise these responses into a single, high-quality response:\n\n%s",
-			moa.combineResults(outputs))))
+		"Synthesise these responses into a single, high-quality response:\n\n"+moa.combineResults(outputs)))
 	if err != nil {
 		return "", fmt.Errorf("error during aggregation: %w", err)
 	}

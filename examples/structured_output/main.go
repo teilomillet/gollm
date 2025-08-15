@@ -13,9 +13,9 @@ import (
 
 type PersonInfo struct {
 	Name       string   `json:"name" validate:"required"`
-	Age        int      `json:"age" validate:"required,gte=0,lte=150"`
 	Occupation string   `json:"occupation" validate:"required"`
 	Hobbies    []string `json:"hobbies" validate:"required,min=1,max=5"`
+	Age        int      `json:"age" validate:"required,gte=0,lte=150"`
 }
 
 func main() {

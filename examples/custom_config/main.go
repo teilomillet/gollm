@@ -86,5 +86,4 @@ func main() {
 	// Get and print the current provider and model
 	fmt.Printf("Current Provider: %s\n", llm.GetProvider())
 	fmt.Printf("Current Model: %s\n", llm.GetModel())
-
 }

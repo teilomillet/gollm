@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/teilomillet/gollm/llm"
 	"log"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/teilomillet/gollm/llm"
 
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/presets"
@@ -16,8 +17,8 @@ import (
 
 // AnalysisResult represents the structured output of our analysis
 type AnalysisResult struct {
-	Perspectives []Perspective `json:"perspectives"`
 	Summary      string        `json:"summary"`
+	Perspectives []Perspective `json:"perspectives"`
 }
 
 // Perspective represents a single perspective in the analysis
@@ -163,8 +164,11 @@ Please structure your response as a JSON object with the following format:
 	}
 
 	// Use a complex prompt that's likely to take longer than the timeout
-	_, err = presets.QuestionAnswer(ctx, retryClient,
-		"Please provide a detailed analysis of the impact of quantum computing on cryptography, including current limitations, potential breakthroughs, and implications for cybersecurity.")
+	_, err = presets.QuestionAnswer(
+		ctx,
+		retryClient,
+		"Please provide a detailed analysis of the impact of quantum computing on cryptography, including current limitations, potential breakthroughs, and implications for cybersecurity.",
+	)
 
 	if err != nil {
 		fmt.Printf("Got expected error after retries: %v\n", err)

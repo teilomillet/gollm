@@ -119,7 +119,10 @@ func TestStructuredOutputValidation(t *testing.T) {
 	ctx := context.Background()
 
 	// Test with insufficient information
-	_, err := presets.ExtractStructuredData[TestPersonInfo](ctx, llm, "Just a random text without any relevant information.",
+	_, err := presets.ExtractStructuredData[TestPersonInfo](
+		ctx,
+		llm,
+		"Just a random text without any relevant information.",
 		gollm.WithDirectives("Do not include markdown formatting"),
 	)
 	assert.Error(t, err, "Should error with insufficient information")

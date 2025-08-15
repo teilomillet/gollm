@@ -245,7 +245,7 @@ func TestExtractReview(t *testing.T) {
 
 		// Wait for both extractions with timeout
 		timeout := time.After(45 * time.Second)
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			select {
 			case <-done:
 				// Extraction completed
@@ -264,14 +264,22 @@ func TestExtractReview(t *testing.T) {
 		assert.Equal(t, "Christopher Nolan", review1.Director, "Should extract correct director in concurrent test")
 		assert.Equal(t, 2010, review1.Year, "Should extract correct year in concurrent test")
 		assert.Equal(t, 9.5, review1.Rating, "Should extract correct rating in concurrent test")
-		assert.True(t, containsIgnoreCase(review1.Genres, "Science Fiction"), "Should extract genres in concurrent test")
+		assert.True(
+			t,
+			containsIgnoreCase(review1.Genres, "Science Fiction"),
+			"Should extract genres in concurrent test",
+		)
 		assert.NotEmpty(t, review1.Summary, "Should extract summary in concurrent test")
 
 		assert.Equal(t, "Inception", review2.Title, "Should extract correct title in concurrent test")
 		assert.Equal(t, "Christopher Nolan", review2.Director, "Should extract correct director in concurrent test")
 		assert.Equal(t, 2010, review2.Year, "Should extract correct year in concurrent test")
 		assert.Equal(t, 9.5, review2.Rating, "Should extract correct rating in concurrent test")
-		assert.True(t, containsIgnoreCase(review2.Genres, "Science Fiction"), "Should extract genres in concurrent test")
+		assert.True(
+			t,
+			containsIgnoreCase(review2.Genres, "Science Fiction"),
+			"Should extract genres in concurrent test",
+		)
 		assert.NotEmpty(t, review2.Summary, "Should extract summary in concurrent test")
 	})
 

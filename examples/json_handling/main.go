@@ -123,8 +123,8 @@ type UserEnvelope struct {
 // Required fields: name, age, preferences.
 type User struct {
 	Name        string      `json:"name"`
-	Age         int         `json:"age"` // integer >= 0
 	Preferences Preferences `json:"preferences"`
+	Age         int         `json:"age"`
 }
 
 // Preferences corresponds to the "preferences" object.

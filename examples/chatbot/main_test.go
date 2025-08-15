@@ -1,4 +1,4 @@
-package chatbot
+package main
 
 import (
 	"context"
@@ -43,7 +43,12 @@ func TestChatbotMemory(t *testing.T) {
 		prompt2 := gollm.NewPrompt("What is the population of that city?")
 		response2, err := llm.Generate(ctx, prompt2)
 		assert.NoError(t, err, "Should generate second response")
-		assert.Contains(t, strings.ToLower(response2.AsText()), "million", "Response should mention population in millions")
+		assert.Contains(
+			t,
+			strings.ToLower(response2.AsText()),
+			"million",
+			"Response should mention population in millions",
+		)
 	})
 
 	// Test memory clearing
@@ -55,7 +60,12 @@ func TestChatbotMemory(t *testing.T) {
 			prompt := gollm.NewPrompt("What was the city we were talking about?")
 			response, err := llm.Generate(ctx, prompt)
 			assert.NoError(t, err, "Should generate response after clearing memory")
-			assert.NotContains(t, strings.ToLower(response.AsText()), "paris", "Response should not reference previous context")
+			assert.NotContains(
+				t,
+				strings.ToLower(response.AsText()),
+				"paris",
+				"Response should not reference previous context",
+			)
 		}
 	})
 }

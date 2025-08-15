@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"time"
@@ -110,7 +111,7 @@ func main() {
 
 	// Create a large prompt that would benefit from caching
 	largePromptText := "Here is a large text that would benefit from caching:\n"
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		largePromptText += fmt.Sprintf("This is paragraph %d with some content that takes up space.\n", i)
 	}
 	largePromptText += "\nSummarize the above text."
@@ -267,7 +268,9 @@ func runIntegrationTests(apiKey string) {
 	fmt.Println()
 
 	// Set the API key in the environment for the tests
-	os.Setenv("OPENROUTER_API_KEY", apiKey)
+	if err := os.Setenv("OPENROUTER_API_KEY", apiKey); err != nil {
+		log.Printf("Warning: Failed to set OPENROUTER_API_KEY: %v", err)
+	}
 
 	// Construct the test command
 	cmd := exec.Command("go", "test", "-v", "../../providers", "-run", "TestOpenRouterIntegration")

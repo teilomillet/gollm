@@ -3,6 +3,7 @@ package main_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -26,7 +27,7 @@ func extractJSONFromText(text string) (string, error) {
 	// Find the start of the JSON object
 	start := strings.Index(text, "{")
 	if start == -1 {
-		return "", fmt.Errorf("no JSON object found")
+		return "", errors.New("no JSON object found")
 	}
 
 	// Find the matching closing brace
@@ -49,7 +50,7 @@ func extractJSONFromText(text string) (string, error) {
 	}
 
 	if end == -1 {
-		return "", fmt.Errorf("no matching closing brace found")
+		return "", errors.New("no matching closing brace found")
 	}
 
 	jsonStr := text[start:end]
@@ -81,7 +82,7 @@ func TestJSONHandlingExamples(t *testing.T) {
 			cleanResponse := cleanJSONResponse(response)
 			var colors []string
 			if err := json.Unmarshal([]byte(cleanResponse), &colors); err != nil {
-				return fmt.Errorf("invalid JSON array: %v", err)
+				return fmt.Errorf("invalid JSON array: %w", err)
 			}
 			if len(colors) != 2 {
 				return fmt.Errorf("expected 2 colors, got %d", len(colors))
@@ -117,11 +118,11 @@ func TestJSONHandlingExamples(t *testing.T) {
 			cleanResponse := cleanJSONResponse(response)
 			var result map[string]any
 			if err := json.Unmarshal([]byte(cleanResponse), &result); err != nil {
-				return fmt.Errorf("invalid JSON: %v", err)
+				return fmt.Errorf("invalid JSON: %w", err)
 			}
 			colors, ok := result["colors"].([]any)
 			if !ok {
-				return fmt.Errorf("colors field not found or invalid")
+				return errors.New("colors field not found or invalid")
 			}
 			if len(colors) != 2 {
 				return fmt.Errorf("expected 2 colors, got %d", len(colors))
@@ -172,12 +173,12 @@ func TestJSONHandlingExamples(t *testing.T) {
 			cleanResponse := cleanJSONResponse(response)
 			var result map[string]any
 			if err := json.Unmarshal([]byte(cleanResponse), &result); err != nil {
-				return fmt.Errorf("invalid JSON: %v", err)
+				return fmt.Errorf("invalid JSON: %w", err)
 			}
 
 			user, ok := result["user"].(map[string]any)
 			if !ok {
-				return fmt.Errorf("user object not found or invalid")
+				return errors.New("user object not found or invalid")
 			}
 
 			required := []string{"name", "age", "preferences"}
@@ -190,12 +191,16 @@ func TestJSONHandlingExamples(t *testing.T) {
 		})
 
 	// Example 4: Mixed Format Response
-	mixedPrompt := gollm.NewPrompt("Analyze the color red",
+	mixedPrompt := gollm.NewPrompt(
+		"Analyze the color red",
 		gollm.WithDirectives(
 			"Start with a brief description of the color",
 			"Include technical details in JSON format",
 		),
-		gollm.WithSystemPrompt("You are a color expert. Always start your responses with a description paragraph.", gollm.CacheTypeEphemeral),
+		gollm.WithSystemPrompt(
+			"You are a color expert. Always start your responses with a description paragraph.",
+			gollm.CacheTypeEphemeral,
+		),
 		gollm.WithOutput(`Your response should have two parts:
 1. A brief description paragraph
 2. Technical details in this JSON format:
@@ -211,7 +216,7 @@ func TestJSONHandlingExamples(t *testing.T) {
 		WithOption("max_tokens", 150).
 		Validate(func(response string) error {
 			if response == "" {
-				return fmt.Errorf("empty response")
+				return errors.New("empty response")
 			}
 
 			// More flexible description check
@@ -220,7 +225,7 @@ func TestJSONHandlingExamples(t *testing.T) {
 				strings.Contains(strings.ToLower(response), "description") ||
 				strings.Contains(strings.ToLower(response), "represents")
 			if !hasDescription {
-				return fmt.Errorf("missing description section")
+				return errors.New("missing description section")
 			}
 
 			// Look for technical details in any format
@@ -235,7 +240,7 @@ func TestJSONHandlingExamples(t *testing.T) {
 				strings.Contains(response, "ff0000")
 
 			if !hasRGB && !hasHex {
-				return fmt.Errorf("missing both RGB and HEX color formats")
+				return errors.New("missing both RGB and HEX color formats")
 			}
 
 			// Try to extract and validate JSON if present

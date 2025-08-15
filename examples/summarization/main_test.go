@@ -146,7 +146,11 @@ func TestSummarizationErrorHandling(t *testing.T) {
 	// Test with canceled context
 	cancelCtx, cancel := context.WithCancel(ctx)
 	cancel()
-	_, err = presets.Summarize(cancelCtx, llm, "This is a test text that should not be summarized because the context is canceled.")
+	_, err = presets.Summarize(
+		cancelCtx,
+		llm,
+		"This is a test text that should not be summarized because the context is canceled.",
+	)
 	require.Error(t, err, "Should error with canceled context")
 
 	// Test with nil LLM

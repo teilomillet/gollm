@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,16 +20,11 @@ import (
 // It enables interaction with locally hosted language models through Ollama,
 // supporting various open-source models like Llama, Mistral, and others.
 type OllamaProvider struct {
-	// endpoint is the base URL for the Ollama API
-	endpoint string // Ollama API endpoint URL
-	// model is the name of the model to use (e.g., "llama2", "mistral")
-	model string // Model identifier (e.g., "llama2", "mistral")
-	// extraHeaders are additional HTTP headers for requests
-	extraHeaders map[string]string // Additional HTTP headers
-	// options are model-specific options for the provider
-	options map[string]any // Model-specific options
-	// logger is the logger instance for this provider
-	logger utils.Logger // Logger instance
+	logger       utils.Logger
+	extraHeaders map[string]string
+	options      map[string]any
+	endpoint     string
+	model        string
 }
 
 // NewOllamaProvider creates a new Ollama provider instance.
@@ -42,7 +38,7 @@ type OllamaProvider struct {
 //
 // Returns:
 //   - A configured Ollama Provider instance
-func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) *OllamaProvider {
 	endpoint := "http://localhost:11434"
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
@@ -249,7 +245,7 @@ func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response
 		return nil, "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", p.Endpoint(), bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, "", err
 	}
@@ -317,7 +313,7 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 		return &Response{Usage: usage}, nil
 	}
 	if strings.TrimSpace(response.Response) == "" {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 	return &Response{Content: Text{Value: response.Response}}, nil
 }
@@ -332,7 +328,10 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *OllamaProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *OllamaProvider) PrepareRequestWithMessages(
+	messages []types.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	// Ollama doesn't natively support structured messages like Anthropic/OpenAI
 	// Convert to flattened format
 	var flattenedPrompt strings.Builder

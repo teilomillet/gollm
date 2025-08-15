@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -38,7 +39,17 @@ func main() {
 	flag.Parse()
 
 	// Prepare configuration options
-	configOpts := prepareConfigOptions(provider, model, temperature, maxTokens, timeout, apiKey, maxRetries, retryDelay, debugLevel)
+	configOpts := prepareConfigOptions(
+		provider,
+		model,
+		temperature,
+		maxTokens,
+		timeout,
+		apiKey,
+		maxRetries,
+		retryDelay,
+		debugLevel,
+	)
 
 	// Create LLM client with the specified options
 	llmClient, err := gollm.NewLLM(configOpts...)
@@ -84,7 +95,12 @@ func main() {
 		optimizedPrompt, err := promptOptimizer.OptimizePrompt(ctx)
 		if err == nil {
 			response = optimizedPrompt.Input
-			fullPrompt = fmt.Sprintf("Initial Prompt: %s\nOptimization Goal: %s\nMemory Size: %d", rawPrompt, *optimizeGoal, *optimizeMemory)
+			fullPrompt = fmt.Sprintf(
+				"Initial Prompt: %s\nOptimization Goal: %s\nMemory Size: %d",
+				rawPrompt,
+				*optimizeGoal,
+				*optimizeMemory,
+			)
 		}
 	default:
 		prompt := gollm.NewPrompt(rawPrompt)
@@ -110,7 +126,16 @@ func main() {
 	printResponse(*verbose, *promptType, fullPrompt, rawPrompt, response, *outputFormat)
 }
 
-func prepareConfigOptions(provider, model *string, temperature *float64, maxTokens *int, timeout *time.Duration, apiKey *string, maxRetries *int, retryDelay *time.Duration, debugLevel *string) []gollm.ConfigOption {
+func prepareConfigOptions(
+	provider, model *string,
+	temperature *float64,
+	maxTokens *int,
+	timeout *time.Duration,
+	apiKey *string,
+	maxRetries *int,
+	retryDelay *time.Duration,
+	debugLevel *string,
+) []gollm.ConfigOption {
 	var configOpts []gollm.ConfigOption
 
 	if *provider != "" {
@@ -156,7 +181,11 @@ func printResponse(verbose bool, promptType, fullPrompt, rawPrompt, response, ou
 			}
 			fmt.Println(response) // Print raw response if JSON parsing fails
 		} else {
-			jsonPretty, _ := json.MarshalIndent(jsonResponse, "", "  ")
+			jsonPretty, err := json.MarshalIndent(jsonResponse, "", "  ")
+			if err != nil {
+				log.Printf("Warning: Failed to format JSON: %v", err)
+				jsonPretty = []byte(response)
+			}
 			fmt.Println(string(jsonPretty))
 		}
 	} else {

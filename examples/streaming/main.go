@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -20,9 +21,13 @@ func runStream(llm gollm.LLM, prompt *gollm.Prompt) error {
 	// Start streaming
 	stream, err := llm.Stream(ctx, prompt)
 	if err != nil {
-		return fmt.Errorf("failed to start stream: %v", err)
+		return fmt.Errorf("failed to start stream: %w", err)
 	}
-	defer stream.Close()
+	defer func() {
+		if err := stream.Close(); err != nil {
+			log.Printf("Warning: Failed to close stream: %v", err)
+		}
+	}()
 
 	fmt.Println("\nStreaming response:")
 	fmt.Println("-------------------")
@@ -33,11 +38,11 @@ func runStream(llm gollm.LLM, prompt *gollm.Prompt) error {
 	// Read and print tokens as they arrive
 	for {
 		token, err := stream.Next(ctx)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("error reading stream: %v", err)
+			return fmt.Errorf("error reading stream: %w", err)
 		}
 
 		fmt.Print(token.Text)

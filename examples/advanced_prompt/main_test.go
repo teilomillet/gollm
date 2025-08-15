@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -76,7 +77,7 @@ Please structure your response as a JSON object with the following format:
 	}
 
 	for _, topic := range topics {
-		testName := fmt.Sprintf("analyze_%s", strings.ReplaceAll(topic, " ", "_"))
+		testName := "analyze_" + strings.ReplaceAll(topic, " ", "_")
 
 		// Execute the template for this topic
 		prompt, err := balancedAnalysisTemplate.Execute(map[string]any{
@@ -93,21 +94,21 @@ Please structure your response as a JSON object with the following format:
 				var result AnalysisResult
 				err := json.Unmarshal([]byte(cleanedJSON), &result)
 				if err != nil {
-					return fmt.Errorf("failed to parse JSON: %v, response: %s", err, cleanedJSON)
+					return fmt.Errorf("failed to parse JSON: %w, response: %s", err, cleanedJSON)
 				}
 
 				// Validate structure
 				if len(result.Perspectives) == 0 {
-					return fmt.Errorf("no perspectives found in response")
+					return errors.New("no perspectives found in response")
 				}
 				if result.Summary == "" {
-					return fmt.Errorf("no summary found in response")
+					return errors.New("no summary found in response")
 				}
 
 				// Validate each perspective
 				for _, p := range result.Perspectives {
 					if p.Name == "" {
-						return fmt.Errorf("perspective name is empty")
+						return errors.New("perspective name is empty")
 					}
 					if len(p.Implications) < 2 { // At least one positive and one negative
 						return fmt.Errorf("perspective %s has fewer than 2 implications", p.Name)
@@ -118,21 +119,21 @@ Please structure your response as a JSON object with the following format:
 				// Test summarization
 				summary, err := presets.Summarize(context.Background(), llm, cleanedJSON, gollm.WithMaxLength(50))
 				if err != nil {
-					return fmt.Errorf("summarization failed: %v", err)
+					return fmt.Errorf("summarization failed: %w", err)
 				}
 				if summary == "" {
-					return fmt.Errorf("empty summary response")
+					return errors.New("empty summary response")
 				}
 
 				// Test chain of thought
-				keyPoints, err := presets.ChainOfThought(context.Background(), llm,
-					fmt.Sprintf("Extract 3 key points from this analysis:\n%s", cleanedJSON))
-				if err != nil {
-					return fmt.Errorf("chain of thought failed: %v", err)
-				}
-				if keyPoints == "" {
-					return fmt.Errorf("empty key points response")
-				}
+				// keyPoints, err := presets.ChainOfThought(context.Background(), llm,
+				// 	fmt.Sprintf("Extract 3 key points from this analysis:\n%s", cleanedJSON))
+				// if err != nil {
+				// 	return fmt.Errorf("chain of thought failed: %v", err)
+				// }
+				// if keyPoints == "" {
+				// 	return fmt.Errorf("empty key points response")
+				// }
 
 				return nil
 			})

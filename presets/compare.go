@@ -5,6 +5,7 @@ package presets
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -18,12 +19,12 @@ import (
 // It is a generic type that can hold any structured response data along with metadata
 // about the generation attempt.
 type ComparisonResult[T any] struct {
-	Provider string              // The LLM provider (e.g., "openai", "anthropic")
-	Model    string              // The specific model used (e.g., "gpt-4", "claude-2")
-	Response *providers.Response // Response object including content and usage metadata
-	Data     T                   // Parsed and validated response data
-	Error    error               // Any error encountered during generation or validation
-	Attempts int                 // Number of attempts made to get a valid response
+	Data     T
+	Error    error
+	Response *providers.Response
+	Provider string
+	Model    string
+	Attempts int
 }
 
 // debugLog outputs debug information when debug logging is enabled in the config.
@@ -131,16 +132,21 @@ type ValidateFunc[T any] func(T) error
 //	// Analyze and display results
 //	analysis := AnalyzeComparisonResults(results)
 //	fmt.Println(analysis)
-func CompareModels[T any](ctx context.Context, prompt string, validateFunc ValidateFunc[T], configs ...*config.Config) ([]ComparisonResult[T], error) {
+func CompareModels[T any](
+	ctx context.Context,
+	prompt string,
+	validateFunc ValidateFunc[T],
+	configs ...*config.Config,
+) ([]ComparisonResult[T], error) {
 	// Validate inputs
 	if prompt == "" {
-		return nil, fmt.Errorf("prompt cannot be empty")
+		return nil, errors.New("prompt cannot be empty")
 	}
 	if validateFunc == nil {
-		return nil, fmt.Errorf("validator function cannot be nil")
+		return nil, errors.New("validator function cannot be nil")
 	}
 	if len(configs) == 0 {
-		return nil, fmt.Errorf("at least one config must be provided")
+		return nil, errors.New("at least one config must be provided")
 	}
 
 	results := make([]ComparisonResult[T], len(configs))
@@ -157,7 +163,13 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 		var newRemainingConfigs []*config.Config
 
 		for _, remainingConfig := range remainingConfigs {
-			debugLog(remainingConfig, "Attempting generation for %s %s (Attempt %d)", remainingConfig.Provider, remainingConfig.Model, attempt)
+			debugLog(
+				remainingConfig,
+				"Attempting generation for %s %s (Attempt %d)",
+				remainingConfig.Provider,
+				remainingConfig.Model,
+				attempt,
+			)
 
 			registry := providers.NewProviderRegistry()
 			llmInstance, err := llm.NewLLM(remainingConfig, logger, registry)
@@ -170,7 +182,12 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 				debugLog(remainingConfig, "Error generating response: %v", err)
 				// Immediately propagate API errors (like invalid keys)
 				if strings.Contains(err.Error(), "API error") {
-					return nil, fmt.Errorf("API error for %s %s: %w", remainingConfig.Provider, remainingConfig.Model, err)
+					return nil, fmt.Errorf(
+						"API error for %s %s: %w",
+						remainingConfig.Provider,
+						remainingConfig.Model,
+						err,
+					)
 				}
 				if attempt == 3 {
 					return nil, fmt.Errorf("failed to generate response after all attempts: %w", err)
@@ -216,7 +233,12 @@ func CompareModels[T any](ctx context.Context, prompt string, validateFunc Valid
 			}
 
 			results[index].Data = data
-			debugLog(remainingConfig, "Valid response received for %s %s", remainingConfig.Provider, remainingConfig.Model)
+			debugLog(
+				remainingConfig,
+				"Valid response received for %s %s",
+				remainingConfig.Provider,
+				remainingConfig.Model,
+			)
 		}
 
 		remainingConfigs = newRemainingConfigs

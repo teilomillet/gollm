@@ -4,9 +4,10 @@ package optimizer
 import (
 	"context"
 	"fmt"
-	"golang.org/x/time/rate"
 	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"github.com/teilomillet/gollm/llm"
 )
@@ -15,14 +16,9 @@ import (
 // It provides efficient batch processing capabilities while managing API rate limits
 // and resource utilization.
 type BatchPromptOptimizer struct {
-	// LLM is the language model instance used for optimization
-	LLM llm.LLM
-
-	// Verbose enables detailed logging of optimization progress
-	Verbose bool
-
-	// rateLimiter controls the rate of API calls to prevent overload
+	LLM         llm.LLM
 	rateLimiter *rate.Limiter
+	Verbose     bool
 }
 
 // NewBatchPromptOptimizer creates a new BatchPromptOptimizer with default rate limiting.
@@ -82,20 +78,11 @@ type PromptExample struct {
 // OptimizationResult contains the outcome of a single prompt optimization.
 // It includes both the optimized content and any errors encountered.
 type OptimizationResult struct {
-	// Name identifies which prompt this result corresponds to
-	Name string
-
-	// OriginalPrompt is the input prompt before optimization
-	OriginalPrompt string
-
-	// OptimizedPrompt is the improved prompt after optimization
-	OptimizedPrompt string
-
-	// GeneratedContent is the LLM's response using the optimized prompt
+	Error            error
+	Name             string
+	OriginalPrompt   string
+	OptimizedPrompt  string
 	GeneratedContent string
-
-	// Error contains any error encountered during optimization
-	Error error
 }
 
 // OptimizePrompts performs concurrent optimization of multiple prompts.

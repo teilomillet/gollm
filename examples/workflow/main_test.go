@@ -63,11 +63,11 @@ func TestResearchPhase(t *testing.T) {
 	assert.NotEmpty(t, research, "Research should not be empty")
 
 	// Verify research length
-	wordCount := len(strings.Fields(research))
+	wordCount := len(strings.Fields(research.AsText()))
 	assert.LessOrEqual(t, wordCount, 200, "Research should respect max length")
 
 	// Verify research content
-	assert.Contains(t, strings.ToLower(research), "quantum", "Research should contain relevant terms")
+	assert.Contains(t, strings.ToLower(research.AsText()), "quantum", "Research should contain relevant terms")
 }
 
 func TestIdeationPhase(t *testing.T) {
@@ -97,14 +97,14 @@ func TestIdeationPhase(t *testing.T) {
 	// Test ideation with research context
 	ideaPrompt := gollm.NewPrompt(
 		"Generate 3 article ideas about quantum computing for a general audience",
-		gollm.WithContext(research),
+		gollm.WithContext(research.AsText()),
 	)
 	ideas, err := llm.Generate(ctx, ideaPrompt)
 	require.NoError(t, err, "Ideation should succeed")
 	assert.NotEmpty(t, ideas, "Ideas should not be empty")
 
 	// Verify number of ideas
-	ideaLines := strings.Split(ideas, "\n")
+	ideaLines := strings.Split(ideas.AsText(), "\n")
 	var articleIdeas int
 	for _, line := range ideaLines {
 		if strings.TrimSpace(line) != "" {
@@ -141,7 +141,7 @@ func TestRefinementPhase(t *testing.T) {
 	// Test refinement with directives
 	refinementPrompt := gollm.NewPrompt(
 		"Improve the following paragraph about quantum computing:",
-		gollm.WithContext(research),
+		gollm.WithContext(research.AsText()),
 		gollm.WithDirectives(
 			"Use simpler language for a general audience",
 			"Add an engaging opening sentence",
@@ -153,7 +153,7 @@ func TestRefinementPhase(t *testing.T) {
 	assert.NotEmpty(t, refinedParagraph, "Refined paragraph should not be empty")
 
 	// Verify directive implementation
-	lowerParagraph := strings.ToLower(refinedParagraph)
+	lowerParagraph := strings.ToLower(refinedParagraph.AsText())
 	assert.True(t, strings.HasSuffix(lowerParagraph, "?"), "Should end with a question")
 	assert.NotEqual(t, research, refinedParagraph, "Refined paragraph should be different from research")
 }
@@ -196,28 +196,28 @@ func TestCompleteWorkflow(t *testing.T) {
 	require.NotEmpty(t, research, "Research should not be empty")
 
 	// Verify research constraints and content
-	wordCount := len(strings.Fields(research))
+	wordCount := len(strings.Fields(research.AsText()))
 	assert.LessOrEqual(t, wordCount, 200, "Research should respect max length")
-	lowerResearch := strings.ToLower(research)
+	lowerResearch := strings.ToLower(research.AsText())
 	assert.Contains(t, lowerResearch, "quantum", "Research should contain 'quantum'")
 	assert.Contains(t, lowerResearch, "comput", "Research should contain 'computer' or 'computing'")
 
 	// Step 2: Ideation phase - use research as context exactly as in main.go
 	ideaPrompt := gollm.NewPrompt(
 		"Generate 3 article ideas about quantum computing for a general audience",
-		gollm.WithContext(research),
+		gollm.WithContext(research.AsText()),
 	)
 	ideas, err := llm.Generate(ctx, ideaPrompt)
 	require.NoError(t, err, "Ideation phase should succeed")
 	require.NotEmpty(t, ideas, "Ideas should not be empty")
 
 	// Verify ideas content and structure
-	lowerIdeas := strings.ToLower(ideas)
+	lowerIdeas := strings.ToLower(ideas.AsText())
 	assert.Contains(t, lowerIdeas, "quantum", "Ideas should contain 'quantum'")
 	assert.Contains(t, lowerIdeas, "comput", "Ideas should contain 'computer' or 'computing'")
 
 	// Count number of ideas (looking for numbered items or bullet points)
-	ideaLines := strings.Split(ideas, "\n")
+	ideaLines := strings.Split(ideas.AsText(), "\n")
 	var articleIdeas int
 	for _, line := range ideaLines {
 		line = strings.TrimSpace(line)
@@ -231,7 +231,7 @@ func TestCompleteWorkflow(t *testing.T) {
 	// Step 3: Writing refinement - use research and directives exactly as in main.go
 	refinementPrompt := gollm.NewPrompt(
 		"Improve the following paragraph about quantum computing:",
-		gollm.WithContext(research),
+		gollm.WithContext(research.AsText()),
 		gollm.WithDirectives(
 			"Use simpler language for a general audience",
 			"Add an engaging opening sentence",
@@ -243,7 +243,7 @@ func TestCompleteWorkflow(t *testing.T) {
 	require.NotEmpty(t, refinedParagraph, "Refined paragraph should not be empty")
 
 	// Verify refinement content and structure
-	lowerParagraph := strings.ToLower(refinedParagraph)
+	lowerParagraph := strings.ToLower(refinedParagraph.AsText())
 	assert.True(t, strings.HasSuffix(lowerParagraph, "?"), "Should end with a question")
 	assert.NotEqual(t, research, refinedParagraph, "Refined paragraph should be different from research")
 	assert.Contains(t, lowerParagraph, "quantum", "Refined paragraph should contain 'quantum'")

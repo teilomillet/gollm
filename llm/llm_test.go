@@ -25,7 +25,7 @@ func TestConcurrentOptionsAccess(t *testing.T) {
 	concurrency := 100
 	wg.Add(concurrency)
 
-	for i := 0; i < concurrency; i++ {
+	for i := range concurrency {
 		go func(i int) {
 			defer wg.Done()
 			key := fmt.Sprintf("key%d", i)
@@ -36,7 +36,7 @@ func TestConcurrentOptionsAccess(t *testing.T) {
 	wg.Wait()
 
 	// Verify all options were set correctly
-	for i := 0; i < concurrency; i++ {
+	for i := range concurrency {
 		key := fmt.Sprintf("key%d", i)
 		llm.optionsMutex.RLock()
 		val, ok := llm.Options[key]

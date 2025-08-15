@@ -109,9 +109,9 @@ func TestPromptOptimizer(t *testing.T) {
 			}
 
 			// Only validate response if we got one
-			if response != "" {
+			if response.AsText() != "" {
 				// Simple content validation
-				lowercaseResponse := strings.ToLower(response)
+				lowercaseResponse := strings.ToLower(response.AsText())
 				assert.True(t,
 					strings.Contains(lowercaseResponse, "mystery") ||
 						strings.Contains(lowercaseResponse, "story"),
@@ -124,7 +124,7 @@ func TestPromptOptimizer(t *testing.T) {
 				if len(history) > 0 {
 					lastEntry := history[len(history)-1]
 					assert.NotNil(t, lastEntry.Assessment, "Should have assessment data")
-					assert.True(t, lastEntry.Assessment.OverallScore > 0, "Should have positive assessment score")
+					assert.Positive(t, lastEntry.Assessment.OverallScore, "Should have positive assessment score")
 				}
 			}
 		}

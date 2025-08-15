@@ -133,7 +133,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 
 		// Validate the response is valid JSON conforming to the schema
 		var personData map[string]any
-		err = json.Unmarshal([]byte(response), &personData)
+		err = json.Unmarshal([]byte(response.AsText()), &personData)
 		require.NoError(t, err, "Response should be valid JSON")
 
 		name, ok := personData["name"].(string)
@@ -274,7 +274,7 @@ func makeAPICall(t *testing.T, endpoint string, headers map[string]string, reque
 	}
 
 	// Create the request
-	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, err
 	}

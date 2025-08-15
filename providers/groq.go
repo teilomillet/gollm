@@ -3,7 +3,9 @@ package providers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
@@ -13,11 +15,11 @@ import (
 // It supports Groq's optimized language models and provides access to their
 // high-performance inference capabilities.
 type GroqProvider struct {
-	apiKey       string            // API key for authentication
-	model        string            // Model identifier (e.g., "llama2-70b", "mixtral-8x7b")
-	extraHeaders map[string]string // Additional HTTP headers
-	options      map[string]any    // Model-specific options
-	logger       utils.Logger      // Logger instance
+	logger       utils.Logger
+	extraHeaders map[string]string
+	options      map[string]any
+	apiKey       string
+	model        string
 }
 
 // NewGroqProvider creates a new Groq provider instance.
@@ -30,7 +32,7 @@ type GroqProvider struct {
 //
 // Returns:
 //   - A configured Groq Provider instance
-func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) *GroqProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -171,16 +173,16 @@ func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[strin
 //   - Any error encountered during parsing
 func (p *GroqProvider) ParseResponse(body []byte) (*Response, error) {
 	var response struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
 		Usage *struct {
 			PromptTokens     int64 `json:"prompt_tokens"`
 			CompletionTokens int64 `json:"completion_tokens"`
 			TotalTokens      int64 `json:"total_tokens"`
 		} `json:"usage"`
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
 	}
 
 	err := json.Unmarshal(body, &response)
@@ -189,7 +191,7 @@ func (p *GroqProvider) ParseResponse(body []byte) (*Response, error) {
 	}
 
 	if len(response.Choices) == 0 || response.Choices[0].Message.Content == "" {
-		return nil, fmt.Errorf("empty response from API")
+		return nil, errors.New("empty response from API")
 	}
 
 	resp := &Response{Content: Text{Value: response.Choices[0].Message.Content}}
@@ -245,14 +247,17 @@ func (p *GroqProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 		return nil, fmt.Errorf("malformed response: %w", err)
 	}
 	if len(response.Choices) == 0 || response.Choices[0].Delta.Content == "" {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 	return &Response{Content: Text{Value: response.Choices[0].Delta.Content}}, nil
 }
 
 // PrepareRequestWithMessages creates a request body using structured message objects
 // rather than a flattened prompt string.
-func (p *GroqProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *GroqProvider) PrepareRequestWithMessages(
+	messages []types.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	request := map[string]any{
 		"model":    p.model,
 		"messages": []map[string]any{},

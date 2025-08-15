@@ -5,7 +5,9 @@ package gollm
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/llm"
 	"github.com/teilomillet/gollm/providers"
@@ -45,8 +47,8 @@ type llmImpl struct {
 	llm.LLM
 	provider providers.Provider
 	logger   utils.Logger
-	model    string
 	config   *config.Config
+	model    string
 }
 
 // SetSystemPrompt sets the system prompt for the LLM.
@@ -87,7 +89,7 @@ func (l *llmImpl) SetOllamaEndpoint(endpoint string) error {
 		p.SetEndpoint(endpoint)
 		return nil
 	}
-	return fmt.Errorf("current provider does not support setting custom endpoint")
+	return errors.New("current provider does not support setting custom endpoint")
 }
 
 // GetPromptJSONSchema generates and returns the JSON schema for the Prompt.
@@ -106,7 +108,11 @@ func (l *llmImpl) UpdateLogLevel(level LogLevel) {
 }
 
 // Generate Implement the base Generate method (if not already provided by embedded llm.LLM)
-func (l *llmImpl) Generate(ctx context.Context, prompt *llm.Prompt, opts ...llm.GenerateOption) (*providers.Response, error) {
+func (l *llmImpl) Generate(
+	ctx context.Context,
+	prompt *llm.Prompt,
+	opts ...llm.GenerateOption,
+) (*providers.Response, error) {
 	l.logger.Debug("Starting Generate method", "prompt_length", len(prompt.String()), "context", ctx)
 
 	// Call the base LLM's Generate method
@@ -133,7 +139,7 @@ func (l *llmImpl) Generate(ctx context.Context, prompt *llm.Prompt, opts ...llm.
 // - Configuration loading fails
 // - Provider initialization fails
 // - Memory setup fails (if memory option is enabled)
-func NewLLM(opts ...ConfigOption) (LLM, error) {
+func NewLLM(opts ...ConfigOption) (*llmImpl, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
@@ -173,7 +179,8 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		return nil, fmt.Errorf("failed to create internal LLM: %w", err)
 	}
 
-	provider, err := providers.NewProviderRegistry().Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, cfg.ExtraHeaders)
+	provider, err := providers.NewProviderRegistry().
+		Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, cfg.ExtraHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider: %w", err)
 	}

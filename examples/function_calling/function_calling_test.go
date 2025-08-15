@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/teilomillet/gollm/providers"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/teilomillet/gollm/providers"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/teilomillet/gollm"
@@ -129,7 +131,7 @@ func TestFunctionCalling(t *testing.T) {
 				// The validation logic is the same as before
 				functionCalls, err := providers.ExtractFunctionCalls(response)
 				if err != nil {
-					return fmt.Errorf("failed to extract function calls: %v", err)
+					return fmt.Errorf("failed to extract function calls: %w", err)
 				}
 
 				if len(functionCalls) != 1 {
@@ -170,7 +172,7 @@ func TestFunctionCalling(t *testing.T) {
 				// Validation logic remains the same
 				functionCalls, err := providers.ExtractFunctionCalls(response)
 				if err != nil {
-					return fmt.Errorf("failed to extract function calls: %v", err)
+					return fmt.Errorf("failed to extract function calls: %w", err)
 				}
 
 				if len(functionCalls) != 2 {
@@ -186,7 +188,7 @@ func TestFunctionCalling(t *testing.T) {
 						foundWeather = true
 						args, ok := call["arguments"].(map[string]any)
 						if !ok {
-							return fmt.Errorf("expected weather arguments to be a map")
+							return errors.New("expected weather arguments to be a map")
 						}
 						location, ok := args["location"].(string)
 						if !ok || !strings.HasPrefix(strings.ToLower(location), "new york") {
@@ -196,7 +198,7 @@ func TestFunctionCalling(t *testing.T) {
 						foundTime = true
 						args, ok := call["arguments"].(map[string]any)
 						if !ok {
-							return fmt.Errorf("expected time arguments to be a map")
+							return errors.New("expected time arguments to be a map")
 						}
 						timezone, ok := args["timezone"].(string)
 						if !ok || !strings.Contains(timezone, "New_York") {
@@ -224,12 +226,15 @@ func TestFunctionCalling(t *testing.T) {
 				// Validation logic remains the same
 				functionCalls, err := providers.ExtractFunctionCalls(response)
 				if err != nil {
-					return fmt.Errorf("failed to extract function calls: %v", err)
+					return fmt.Errorf("failed to extract function calls: %w", err)
 				}
 
 				// We expect no function calls since location is required but not provided
 				if len(functionCalls) > 0 {
-					return fmt.Errorf("expected no function calls due to missing required parameter, got %d", len(functionCalls))
+					return fmt.Errorf(
+						"expected no function calls due to missing required parameter, got %d",
+						len(functionCalls),
+					)
 				}
 
 				// The response should ask for the location
@@ -252,7 +257,7 @@ func TestFunctionCalling(t *testing.T) {
 				// Validation logic remains the same
 				functionCalls, err := providers.ExtractFunctionCalls(response)
 				if err != nil {
-					return fmt.Errorf("failed to extract function calls: %v", err)
+					return fmt.Errorf("failed to extract function calls: %w", err)
 				}
 
 				if len(functionCalls) != 1 {
@@ -295,12 +300,12 @@ func TestFunctionCalling(t *testing.T) {
 		Validate(func(response string) error {
 			functionCalls, err := providers.ExtractFunctionCalls(response)
 			if err != nil {
-				return fmt.Errorf("failed to extract function calls: %v", err)
+				return fmt.Errorf("failed to extract function calls: %w", err)
 			}
 
 			// With forced tool use, we expect at least one function call
 			if len(functionCalls) == 0 {
-				return fmt.Errorf("expected at least one function call with forced tool use")
+				return errors.New("expected at least one function call with forced tool use")
 			}
 
 			// Verify the get_weather function was called
@@ -323,12 +328,12 @@ func TestFunctionCalling(t *testing.T) {
 		Validate(func(response string) error {
 			functionCalls, err := providers.ExtractFunctionCalls(response)
 			if err != nil {
-				return fmt.Errorf("failed to extract function calls: %v", err)
+				return fmt.Errorf("failed to extract function calls: %w", err)
 			}
 
 			// With forced tool use, we expect at least one function call
 			if len(functionCalls) == 0 {
-				return fmt.Errorf("expected at least one function call with forced tool use")
+				return errors.New("expected at least one function call with forced tool use")
 			}
 
 			// Verify the get_weather function was called
@@ -357,7 +362,7 @@ func TestFunctionCalling(t *testing.T) {
 			// Validation logic remains the same
 			functionCalls, err := providers.ExtractFunctionCalls(response)
 			if err != nil {
-				return fmt.Errorf("failed to extract function calls: %v", err)
+				return fmt.Errorf("failed to extract function calls: %w", err)
 			}
 
 			if len(functionCalls) != 1 {
@@ -377,7 +382,7 @@ func TestFunctionCalling(t *testing.T) {
 			// Verify required summary field
 			summary, ok := args["summary"].(string)
 			if !ok || summary == "" {
-				return fmt.Errorf("missing or invalid summary field")
+				return errors.New("missing or invalid summary field")
 			}
 
 			// Optional tags field should be an array if present
@@ -404,7 +409,7 @@ func TestFunctionCalling(t *testing.T) {
 			// Validation logic remains the same
 			functionCalls, err := providers.ExtractFunctionCalls(response)
 			if err != nil {
-				return fmt.Errorf("failed to extract function calls: %v", err)
+				return fmt.Errorf("failed to extract function calls: %w", err)
 			}
 
 			if len(functionCalls) != 1 {
@@ -424,7 +429,7 @@ func TestFunctionCalling(t *testing.T) {
 			// Verify required summary field
 			summary, ok := args["summary"].(string)
 			if !ok || summary == "" {
-				return fmt.Errorf("missing or invalid summary field")
+				return errors.New("missing or invalid summary field")
 			}
 
 			// Optional tags field should be an array if present
@@ -449,19 +454,19 @@ func TestFunctionCalling(t *testing.T) {
 	anthropicMetrics := testAnthropic.GetBatchMetrics()
 
 	// Verify batch execution completed for both
-	assert.True(t, openAIMetrics.BatchTiming.TotalDuration > 0)
+	assert.Positive(t, openAIMetrics.BatchTiming.TotalDuration)
 	assert.True(t, openAIMetrics.BatchTiming.EndTime.After(openAIMetrics.BatchTiming.StartTime))
-	assert.True(t, anthropicMetrics.BatchTiming.TotalDuration > 0)
+	assert.Positive(t, anthropicMetrics.BatchTiming.TotalDuration)
 	assert.True(t, anthropicMetrics.BatchTiming.EndTime.After(anthropicMetrics.BatchTiming.StartTime))
 
 	// Check provider latencies
 	for provider, latency := range openAIMetrics.BatchTiming.ProviderLatency {
 		t.Logf("Provider %s average latency: %v", provider, latency)
-		assert.True(t, latency > 0)
+		assert.Positive(t, latency)
 	}
 	for provider, latency := range anthropicMetrics.BatchTiming.ProviderLatency {
 		t.Logf("Provider %s average latency: %v", provider, latency)
-		assert.True(t, latency > 0)
+		assert.Positive(t, latency)
 	}
 
 	// Verify error handling

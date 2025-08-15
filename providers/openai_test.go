@@ -34,7 +34,13 @@ func TestNeedsMaxCompletionTokens(t *testing.T) {
 
 			// Test the needsMaxCompletionTokens function
 			result := openAIProvider.needsMaxCompletionTokens()
-			assert.Equal(t, tc.expectedResult, result, "needsMaxCompletionTokens returned unexpected result for model %s", tc.modelName)
+			assert.Equal(
+				t,
+				tc.expectedResult,
+				result,
+				"needsMaxCompletionTokens returned unexpected result for model %s",
+				tc.modelName,
+			)
 		})
 	}
 }

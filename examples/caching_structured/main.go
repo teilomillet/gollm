@@ -14,9 +14,12 @@ import (
 )
 
 // Helper function to add a message with cache control
-func AddMessageWithCache(memLLM llm.LLM, role, content, cacheControl string) {
+func AddMessageWithCache(memoryLLM llm.LLM, role, content, cacheControl string) {
 	// Get the underlying memory
-	mem := memLLM.(*llm.LLMWithMemory)
+	mem, ok := memoryLLM.(*llm.LLMWithMemory)
+	if !ok {
+		log.Fatalf("Failed to cast to LLMWithMemory")
+	}
 
 	// Use reflection to access the memory field and call AddStructured
 	llmMem := mem.GetMemory()
@@ -72,36 +75,30 @@ func main() {
 		log.Fatalf("Failed to create LLM with memory: %v", err)
 	}
 
-	// Get memory LLM as the correct type
-	memLLM, ok := memoryLLM.(*llm.LLMWithMemory)
-	if !ok {
-		log.Fatalf("Failed to cast to LLMWithMemory")
-	}
-
 	// Test 1: Compare traditional approach to structured messages
 	fmt.Println("\n=== Test 1: Traditional vs Structured Messages ===")
-	TestTraditionalVsStructured(memLLM)
+	TestTraditionalVsStructured(memoryLLM)
 
 	// Test 2: Measure the performance improvement with caching
 	fmt.Println("\n=== Test 2: Caching Performance ===")
-	TestCachingPerformance(memLLM)
+	TestCachingPerformance(memoryLLM)
 }
 
 // TestTraditionalVsStructured compares traditional and structured message approaches
-func TestTraditionalVsStructured(memLLM *llm.LLMWithMemory) {
+func TestTraditionalVsStructured(memoryLLM *llm.LLMWithMemory) {
 	ctx := context.Background()
 	systemPrompt := "You are a friendly assistant."
 
 	// Test with traditional flattened approach
 	fmt.Println("\n--- Using traditional flattened messages ---")
-	memLLM.ClearMemory()
-	memLLM.SetUseStructuredMessages(false)
+	memoryLLM.ClearMemory()
+	memoryLLM.SetUseStructuredMessages(false)
 
-	prompt1 := memLLM.NewPrompt("Hello, what can you do?")
+	prompt1 := memoryLLM.NewPrompt("Hello, what can you do?")
 	prompt1.SystemPrompt = systemPrompt
 
 	startTime := time.Now()
-	resp1, err := memLLM.Generate(ctx, prompt1)
+	resp1, err := memoryLLM.Generate(ctx, prompt1)
 	if err != nil {
 		log.Fatalf("Generation failed: %v", err)
 	}
@@ -113,9 +110,9 @@ func TestTraditionalVsStructured(memLLM *llm.LLMWithMemory) {
 	}
 	fmt.Printf("Response 1 (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
 
-	prompt2 := memLLM.NewPrompt("Can you tell me a short joke?")
+	prompt2 := memoryLLM.NewPrompt("Can you tell me a short joke?")
 	startTime = time.Now()
-	resp2, err := memLLM.Generate(ctx, prompt2)
+	resp2, err := memoryLLM.Generate(ctx, prompt2)
 	if err != nil {
 		log.Fatalf("Generation failed: %v", err)
 	}
@@ -129,14 +126,14 @@ func TestTraditionalVsStructured(memLLM *llm.LLMWithMemory) {
 
 	// Test with structured messages
 	fmt.Println("\n--- Using structured messages ---")
-	memLLM.ClearMemory()
-	memLLM.SetUseStructuredMessages(true)
+	memoryLLM.ClearMemory()
+	memoryLLM.SetUseStructuredMessages(true)
 
-	prompt1 = memLLM.NewPrompt("Hello, what can you do?")
+	prompt1 = memoryLLM.NewPrompt("Hello, what can you do?")
 	prompt1.SystemPrompt = systemPrompt
 
 	startTime = time.Now()
-	resp1, err = memLLM.Generate(ctx, prompt1)
+	resp1, err = memoryLLM.Generate(ctx, prompt1)
 	if err != nil {
 		log.Fatalf("Generation failed: %v", err)
 	}
@@ -148,9 +145,9 @@ func TestTraditionalVsStructured(memLLM *llm.LLMWithMemory) {
 	}
 	fmt.Printf("Response 1 (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
 
-	prompt2 = memLLM.NewPrompt("Can you tell me a short joke?")
+	prompt2 = memoryLLM.NewPrompt("Can you tell me a short joke?")
 	startTime = time.Now()
-	resp2, err = memLLM.Generate(ctx, prompt2)
+	resp2, err = memoryLLM.Generate(ctx, prompt2)
 	if err != nil {
 		log.Fatalf("Generation failed: %v", err)
 	}
@@ -164,23 +161,23 @@ func TestTraditionalVsStructured(memLLM *llm.LLMWithMemory) {
 }
 
 // TestCachingPerformance tests the caching performance improvement
-func TestCachingPerformance(memLLM *llm.LLMWithMemory) {
+func TestCachingPerformance(memoryLLM *llm.LLMWithMemory) {
 	ctx := context.Background()
 	systemPrompt := "You are a helpful assistant that provides concise responses."
 
 	// Test with structured messages and caching
 	fmt.Println("\n--- First run (no cache) ---")
-	memLLM.ClearMemory()
-	memLLM.SetUseStructuredMessages(true)
+	memoryLLM.ClearMemory()
+	memoryLLM.SetUseStructuredMessages(true)
 
 	// Add message with cache control
-	memLLM.AddStructuredMessage("user", "Hello, who are you?", "ephemeral")
+	memoryLLM.AddStructuredMessage("user", "Hello, who are you?", "ephemeral")
 
-	prompt := memLLM.NewPrompt("Give me a 30-word description of machine learning.")
+	prompt := memoryLLM.NewPrompt("Give me a 30-word description of machine learning.")
 	prompt.SystemPrompt = systemPrompt
 
 	startTime := time.Now()
-	resp, err := memLLM.Generate(ctx, prompt)
+	resp, err := memoryLLM.Generate(ctx, prompt)
 	if err != nil {
 		log.Fatalf("Generation failed: %v", err)
 	}
@@ -194,13 +191,13 @@ func TestCachingPerformance(memLLM *llm.LLMWithMemory) {
 
 	// Now run the exact same request again - should be faster due to caching
 	fmt.Println("\n--- Second run (should use cache) ---")
-	memLLM.ClearMemory()
+	memoryLLM.ClearMemory()
 
 	// Add the same message back to memory with cache control
-	memLLM.AddStructuredMessage("user", "Hello, who are you?", "ephemeral")
+	memoryLLM.AddStructuredMessage("user", "Hello, who are you?", "ephemeral")
 
 	startTime = time.Now()
-	resp, err = memLLM.Generate(ctx, prompt)
+	resp, err = memoryLLM.Generate(ctx, prompt)
 	if err != nil {
 		log.Fatalf("Generation failed: %v", err)
 	}

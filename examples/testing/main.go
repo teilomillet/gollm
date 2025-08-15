@@ -48,7 +48,13 @@ func main() {
 	getUserFeedback("LLM2")
 }
 
-func createLLM(temperature, topP, minP, repeatPenalty float64, repeatLastN int, mirostat int, mirostatEta, mirostatTau, tfsZ float64, seed int) (gollm.LLM, error) {
+func createLLM(
+	temperature, topP, minP, repeatPenalty float64,
+	repeatLastN int,
+	mirostat int,
+	mirostatEta, mirostatTau, tfsZ float64,
+	seed int,
+) (gollm.LLM, error) {
 	return gollm.NewLLM(
 		gollm.SetProvider("ollama"),
 		gollm.SetModel("llama3.1"),
@@ -69,11 +75,19 @@ func createLLM(temperature, topP, minP, repeatPenalty float64, repeatLastN int, 
 func getUserFeedback(llmName string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Printf("\nPlease rate the response from %s (1-5): ", llmName)
-	rating, _ := reader.ReadString('\n')
+	rating, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Printf("Error reading rating: %v\n", err)
+		rating = "0"
+	}
 	rating = strings.TrimSpace(rating)
 
 	fmt.Print("Any additional comments? ")
-	comments, _ := reader.ReadString('\n')
+	comments, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Printf("Error reading comments: %v\n", err)
+		comments = ""
+	}
 	comments = strings.TrimSpace(comments)
 
 	fmt.Printf("Feedback for %s - Rating: %s, Comments: %s\n\n", llmName, rating, comments)

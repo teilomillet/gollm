@@ -75,7 +75,9 @@ func main() {
 			Name      string          `json:"name"`
 			Arguments json.RawMessage `json:"arguments"`
 		}
-		json.Unmarshal([]byte(functionCallJSON), &functionCall)
+		if err := json.Unmarshal([]byte(functionCallJSON), &functionCall); err != nil {
+			fmt.Printf("Warning: Failed to unmarshal function call: %v\n", err)
+		}
 
 		fmt.Printf("Function: %s\n", functionCall.Name)
 		fmt.Printf("Arguments: %s\n", string(functionCall.Arguments))
@@ -86,11 +88,18 @@ func main() {
 			"unit":        "celsius",
 			"description": "Partly cloudy",
 		}
-		weatherResponse, _ := json.Marshal(weatherData)
+		weatherResponse, err := json.Marshal(weatherData)
+		if err != nil {
+			fmt.Printf("Warning: Failed to marshal weather data: %v\n", err)
+			weatherResponse = []byte("{}")
+		}
 
 		// Generate follow-up response
 		finalResponse, err := llm.Generate(ctx, gollm.NewPrompt(
-			fmt.Sprintf("The weather data for New York is: %s. Please provide a human-readable summary.", string(weatherResponse)),
+			fmt.Sprintf(
+				"The weather data for New York is: %s. Please provide a human-readable summary.",
+				string(weatherResponse),
+			),
 		))
 		if err != nil {
 			log.Fatalf("Failed to generate final response: %v", err)

@@ -4,8 +4,9 @@ package llm
 import (
 	"context"
 	"fmt"
-	"github.com/teilomillet/gollm/providers"
 	"sync"
+
+	"github.com/teilomillet/gollm/providers"
 
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/teilomillet/gollm/types"
@@ -23,12 +24,12 @@ type MemoryMessage = types.MemoryMessage
 // It provides thread-safe operations for adding, retrieving, and managing messages
 // while ensuring the total token count stays within specified limits.
 type Memory struct {
-	messages    []types.MemoryMessage // Ordered list of conversation messages
-	mutex       sync.Mutex            // Ensures thread-safe operations
-	totalTokens int                   // Current total token count
-	maxTokens   int                   // Maximum allowed tokens
-	encoding    *tiktoken.Tiktoken    // Token encoder for the model
-	logger      utils.Logger          // Logger for debugging and monitoring
+	logger      utils.Logger
+	encoding    *tiktoken.Tiktoken
+	messages    []types.MemoryMessage
+	totalTokens int
+	maxTokens   int
+	mutex       sync.Mutex
 }
 
 // NewMemory creates a new Memory instance with the specified token limit and model.
@@ -48,7 +49,7 @@ func NewMemory(maxTokens int, model string, logger utils.Logger) (*Memory, error
 		logger.Warn("Failed to get encoding for model, defaulting to gpt-4o", "model", model, "error", err)
 		encoding, err = tiktoken.EncodingForModel("gpt-4o")
 		if err != nil {
-			return nil, fmt.Errorf("failed to get default encoding: %v", err)
+			return nil, fmt.Errorf("failed to get default encoding: %w", err)
 		}
 	}
 
@@ -119,7 +120,15 @@ func (m *Memory) truncate() {
 		removed := m.messages[0]
 		m.messages = m.messages[1:]
 		m.totalTokens -= removed.Tokens
-		m.logger.Debug("Removed message from memory", "role", removed.Role, "tokens", removed.Tokens, "total_tokens", m.totalTokens)
+		m.logger.Debug(
+			"Removed message from memory",
+			"role",
+			removed.Role,
+			"tokens",
+			removed.Tokens,
+			"total_tokens",
+			m.totalTokens,
+		)
 	}
 }
 
@@ -130,7 +139,15 @@ func (m *Memory) truncateIfNeeded() {
 		removed := m.messages[0]
 		m.messages = m.messages[1:]
 		m.totalTokens -= removed.Tokens
-		m.logger.Debug("Removed message from memory", "role", removed.Role, "tokens", removed.Tokens, "total_tokens", m.totalTokens)
+		m.logger.Debug(
+			"Removed message from memory",
+			"role",
+			removed.Role,
+			"tokens",
+			removed.Tokens,
+			"total_tokens",
+			m.totalTokens,
+		)
 	}
 }
 
@@ -240,7 +257,7 @@ func (l *LLMWithMemory) SupportsJSONSchema() bool {
 // Returns:
 //   - LLM instance with memory capabilities
 //   - ErrorTypeProvider if memory initialization fails
-func NewLLMWithMemory(llm LLM, maxTokens int, model string) (LLM, error) {
+func NewLLMWithMemory(llm LLM, maxTokens int, model string) (*LLMWithMemory, error) {
 	logger := llm.GetLogger()
 	memory, err := NewMemory(maxTokens, model, logger)
 	if err != nil {
@@ -265,7 +282,11 @@ func NewLLMWithMemory(llm LLM, maxTokens int, model string) (LLM, error) {
 // Returns:
 //   - Generated text response
 //   - Error types as per the base LLM's Generate method
-func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (*providers.Response, error) {
+func (l *LLMWithMemory) Generate(
+	ctx context.Context,
+	prompt *Prompt,
+	opts ...GenerateOption,
+) (*providers.Response, error) {
 	l.memory.Add("user", prompt.Input)
 
 	var response *providers.Response

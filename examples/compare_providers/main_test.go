@@ -99,12 +99,12 @@ func TestCompareProviders(t *testing.T) {
 		response1, err := llmGPT3.Generate(ctx, prompt)
 		assert.NoError(t, err, "Should generate response from GPT-4o-mini")
 		assert.NotEmpty(t, response1, "Response from GPT-4o-mini should not be empty")
-		assert.Contains(t, strings.ToLower(response1), "learning", "Response should be about machine learning")
+		assert.Contains(t, strings.ToLower(response1.AsText()), "learning", "Response should be about machine learning")
 
 		response2, err := llmGPT4.Generate(ctx, prompt)
 		assert.NoError(t, err, "Should generate response from GPT-4o")
 		assert.NotEmpty(t, response2, "Response from GPT-4o should not be empty")
-		assert.Contains(t, strings.ToLower(response2), "learning", "Response should be about machine learning")
+		assert.Contains(t, strings.ToLower(response1.AsText()), "learning", "Response should be about machine learning")
 	})
 
 	// Test directive prompt comparison
@@ -121,19 +121,19 @@ func TestCompareProviders(t *testing.T) {
 		response1, err := llmGPT3.Generate(ctx, prompt)
 		assert.NoError(t, err, "Should generate response from GPT-4o-mini")
 		assert.NotEmpty(t, response1, "Response from GPT-4o-mini should not be empty")
-		assert.Contains(t, strings.ToLower(response1), "blockchain", "Response should be about blockchain")
+		assert.Contains(t, strings.ToLower(response1.AsText()), "blockchain", "Response should be about blockchain")
 		// Check for output prefix case-insensitively and allow markdown formatting
-		assert.True(t, strings.Contains(strings.ToLower(response1), "explanation of blockchain") ||
-			strings.Contains(strings.ToLower(response1), "**explanation of blockchain**"),
+		assert.True(t, strings.Contains(strings.ToLower(response1.AsText()), "explanation of blockchain") ||
+			strings.Contains(strings.ToLower(response1.AsText()), "**explanation of blockchain**"),
 			"Response should include the output prefix (case-insensitive)")
 
 		response2, err := llmGPT4.Generate(ctx, prompt)
 		assert.NoError(t, err, "Should generate response from GPT-4o")
 		assert.NotEmpty(t, response2, "Response from GPT-4o should not be empty")
-		assert.Contains(t, strings.ToLower(response2), "blockchain", "Response should be about blockchain")
+		assert.Contains(t, strings.ToLower(response2.AsText()), "blockchain", "Response should be about blockchain")
 		// Check for output prefix case-insensitively and allow markdown formatting
-		assert.True(t, strings.Contains(strings.ToLower(response2), "explanation of blockchain") ||
-			strings.Contains(strings.ToLower(response2), "**explanation of blockchain**"),
+		assert.True(t, strings.Contains(strings.ToLower(response2.AsText()), "explanation of blockchain") ||
+			strings.Contains(strings.ToLower(response2.AsText()), "**explanation of blockchain**"),
 			"Response should include the output prefix (case-insensitive)")
 	})
 
@@ -177,13 +177,15 @@ func TestCompareProviders(t *testing.T) {
 		response1, err := llmGPT3.Generate(ctx, prompt)
 		assert.NoError(t, err, "Should generate response from GPT-4o-mini")
 		assert.NotEmpty(t, response1, "Response from GPT-4o-mini should not be empty")
-		assert.Contains(t, strings.ToLower(response1), "autonomous", "Response should be about autonomous vehicles")
+		assert.Contains(t, strings.ToLower(response1.AsText()), "autonomous",
+			"Response should be about autonomous vehicles")
 		assert.Contains(t, response1, "Analysis:", "Response should include the output prefix")
 
 		response2, err := llmGPT4.Generate(ctx, prompt)
 		assert.NoError(t, err, "Should generate response from GPT-4")
 		assert.NotEmpty(t, response2, "Response from GPT-4 should not be empty")
-		assert.Contains(t, strings.ToLower(response2), "autonomous", "Response should be about autonomous vehicles")
+		assert.Contains(t, strings.ToLower(response2.AsText()), "autonomous",
+			"Response should be about autonomous vehicles")
 		assert.Contains(t, response2, "Analysis:", "Response should include the output prefix")
 	})
 }

@@ -3,6 +3,7 @@ package llm
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -329,7 +330,8 @@ func addValidationToSchema(schema map[string]any, validateTag string) {
 			}
 
 		case "password":
-			// Example: password=strong (requires at least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special char)
+			// Example: password=strong (requires at least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special
+			// char)
 			schema["pattern"] = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
 
 			// Add more cases as needed
@@ -407,7 +409,7 @@ func ValidateAgainstSchema(response string, schema any) error {
 func validateJSONAgainstSchema(data any, schema map[string]any) error {
 	schemaType, ok := schema["type"].(string)
 	if !ok {
-		return fmt.Errorf("schema missing 'type' field")
+		return errors.New("schema missing 'type' field")
 	}
 
 	switch schemaType {
@@ -439,7 +441,7 @@ func validateObject(data any, schema map[string]any) error {
 
 	properties, ok := schema["properties"].(map[string]any)
 	if !ok {
-		return fmt.Errorf("invalid 'properties' in schema")
+		return errors.New("invalid 'properties' in schema")
 	}
 
 	for key, propSchema := range properties {
@@ -480,7 +482,7 @@ func validateArray(data any, schema map[string]any) error {
 
 	items, ok := schema["items"].(map[string]any)
 	if !ok {
-		return fmt.Errorf("invalid 'items' in schema")
+		return errors.New("invalid 'items' in schema")
 	}
 
 	for i, item := range dataSlice {

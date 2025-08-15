@@ -4,6 +4,7 @@ package providers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -34,7 +35,7 @@ type GeminiProvider struct {
 //
 // Returns:
 //   - A configured GeminiProvider instance
-func NewGeminiProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewGeminiProvider(apiKey, model string, extraHeaders map[string]string) *GeminiProvider {
 	provider := &GeminiProvider{
 		apiKey:       apiKey,
 		model:        model,
@@ -71,7 +72,7 @@ func (p *GeminiProvider) Endpoint() string {
 func (p *GeminiProvider) Headers() map[string]string {
 	headers := map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": fmt.Sprintf("Bearer %s", p.apiKey),
+		"Authorization": "Bearer " + p.apiKey,
 	}
 	// Include any additional headers that were set
 	for k, v := range p.extraHeaders {
@@ -118,7 +119,8 @@ func (p *GeminiProvider) SupportsStreaming() bool {
 }
 
 // PrepareRequest builds the JSON request body for a single-turn completion or prompt.
-// It includes the user prompt (as content with role "user"), optional system instruction, tools, and generation parameters.
+// It includes the user prompt (as content with role "user"), optional system instruction, tools, and generation
+// parameters.
 func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	// Base request structure
 	requestBody := map[string]any{
@@ -212,8 +214,12 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]any) (
 }
 
 // PrepareRequestWithMessages creates a request body from a sequence of structured messages (conversation history).
-// It maps each MemoryMessage to a Gemini API Content, preserving roles and content. System prompts and tools are handled similarly to PrepareRequest.
-func (p *GeminiProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+// It maps each MemoryMessage to a Gemini API Content, preserving roles and content. System prompts and tools are
+// handled similarly to PrepareRequest.
+func (p *GeminiProvider) PrepareRequestWithMessages(
+	messages []types.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	requestBody := map[string]any{
 		"model":    p.model,
 		"contents": []map[string]any{},
@@ -298,7 +304,8 @@ func (p *GeminiProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 }
 
 // PrepareRequestWithSchema builds a request similar to PrepareRequest but enforces a JSON output schema.
-// It uses the GenerationConfig.responseMimeType and responseSchema fields to instruct the model to return JSON adhering to the schema.
+// It uses the GenerationConfig.responseMimeType and responseSchema fields to instruct the model to return JSON adhering
+// to the schema.
 func (p *GeminiProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
 	// Base content with user prompt
 	requestBody := map[string]any{
@@ -369,7 +376,7 @@ func (p *GeminiProvider) ParseResponse(body []byte) (*Response, error) {
 		return nil, fmt.Errorf("failed to parse response JSON: %w", err)
 	}
 	if len(resp.Candidates) == 0 {
-		return nil, fmt.Errorf("no candidates in response")
+		return nil, errors.New("no candidates in response")
 	}
 
 	// We consider only the first candidate (primary response)
@@ -400,7 +407,7 @@ func (p *GeminiProvider) ParseResponse(body []byte) (*Response, error) {
 					argsJSON, _ := json.Marshal(argsVal)
 					formattedCall = fmt.Sprintf("%s(%s)", nameVal, argsJSON)
 				} else {
-					formattedCall = fmt.Sprintf("%s()", nameVal)
+					formattedCall = nameVal + "()"
 				}
 				// If there is pending text not yet added to output, add a newline before function call
 				if finalText.Len() > 0 {
@@ -412,7 +419,8 @@ func (p *GeminiProvider) ParseResponse(body []byte) (*Response, error) {
 		}
 		// If the part is a function response (function output fed back to model), we skip it for final content.
 		if part.FunctionResponse != nil {
-			// (Typically, functionResponse parts would appear only as input to next model turn, not in model's own output.)
+			// (Typically, functionResponse parts would appear only as input to next model turn, not in model's own
+			// output.)
 			continue
 		}
 	}
@@ -463,12 +471,13 @@ func (p *GeminiProvider) PrepareStreamRequest(prompt string, options map[string]
 }
 
 // ParseStreamResponse processes a single SSE data chunk from a streaming response.
-// It returns a Response containing either a piece of text, a function call, or usage info, or io.EOF when the stream is done.
+// It returns a Response containing either a piece of text, a function call, or usage info, or io.EOF when the stream is
+// done.
 func (p *GeminiProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	// Trim whitespace
 	data := bytes.TrimSpace(chunk)
 	if len(data) == 0 {
-		return nil, fmt.Errorf("empty chunk")
+		return nil, errors.New("empty chunk")
 	}
 	// OpenAI-style "[DONE]" check (not typically used by Google, but included for completeness)
 	if bytes.Equal(data, []byte("[DONE]")) {
@@ -509,7 +518,7 @@ func (p *GeminiProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 
 	// If no candidates or parts, skip this chunk
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
-		return nil, fmt.Errorf("skip chunk")
+		return nil, errors.New("skip chunk")
 	}
 
 	// We handle only the first candidate and first part for streaming incremental response
@@ -528,15 +537,15 @@ func (p *GeminiProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 				argsJSON, _ := json.Marshal(argsVal)
 				formattedCall = fmt.Sprintf("%s(%s)", nameVal, argsJSON)
 			} else {
-				formattedCall = fmt.Sprintf("%s()", nameVal)
+				formattedCall = nameVal + "()"
 			}
 			return &Response{Content: Text{Value: formattedCall}}, nil
 		}
 	}
 	// Ignore functionResponse parts in stream
 	if part.FunctionResponse != nil {
-		return nil, fmt.Errorf("skip chunk")
+		return nil, errors.New("skip chunk")
 	}
 
-	return nil, fmt.Errorf("skip chunk")
+	return nil, errors.New("skip chunk")
 }

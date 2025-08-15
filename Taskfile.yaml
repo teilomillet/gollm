@@ -1,0 +1,72 @@
+version: '3'
+
+vars:
+  WEAVE_CONFIG_DIR: "$HOME/.config/weave"
+
+tasks:
+  gen-tests:
+    cmds:
+      - go run ./cmd/wv gen tests
+
+  update-lint-config:
+    silent: true
+    vars:
+      CONFIG_FILE: "{{ .WEAVE_CONFIG_DIR }}/.golangci.yaml"
+      TMP_DIR:
+        sh: mktemp -d
+    cmds:
+      - |
+        if [ -f "{{.CONFIG_FILE}}" ] && [ "$(find "{{.CONFIG_FILE}}" -mtime -1 -print)" ]; then
+          exit 0
+        fi
+        
+        echo "Updating golangci-lint config..."
+        mkdir -p {{ .WEAVE_CONFIG_DIR }}
+        git clone --depth 1 --filter=blob:none --sparse git@github.com:weave-labs/ci.git "{{ .TMP_DIR }}"
+        cd "{{ .TMP_DIR }}" && git sparse-checkout set configs
+        cp "{{ .TMP_DIR }}/configs/.golangci.yaml" "{{ .WEAVE_CONFIG_DIR }}/.golangci.yaml"
+        rm -rf "{{ .TMP_DIR }}"
+
+  format:
+    vars:
+      CONFIG_FILE: "{{ .WEAVE_CONFIG_DIR }}/.golangci.yaml"
+    cmds:
+      - task: update-lint-config
+      - golangci-lint fmt --config {{.CONFIG_FILE}}
+
+  lint:
+    vars:
+      CONFIG_FILE: "{{ .WEAVE_CONFIG_DIR }}/.golangci.yaml"
+    cmds:
+      - go mod tidy
+      - task: update-lint-config
+      - golangci-lint run --fix --config {{.CONFIG_FILE}}
+
+  test:
+    cmds:
+      - go test -v -race ./...
+
+  build:
+    desc: Build all packages
+    vars:
+      VERSION:
+        sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+    cmds:
+      - go build -ldflags "-X github.com/weave-labs/weave-cli/internal/telemetry.cliVersion={{.VERSION}} -X github.com/weave-labs/weave-cli/internal/telemetry.grafanaBasicAuthValue=${WEAVE_CLI_TELEMETRY_GRAFANA_AUTH}" ./...
+
+  buildx:
+    desc: Build the wv binary with optional version
+    vars:
+      VERSION:
+        sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+    cmds:
+      - go build -ldflags "-X github.com/weave-labs/weave-cli/internal/telemetry.cliVersion={{.VERSION}} -X github.com/weave-labs/weave-cli/internal/telemetry.grafanaBasicAuthValue=${WEAVE_CLI_TELEMETRY_GRAFANA_AUTH}" -o ./wv ./cmd/wv
+
+  gomodup:
+    silent: true
+    cmds:
+      - |
+        go list -m -json all | \
+          jq -r 'select( ((has("Indirect") | not ) or (.Indirect != true)) and ((has("Main") | not) or (.Main != true))) | .Path' | \
+          xargs -I {} go get {}
+      - go mod tidy

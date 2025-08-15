@@ -94,11 +94,11 @@ func TestJSONValidation(t *testing.T) {
 		Validate(func(response string) error {
 			var data SOLIDResponse
 			if err := json.Unmarshal([]byte(response), &data); err != nil {
-				return fmt.Errorf("invalid JSON response: %v", err)
+				return fmt.Errorf("invalid JSON response: %w", err)
 			}
 
 			if err := gollm.Validate(&data); err != nil {
-				return fmt.Errorf("validation failed: %v", err)
+				return fmt.Errorf("validation failed: %w", err)
 			}
 
 			return nil
@@ -207,13 +207,13 @@ func TestBatchIntegration(t *testing.T) {
 	metrics := test.GetBatchMetrics()
 
 	// Verify batch execution completed
-	assert.True(t, metrics.BatchTiming.TotalDuration > 0)
+	assert.Positive(t, metrics.BatchTiming.TotalDuration)
 	assert.True(t, metrics.BatchTiming.EndTime.After(metrics.BatchTiming.StartTime))
 
 	// Check provider latencies
 	for provider, latency := range metrics.BatchTiming.ProviderLatency {
 		t.Logf("Provider %s average latency: %v", provider, latency)
-		assert.True(t, latency > 0)
+		assert.Positive(t, latency)
 	}
 
 	// Verify error handling

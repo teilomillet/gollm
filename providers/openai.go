@@ -4,6 +4,7 @@ package providers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -17,11 +18,11 @@ import (
 // It supports GPT models and provides access to OpenAI's language model capabilities,
 // including function calling, JSON mode, and structured output validation.
 type OpenAIProvider struct {
-	apiKey       string            // API key for authentication
-	model        string            // Model identifier (e.g., "gpt-4", "gpt-4o-mini")
-	extraHeaders map[string]string // Additional HTTP headers
-	options      map[string]any    // Model-specific options
-	logger       utils.Logger      // Logger instance
+	logger       utils.Logger
+	extraHeaders map[string]string
+	options      map[string]any
+	apiKey       string
+	model        string
 }
 
 // NewOpenAIProvider creates a new OpenAI provider instance.
@@ -34,7 +35,7 @@ type OpenAIProvider struct {
 //
 // Returns:
 //   - A configured OpenAI Provider instance
-func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) *OpenAIProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -78,7 +79,8 @@ func (p *OpenAIProvider) needsMaxCompletionTokens() bool {
 //   - seed: Deterministic sampling seed
 func (p *OpenAIProvider) SetOption(key string, value any) {
 	// Handle max_tokens conversion for "o" models
-	if key == "max_tokens" {
+	switch key {
+	case "max_tokens":
 		if p.needsMaxCompletionTokens() {
 			// For models requiring max_completion_tokens, use that instead
 			key = "max_completion_tokens"
@@ -88,7 +90,7 @@ func (p *OpenAIProvider) SetOption(key string, value any) {
 			// For models using max_tokens, make sure max_completion_tokens is not set
 			delete(p.options, "max_completion_tokens")
 		}
-	} else if key == "max_completion_tokens" {
+	case "max_completion_tokens":
 		// If explicitly setting max_completion_tokens, remove max_tokens to avoid conflicts
 		delete(p.options, "max_tokens")
 	}
@@ -105,7 +107,15 @@ func (p *OpenAIProvider) SetDefaultOptions(config *config.Config) {
 	if config.Seed != nil {
 		p.SetOption("seed", *config.Seed)
 	}
-	p.logger.Debug("Default options set", "temperature", config.Temperature, "max_tokens", config.MaxTokens, "seed", config.Seed)
+	p.logger.Debug(
+		"Default options set",
+		"temperature",
+		config.Temperature,
+		"max_tokens",
+		config.MaxTokens,
+		"seed",
+		config.Seed,
+	)
 }
 
 // Name returns "openai" as the provider identifier.
@@ -365,7 +375,8 @@ func cleanSchemaForOpenAI(schema any) any {
 		for k, v := range schemaMap {
 			switch k {
 			case "type", "properties", "required", "items":
-				if k == "properties" {
+				switch k {
+				case "properties":
 					props := make(map[string]any)
 					if propsMap, ok := v.(map[string]any); ok {
 						for propName, propSchema := range propsMap {
@@ -373,9 +384,9 @@ func cleanSchemaForOpenAI(schema any) any {
 						}
 					}
 					result[k] = props
-				} else if k == "items" {
+				case "items":
 					result[k] = cleanSchemaForOpenAI(v)
-				} else {
+				default:
 					result[k] = v
 				}
 			}
@@ -406,7 +417,7 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (*Response, error) {
 	}
 
 	if len(response.Choices) == 0 {
-		return nil, fmt.Errorf("empty response from API")
+		return nil, errors.New("empty response from API")
 	}
 
 	usage := &Usage{}
@@ -448,7 +459,7 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (*Response, error) {
 			Usage:   usage}, nil
 	}
 
-	return nil, fmt.Errorf("no content or tool calls in response")
+	return nil, errors.New("no content or tool calls in response")
 }
 
 // HandleFunctionCalls processes function calling in the response.
@@ -461,7 +472,7 @@ func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	}
 
 	if len(functionCalls) == 0 {
-		return nil, fmt.Errorf("no function calls found in response")
+		return nil, errors.New("no function calls found in response")
 	}
 
 	p.logger.Debug("Function calls to handle", "calls", functionCalls)
@@ -540,7 +551,7 @@ func (p *OpenAIProvider) PrepareStreamRequest(prompt string, options map[string]
 func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty lines
 	if len(bytes.TrimSpace(chunk)) == 0 {
-		return nil, fmt.Errorf("empty chunk")
+		return nil, errors.New("empty chunk")
 	}
 
 	// Check for [DONE] marker
@@ -556,7 +567,7 @@ func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	}
 
 	if len(response.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in response")
+		return nil, errors.New("no choices in response")
 	}
 
 	// Handle finish reason
@@ -566,7 +577,7 @@ func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 
 	// Skip role-only messages
 	if response.Choices[0].Delta.Role != "" && response.Choices[0].Delta.Content == "" {
-		return nil, fmt.Errorf("skip token")
+		return nil, errors.New("skip token")
 	}
 
 	usage := &Usage{}
@@ -599,7 +610,10 @@ func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *OpenAIProvider) PrepareRequestWithMessages(
+	messages []types.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	request := map[string]any{
 		"model":    p.model,
 		"messages": []map[string]any{},
@@ -695,8 +709,8 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 }
 
 type openAIResponse struct {
-	Choices []openAIChoice `json:"choices"`
 	Usage   *openAIUsage   `json:"usage"`
+	Choices []openAIChoice `json:"choices"`
 }
 
 type openAIChoice struct {
@@ -709,9 +723,9 @@ type openAIMessage struct {
 }
 
 type openAIToolCall struct {
+	Function *openAIFunction `json:"function"`
 	ID       string          `json:"id"`
 	Type     string          `json:"type"`
-	Function *openAIFunction `json:"function"`
 }
 
 type openAIFunction struct {
@@ -719,11 +733,11 @@ type openAIFunction struct {
 	Arguments json.RawMessage `json:"arguments"`
 }
 type openAIUsage struct {
+	PromptTokensDetails     *openAIPromptTokensDetails     `json:"prompt_tokens_details"`
+	CompletionTokensDetails *openAICompletionTokensDetails `json:"completion_tokens_details"`
 	PromptTokens            int64                          `json:"prompt_tokens"`
 	CompletionTokens        int64                          `json:"completion_tokens"`
 	TotalTokens             int64                          `json:"total_tokens"`
-	PromptTokensDetails     *openAIPromptTokensDetails     `json:"prompt_tokens_details"`
-	CompletionTokensDetails *openAICompletionTokensDetails `json:"completion_tokens_details"`
 }
 
 type openAIPromptTokensDetails struct {
@@ -739,8 +753,8 @@ type openAICompletionTokensDetails struct {
 }
 
 type openAIStreamResponse struct {
-	Choices []openAIStreamChoice `json:"choices"`
 	Usage   *openAIUsage         `json:"usage,omitempty"`
+	Choices []openAIStreamChoice `json:"choices"`
 }
 
 type openAIStreamChoice struct {

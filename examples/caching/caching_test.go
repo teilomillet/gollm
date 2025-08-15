@@ -84,7 +84,7 @@ This discussion covered various topics related to innovation, user-centered desi
 	// Add test cases that focus on caching behavior
 	for _, query := range queries {
 		// Run each query multiple times to test caching
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			test.AddCase(fmt.Sprintf("cache_%d_%s", i, query[:20]), query).
 				WithSystemPrompt(systemPrompt).
 				WithTimeout(30 * time.Second)
@@ -102,7 +102,7 @@ This discussion covered various topics related to innovation, user-centered desi
 	metrics := test.GetBatchMetrics()
 
 	// Verify batch execution completed
-	assert.True(t, metrics.BatchTiming.TotalDuration > 0)
+	assert.Positive(t, metrics.BatchTiming.TotalDuration)
 	assert.True(t, metrics.BatchTiming.EndTime.After(metrics.BatchTiming.StartTime))
 
 	// Check provider latencies and verify caching behavior
@@ -119,7 +119,7 @@ This discussion covered various topics related to innovation, user-centered desi
 			assert.Empty(t, errs, "Should have no errors")
 
 			// Verify concurrency
-			assert.True(t, metrics.ConcurrencyStats.MaxConcurrent > 1,
+			assert.Greater(t, metrics.ConcurrencyStats.MaxConcurrent, 1,
 				"Should have executed tests concurrently")
 		})
 	}
@@ -191,13 +191,13 @@ func TestBatchCaching(t *testing.T) {
 	metrics := test.GetBatchMetrics()
 
 	// Verify batch execution completed
-	assert.True(t, metrics.BatchTiming.TotalDuration > 0)
+	assert.Positive(t, metrics.BatchTiming.TotalDuration)
 	assert.True(t, metrics.BatchTiming.EndTime.After(metrics.BatchTiming.StartTime))
 
 	// Check provider latencies
 	for provider, latency := range metrics.BatchTiming.ProviderLatency {
 		t.Logf("Provider %s average latency: %v", provider, latency)
-		assert.True(t, latency > 0)
+		assert.Positive(t, latency)
 	}
 
 	// Verify error handling

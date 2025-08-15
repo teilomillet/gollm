@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,14 +52,14 @@ type LLM interface {
 // LLMImpl implements the LLM interface and manages interactions with specific providers.
 // It handles provider communication, error management, and logging.
 type LLMImpl struct {
-	Provider     providers.Provider // The underlying LLM provider
-	Options      map[string]any     // Provider-specific options
-	optionsMutex sync.RWMutex       // Mutex to protect concurrent access to Options map
-	client       *http.Client       // HTTP client for API requests
-	logger       utils.Logger       // Logger for debugging and monitoring
-	config       *config.Config     // Configuration settings
-	MaxRetries   int                // Maximum number of retry attempts
-	RetryDelay   time.Duration      // Delay between retry attempts
+	Provider     providers.Provider
+	logger       utils.Logger
+	Options      map[string]any
+	client       *http.Client
+	config       *config.Config
+	MaxRetries   int
+	RetryDelay   time.Duration
+	optionsMutex sync.RWMutex
 }
 
 // GenerateOption is a function type for configuring generation behavior.
@@ -73,7 +74,8 @@ func WithStructuredResponseSchema[T any]() GenerateOption {
 }
 
 // WithStructuredResponse configures Generate to produce output conforming to the provided schema value.
-// Use this when you already have a JSON Schema or example instance at runtime (e.g., map[string]any or a struct instance).
+// Use this when you already have a JSON Schema or example instance at runtime (e.g., map[string]any or a struct
+// instance).
 func WithStructuredResponse(schema any) GenerateOption {
 	return func(cfg *GenerateConfig) {
 		cfg.StructuredResponseSchema = schema
@@ -95,7 +97,7 @@ type GenerateConfig struct {
 //   - Configured LLM instance
 //   - ErrorTypeProvider if provider initialization fails
 //   - ErrorTypeAuthentication if API key validation fails
-func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.ProviderRegistry) (LLM, error) {
+func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.ProviderRegistry) (*LLMImpl, error) {
 	extraHeaders := make(map[string]string)
 	if cfg.Provider == "anthropic" && cfg.EnableCaching {
 		extraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
@@ -190,8 +192,20 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 		var result *providers.Response
 		var lastErr error
 		for attempt := 0; attempt <= l.MaxRetries; attempt++ {
-			l.logger.Debug("Generating text (schema)", "provider", l.Provider.Name(), "prompt", prompt.String(), "attempt", attempt+1)
-			result, _, lastErr = l.attemptGenerateWithSchema(ctx, prompt.String(), generateConfig.StructuredResponseSchema)
+			l.logger.Debug(
+				"Generating text (schema)",
+				"provider",
+				l.Provider.Name(),
+				"prompt",
+				prompt.String(),
+				"attempt",
+				attempt+1,
+			)
+			result, _, lastErr = l.attemptGenerateWithSchema(
+				ctx,
+				prompt.String(),
+				generateConfig.StructuredResponseSchema,
+			)
 			if lastErr == nil {
 				return result, nil
 			}
@@ -207,7 +221,17 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 	}
 
 	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
-		l.logger.Debug("Generating text", "provider", l.Provider.Name(), "prompt", prompt.String(), "system_prompt", prompt.SystemPrompt, "attempt", attempt+1)
+		l.logger.Debug(
+			"Generating text",
+			"provider",
+			l.Provider.Name(),
+			"prompt",
+			prompt.String(),
+			"system_prompt",
+			prompt.SystemPrompt,
+			"attempt",
+			attempt+1,
+		)
 		// Pass the entire Prompt struct to attemptGenerate
 		result, err := l.attemptGenerate(ctx, prompt)
 		if err == nil {
@@ -304,12 +328,22 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (*provide
 	}
 
 	l.logger.Debug("Full request body", "body", string(reqBody))
-	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, l.Provider.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {
 		return response, NewLLMError(ErrorTypeRequest, "failed to create request", err)
 	}
 
-	l.logger.Debug("Full API request", "method", req.Method, "url", req.URL.String(), "headers", req.Header, "body", string(reqBody))
+	l.logger.Debug(
+		"Full API request",
+		"method",
+		req.Method,
+		"url",
+		req.URL.String(),
+		"headers",
+		req.Header,
+		"body",
+		string(reqBody),
+	)
 	for k, v := range l.Provider.Headers() {
 		req.Header.Set(k, v)
 		l.logger.Debug("Request header", "provider", l.Provider.Name(), "key", k, "value", v)
@@ -349,7 +383,11 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (*provide
 //   - Full prompt used for generation
 //   - ErrorTypeInvalidInput for schema validation failures
 //   - Other error types as per attemptGenerate
-func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, schema any) (*providers.Response, string, error) {
+func (l *LLMImpl) attemptGenerateWithSchema(
+	ctx context.Context,
+	prompt string,
+	schema any,
+) (*providers.Response, string, error) {
 	var reqBody []byte
 	var err error
 	var fullPrompt string
@@ -375,7 +413,7 @@ func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, 
 
 	l.logger.Debug("Request body", "provider", l.Provider.Name(), "body", string(reqBody))
 
-	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, l.Provider.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fullPrompt, NewLLMError(ErrorTypeRequest, "failed to create request", err)
 	}
@@ -397,7 +435,11 @@ func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, 
 
 	if resp.StatusCode != http.StatusOK {
 		l.logger.Error("API error", "provider", l.Provider.Name(), "status", resp.StatusCode, "body", string(body))
-		return nil, fullPrompt, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
+		return nil, fullPrompt, NewLLMError(
+			ErrorTypeAPI,
+			fmt.Sprintf("API error: status code %d", resp.StatusCode),
+			nil,
+		)
 	}
 
 	result, err := l.Provider.ParseResponse(body)
@@ -414,7 +456,8 @@ func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, 
 	return result, fullPrompt, nil
 }
 
-// preparePromptWithSchema prepares a prompt with a JSON schema for providers that do not support JSON schema validation.
+// preparePromptWithSchema prepares a prompt with a JSON schema for providers that do not support JSON schema
+// validation.
 // Returns the original prompt if schema marshaling fails (with a warning log).
 func (l *LLMImpl) preparePromptWithSchema(prompt string, schema any) string {
 	schemaJSON, err := json.MarshalIndent(schema, "", "  ")
@@ -423,7 +466,11 @@ func (l *LLMImpl) preparePromptWithSchema(prompt string, schema any) string {
 		return prompt
 	}
 
-	return fmt.Sprintf("%s\n\nPlease provide your response in JSON format according to this schema:\n%s", prompt, string(schemaJSON))
+	return fmt.Sprintf(
+		"%s\n\nPlease provide your response in JSON format according to this schema:\n%s",
+		prompt,
+		string(schemaJSON),
+	)
 }
 
 // Stream initiates a streaming response from the LLM.
@@ -460,7 +507,7 @@ func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOpti
 	}
 
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, l.Provider.Endpoint(), bytes.NewReader(body))
 	if err != nil {
 		return nil, NewLLMError(ErrorTypeRequest, "failed to create stream request", err)
 	}
@@ -492,12 +539,12 @@ func (l *LLMImpl) SupportsStreaming() bool {
 
 // providerStream implements TokenStream for a specific provider
 type providerStream struct {
-	decoder       *SSEDecoder
 	provider      providers.Provider
+	retryStrategy RetryStrategy
+	decoder       *SSEDecoder
 	config        *StreamConfig
 	buffer        []byte
 	currentIndex  int
-	retryStrategy RetryStrategy
 }
 
 func newProviderStream(reader io.ReadCloser, provider providers.Provider, config *StreamConfig) *providerStream {
@@ -539,7 +586,7 @@ func (s *providerStream) Next(ctx context.Context) (*StreamToken, error) {
 				if err.Error() == "skip resp" {
 					continue
 				}
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					return nil, io.EOF
 				}
 				continue // Not enough data or malformed

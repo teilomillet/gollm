@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -119,22 +120,29 @@ func TestMixtureOfAgents(t *testing.T) {
 		if !assert.Error(t, err, "Should fail with empty models list") {
 			t.FailNow()
 		}
-		assert.Contains(t, err.Error(), "at least one model must be specified", "Error should indicate empty models list")
+		assert.Contains(
+			t,
+			err.Error(),
+			"at least one model must be specified",
+			"Error should indicate empty models list",
+		)
 	})
 
 	// Test MOA response generation using assess framework
 	test.AddCase("moa_generation", "Explain the concept of quantum entanglement and its potential applications in computing.").
-		WithTimeout(90 * time.Second). // Increased timeout
+		WithTimeout(90 * time.Second).
+
+		// Increased timeout
 		WithSystemPrompt("You are a quantum computing expert. Provide detailed technical explanations.").
 		Validate(func(response string) error {
 			if !strings.Contains(strings.ToLower(response), "quantum") {
-				return fmt.Errorf("response should contain quantum-related content")
+				return errors.New("response should contain quantum-related content")
 			}
 			if !strings.Contains(strings.ToLower(response), "entanglement") {
-				return fmt.Errorf("response should contain entanglement-related content")
+				return errors.New("response should contain entanglement-related content")
 			}
 			if len(response) < 200 {
-				return fmt.Errorf("response too short, expected at least 200 characters")
+				return errors.New("response too short, expected at least 200 characters")
 			}
 			return nil
 		})
@@ -143,7 +151,7 @@ func TestMixtureOfAgents(t *testing.T) {
 	test.AddCase("moa_timeout", "Explain the concept of quantum entanglement.").
 		WithTimeout(50 * time.Millisecond). // Slightly longer but still short enough to timeout
 		Validate(func(response string) error {
-			return fmt.Errorf("should have timed out")
+			return errors.New("should have timed out")
 		})
 
 	// Test cross-provider consistency
@@ -177,7 +185,7 @@ func TestMixtureOfAgents(t *testing.T) {
 		// Check response times
 		for provider, latency := range metrics.BatchTiming.ProviderLatency {
 			t.Logf("Provider %s average latency: %v", provider, latency)
-			assert.True(t, latency > 0, "Should have non-zero latency")
+			assert.Positive(t, latency, "Should have non-zero latency")
 			if latency > 120*time.Second {
 				t.Errorf("Response time too high for %s: %v", provider, latency)
 			}

@@ -95,7 +95,7 @@ func TestLLMResponseComparison(t *testing.T) {
 	require.NotEmpty(t, response1, "Response from conservative LLM should not be empty")
 
 	// Verify response contains key technical terms
-	lowercaseResponse1 := strings.ToLower(response1)
+	lowercaseResponse1 := strings.ToLower(response1.AsText())
 	assert.Contains(t, lowercaseResponse1, "quantum", "Response should contain quantum concepts")
 	assert.Contains(t, lowercaseResponse1, "entanglement", "Response should explain entanglement")
 
@@ -105,7 +105,7 @@ func TestLLMResponseComparison(t *testing.T) {
 	require.NotEmpty(t, response2, "Response from creative LLM should not be empty")
 
 	// Verify response contains key technical terms
-	lowercaseResponse2 := strings.ToLower(response2)
+	lowercaseResponse2 := strings.ToLower(response2.AsText())
 	assert.Contains(t, lowercaseResponse2, "quantum", "Response should contain quantum concepts")
 	assert.Contains(t, lowercaseResponse2, "entanglement", "Response should explain entanglement")
 

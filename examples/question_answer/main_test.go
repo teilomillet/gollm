@@ -62,9 +62,14 @@ func TestQuestionAnswerWithExamples(t *testing.T) {
 	Being physically active can improve your brain health, help manage weight, reduce the risk of disease, 
 	strengthen bones and muscles, and improve your ability to do everyday activities.`
 
-	response, err := presets.QuestionAnswer(ctx, llm, question,
+	response, err := presets.QuestionAnswer(
+		ctx,
+		llm,
+		question,
 		gollm.WithContext(contextInfo),
-		gollm.WithExamples("Benefit: Improved cardiovascular health, Explanation: Regular exercise strengthens the heart"),
+		gollm.WithExamples(
+			"Benefit: Improved cardiovascular health, Explanation: Regular exercise strengthens the heart",
+		),
 		gollm.WithMaxLength(200),
 		gollm.WithDirectives("List benefits with explanations"),
 	)

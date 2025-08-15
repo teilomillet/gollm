@@ -87,7 +87,7 @@ func main() {
 			gollm.WithMessage("user", query, gollm.CacheTypeEphemeral),
 		)
 
-		for attempt := 0; attempt < 3; attempt++ {
+		for attempt := range 3 {
 			start := time.Now()
 			response, err := llm.Generate(ctx, prompt)
 			duration := time.Since(start)
@@ -97,7 +97,7 @@ func main() {
 			}
 
 			cacheStatus := "Cache Miss"
-			if attempt > 0 && duration < time.Duration(float64(start.Sub(time.Now()))*0.5) {
+			if attempt > 0 && duration < time.Duration(float64(time.Until(start))*0.5) {
 				cacheStatus = "Cache Hit"
 			}
 

@@ -4,14 +4,15 @@ package assess
 import (
 	"context"
 	"fmt"
-	"github.com/invopop/jsonschema"
-	"github.com/teilomillet/gollm/providers"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/invopop/jsonschema"
+	"github.com/teilomillet/gollm/providers"
 
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/config"
@@ -335,7 +336,9 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 
 	// Record final metrics
 	tr.batchMetrics.BatchTiming.EndTime = time.Now()
-	tr.batchMetrics.BatchTiming.TotalDuration = tr.batchMetrics.BatchTiming.EndTime.Sub(tr.batchMetrics.BatchTiming.StartTime)
+	tr.batchMetrics.BatchTiming.TotalDuration = tr.batchMetrics.BatchTiming.EndTime.Sub(
+		tr.batchMetrics.BatchTiming.StartTime,
+	)
 	tr.batchMetrics.ConcurrencyStats.MaxConcurrent = maxConcurrent
 
 	tr.t.Logf("Batch execution completed in %v", tr.batchMetrics.BatchTiming.TotalDuration)
@@ -388,7 +391,7 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 
 func (tr *TestRunner) setupClient(provider TestProvider) llm.LLM {
 	// Get API key from environment
-	apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(provider.Name))
+	apiKeyEnv := strings.ToUpper(provider.Name) + "_API_KEY"
 	apiKey := os.Getenv(apiKeyEnv)
 	if apiKey == "" {
 		tr.t.Skipf("Skipping tests for %s: %s environment variable not set", provider.Name, apiKeyEnv)
@@ -546,7 +549,7 @@ func ExpectMatches(pattern string) ValidationFunc {
 	return func(response string) error {
 		matched, err := regexp.MatchString(pattern, response)
 		if err != nil {
-			return fmt.Errorf("invalid pattern %q: %v", pattern, err)
+			return fmt.Errorf("invalid pattern %q: %w", pattern, err)
 		}
 		if !matched {
 			return fmt.Errorf("expected response to match pattern %q", pattern)

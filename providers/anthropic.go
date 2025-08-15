@@ -4,6 +4,7 @@ package providers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -17,11 +18,11 @@ import (
 // It supports Claude models and provides access to Anthropic's language model capabilities,
 // including structured output and system prompts.
 type AnthropicProvider struct {
-	apiKey       string            // API key for authentication
-	model        string            // Model identifier (e.g., "claude-3-opus", "claude-3-sonnet")
-	extraHeaders map[string]string // Additional HTTP headers
-	options      map[string]any    // Model-specific options
-	logger       utils.Logger      // Logger instance
+	logger       utils.Logger
+	extraHeaders map[string]string
+	options      map[string]any
+	apiKey       string
+	model        string
 }
 
 // NewAnthropicProvider creates a new Anthropic provider instance.
@@ -34,7 +35,7 @@ type AnthropicProvider struct {
 //
 // Returns:
 //   - A configured Anthropic Provider instance
-func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) *AnthropicProvider {
 	provider := &AnthropicProvider{
 		apiKey:       apiKey,
 		model:        model,
@@ -241,7 +242,7 @@ func splitSystemPrompt(prompt string, n int) []string {
 	extraParagraphs := len(paragraphs) % n
 
 	currentIndex := 0
-	for i := 0; i < n; i++ {
+	for i := range n {
 		end := currentIndex + paragraphsPerPart
 		if i < extraParagraphs {
 			end++
@@ -264,14 +265,21 @@ func splitSystemPrompt(prompt string, n int) []string {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *AnthropicProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
+func (p *AnthropicProvider) PrepareRequestWithSchema(
+	prompt string,
+	options map[string]any,
+	schema any,
+) ([]byte, error) {
 	schemaJSON, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
 	// Create a system message that enforces the JSON schema
-	systemMsg := fmt.Sprintf("You must respond with a JSON object that strictly adheres to this schema:\n%s\nDo not include any explanatory text, only output valid JSON.", string(schemaJSON))
+	systemMsg := fmt.Sprintf(
+		"You must respond with a JSON object that strictly adheres to this schema:\n%s\nDo not include any explanatory text, only output valid JSON.",
+		string(schemaJSON),
+	)
 
 	requestBody := map[string]any{
 		"model":  p.model,
@@ -309,7 +317,7 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (*Response, error) {
 		return nil, fmt.Errorf("error parsing anthropicResponse: %w", err)
 	}
 	if len(anthropicResponse.Content) == 0 {
-		return nil, fmt.Errorf("empty anthropicResponse from LLM")
+		return nil, errors.New("empty anthropicResponse from LLM")
 	}
 
 	p.logger.Debug("Number of content blocks: %d", len(anthropicResponse.Content))
@@ -476,7 +484,7 @@ func (p *AnthropicProvider) PrepareStreamRequest(prompt string, options map[stri
 func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty lines
 	if len(bytes.TrimSpace(chunk)) == 0 {
-		return nil, fmt.Errorf("empty chunk")
+		return nil, errors.New("empty chunk")
 	}
 	// [DONE] guard (if your decoder ever passes this through)
 	if bytes.Equal(bytes.TrimSpace(chunk), []byte("[DONE]")) {
@@ -496,7 +504,7 @@ func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (*Response, error)
 				Content: Text{Value: ev.Delta.Text},
 			}, nil
 		}
-		return nil, fmt.Errorf("skip token")
+		return nil, errors.New("skip token")
 
 	case "message_start":
 		// Usage may be present on the embedded message
@@ -508,7 +516,7 @@ func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (*Response, error)
 				ev.Message.Usage.CacheReadInputTokens,
 			)}, nil
 		}
-		return nil, fmt.Errorf("skip token")
+		return nil, errors.New("skip token")
 
 	case "message_delta":
 		// Usage may be present at the top level; counts are cumulative
@@ -520,14 +528,14 @@ func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (*Response, error)
 				ev.Usage.CacheReadInputTokens,
 			)}, nil
 		}
-		return nil, fmt.Errorf("skip token")
+		return nil, errors.New("skip token")
 
 	case "message_stop":
 		return nil, io.EOF
 
 	// Ignore pings, starts/stops of blocks, tool JSON partials, thinking/signature, etc.
 	default:
-		return nil, fmt.Errorf("skip token")
+		return nil, errors.New("skip token")
 	}
 }
 
@@ -542,7 +550,10 @@ func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (*Response, error)
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *AnthropicProvider) PrepareRequestWithMessages(
+	messages []types.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	requestBody := map[string]any{
 		"model":      p.model,
 		"max_tokens": p.options["max_tokens"],
@@ -634,7 +645,8 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMe
 
 	// Add other options
 	for k, v := range options {
-		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" && k != "enable_caching" && k != "structured_messages" {
+		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" && k != "enable_caching" &&
+			k != "structured_messages" {
 			requestBody[k] = v
 		}
 	}
@@ -644,13 +656,13 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMe
 
 // anthropicResponse represents the structure of a response from the Anthropic API.
 type anthropicResponse struct {
+	StopSeq    *string            `json:"stop_sequence"`
 	ID         string             `json:"id"`
 	Type       string             `json:"type"`
 	Role       string             `json:"role"`
 	Model      string             `json:"model"`
-	Content    []anthropicContent `json:"content"`
 	StopReason string             `json:"stop_reason"`
-	StopSeq    *string            `json:"stop_sequence"`
+	Content    []anthropicContent `json:"content"`
 	Usage      anthropicUsage     `json:"usage"`
 }
 
@@ -664,32 +676,32 @@ type anthropicContent struct {
 }
 
 type anthropicEvent struct {
-	Type    string            `json:"type"`
 	Index   *int              `json:"index,omitempty"`
 	Delta   *anthropicDelta   `json:"delta,omitempty"`
-	Usage   *anthropicUsage   `json:"usage,omitempty"`   // present on message_delta
-	Message *anthropicMessage `json:"message,omitempty"` // present on message_start
+	Usage   *anthropicUsage   `json:"usage,omitempty"`
+	Message *anthropicMessage `json:"message,omitempty"`
+	Type    string            `json:"type"`
 }
 
 type anthropicMessage struct {
+	StopReason   *string         `json:"stop_reason"`
+	StopSequence *string         `json:"stop_sequence"`
+	Usage        *anthropicUsage `json:"usage,omitempty"`
 	ID           string          `json:"id"`
 	Type         string          `json:"type"`
 	Role         string          `json:"role"`
-	Content      []any           `json:"content"`
 	Model        string          `json:"model"`
-	StopReason   *string         `json:"stop_reason"`
-	StopSequence *string         `json:"stop_sequence"`
-	Usage        *anthropicUsage `json:"usage,omitempty"` // initial usage snapshot
+	Content      []any           `json:"content"`
 }
 
 type anthropicDelta struct {
-	Type         string  `json:"type,omitempty"`          // "text_delta", "input_json_delta", "thinking_delta", "signature_delta", etc.
-	Text         string  `json:"text,omitempty"`          // for text_delta
-	PartialJSON  string  `json:"partial_json,omitempty"`  // for input_json_delta
-	Thinking     string  `json:"thinking,omitempty"`      // for thinking_delta
-	Signature    string  `json:"signature,omitempty"`     // for signature_delta
-	StopReason   *string `json:"stop_reason,omitempty"`   // appears on message_delta.delta
-	StopSequence *string `json:"stop_sequence,omitempty"` // appears on message_delta.delta
+	StopReason   *string `json:"stop_reason,omitempty"`
+	StopSequence *string `json:"stop_sequence,omitempty"`
+	Type         string  `json:"type,omitempty"`
+	Text         string  `json:"text,omitempty"`
+	PartialJSON  string  `json:"partial_json,omitempty"`
+	Thinking     string  `json:"thinking,omitempty"`
+	Signature    string  `json:"signature,omitempty"`
 }
 
 type anthropicUsage struct {

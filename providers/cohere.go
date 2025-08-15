@@ -2,6 +2,7 @@ package providers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -14,11 +15,11 @@ import (
 // It supports Cohere's language models and provides access to their capabilities,
 // including chat completion and structured output
 type CohereProvider struct {
-	apiKey       string            // API key for authentication
-	model        string            // Model identifier (e.g., "command-r-plus-08-2024", "command-r-plus-04-2024")
-	extraHeaders map[string]string // Additional HTTP headers
-	options      map[string]any    // Model-specific options
-	logger       utils.Logger      // Logger instance
+	logger       utils.Logger
+	extraHeaders map[string]string
+	options      map[string]any
+	apiKey       string
+	model        string
 }
 
 // NewCohereProvider creates a new Cohere provider instance.
@@ -31,7 +32,7 @@ type CohereProvider struct {
 //
 // Returns:
 //   - A configured Cohere Provider instance
-func NewCohereProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewCohereProvider(apiKey, model string, extraHeaders map[string]string) *CohereProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -214,7 +215,7 @@ func (p *CohereProvider) ParseResponse(body []byte) (*Response, error) {
 	}
 
 	if len(response.Message.Content) == 0 {
-		return nil, fmt.Errorf("empty response from API")
+		return nil, errors.New("empty response from API")
 	}
 
 	var finalResponse strings.Builder
@@ -291,13 +292,16 @@ func (p *CohereProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 		return nil, fmt.Errorf("malformed response: %w", err)
 	}
 	if response.Text == "" {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 	return &Response{Content: Text{Value: response.Text}}, nil
 }
 
 // PrepareRequestWithMessages creates a request using structured message objects.
-func (p *CohereProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *CohereProvider) PrepareRequestWithMessages(
+	messages []types.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	// Cohere uses a chat history format
 	chatHistory := []map[string]any{}
 	var userMessage string

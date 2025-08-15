@@ -17,20 +17,20 @@ import (
 type MovieReview struct {
 	Title    string   `json:"title"`
 	Director string   `json:"director"`
+	Summary  string   `json:"summary"`
+	Genres   []string `json:"genres"`
 	Year     int      `json:"year"`
 	Rating   float64  `json:"rating"`
-	Genres   []string `json:"genres"`
-	Summary  string   `json:"summary"`
 }
 
 // MovieReviewValidated with corrected validation tags
 type MovieReviewValidated struct {
 	Title    string   `json:"title" validate:"required,min=1,max=200"`
 	Director string   `json:"director" validate:"required,min=2,max=100"`
+	Summary  string   `json:"summary" validate:"required,min=10,max=1000"`
+	Genres   []string `json:"genres" validate:"required,min=1,max=5,dive,min=3,max=20"`
 	Year     int      `json:"year" validate:"required,min=1888,max=2100"`
 	Rating   float64  `json:"rating" validate:"required,min=0,max=10"`
-	Genres   []string `json:"genres" validate:"required,min=1,max=5,dive,min=3,max=20"`
-	Summary  string   `json:"summary" validate:"required,min=10,max=1000"`
 }
 
 // extractReview is a generic function to extract a review
@@ -45,7 +45,7 @@ func extractReview[T any](ctx context.Context, llm gollm.LLM, text string, withV
 	fmt.Printf("Extracting movie review %s validation...\n", validationMsg)
 	review, err := presets.ExtractStructuredData[T](ctx, llm, text)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract movie review %s validation: %v", validationMsg, err)
+		return nil, fmt.Errorf("failed to extract movie review %s validation: %w", validationMsg, err)
 	}
 	return review, nil
 }

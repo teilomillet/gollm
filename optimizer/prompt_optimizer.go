@@ -143,7 +143,13 @@ func validGrade(fl validator.FieldLevel) bool {
 //
 // Returns:
 //   - Configured PromptOptimizer instance
-func NewPromptOptimizer(llm llm.LLM, debugManager *utils.DebugManager, initialPrompt *llm.Prompt, taskDesc string, opts ...OptimizerOption) *PromptOptimizer {
+func NewPromptOptimizer(
+	llm llm.LLM,
+	debugManager *utils.DebugManager,
+	initialPrompt *llm.Prompt,
+	taskDesc string,
+	opts ...OptimizerOption,
+) *PromptOptimizer {
 	optimizer := &PromptOptimizer{
 		llm:           llm,
 		debugManager:  debugManager,
@@ -184,12 +190,12 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 	var bestPrompt *llm.Prompt
 	var bestScore float64
 
-	for i := 0; i < po.iterations; i++ {
+	for i := range po.iterations {
 		var entry OptimizationEntry
 		var err error
 
 		// Retry loop for assessment
-		for attempt := 0; attempt < po.maxRetries; attempt++ {
+		for attempt := range po.maxRetries {
 			entry, err = po.assessPrompt(ctx, currentPrompt)
 			if err == nil {
 				break
@@ -203,7 +209,12 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 		}
 
 		if err != nil {
-			return bestPrompt, fmt.Errorf("optimization failed at iteration %d after %d attempts: %w", i+1, po.maxRetries, err)
+			return bestPrompt, fmt.Errorf(
+				"optimization failed at iteration %d after %d attempts: %w",
+				i+1,
+				po.maxRetries,
+				err,
+			)
 		}
 
 		po.history = append(po.history, entry)

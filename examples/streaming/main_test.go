@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -97,7 +97,7 @@ func collectStreamTokens(stream gollm.TokenStream, ctx context.Context) ([]strin
 	var tokens []string
 	for {
 		token, err := stream.Next(ctx)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -118,7 +118,7 @@ func TestProviderStreaming(t *testing.T) {
 	for providerName, model := range providers {
 		t.Run(providerName, func(t *testing.T) {
 			// Get API key from environment
-			apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(providerName))
+			apiKeyEnv := strings.ToUpper(providerName) + "_API_KEY"
 			apiKey := os.Getenv(apiKeyEnv)
 			if apiKey == "" {
 				t.Fatalf("Missing API key: %s environment variable not set", apiKeyEnv)
@@ -134,7 +134,6 @@ func TestProviderStreaming(t *testing.T) {
 				gollm.SetLogLevel(gollm.LogLevelInfo),
 				gollm.SetEnableCaching(true),
 				gollm.SetTimeout(30 * time.Second),
-				gollm.WithStream(true),
 			}
 
 			// Add provider-specific settings
@@ -184,7 +183,7 @@ func TestProviderStreaming(t *testing.T) {
 			// Read first token to verify stream is working
 			token, err := stream.Next(ctx)
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					t.Fatal("Stream ended immediately")
 				}
 				t.Fatalf("Failed to read first token: %v", err)
@@ -205,7 +204,7 @@ func TestProviderStreaming(t *testing.T) {
 
 			for {
 				token, err := stream.Next(ctx)
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if err != nil {

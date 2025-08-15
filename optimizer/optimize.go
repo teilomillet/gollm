@@ -3,7 +3,9 @@ package optimizer
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
 	"github.com/teilomillet/gollm/llm"
 	"github.com/teilomillet/gollm/providers"
 	"github.com/teilomillet/gollm/utils"
@@ -48,7 +50,11 @@ import (
 // - Configurable rating system
 // - Retry mechanisms for reliability
 // - Quality thresholds for acceptance
-func OptimizePrompt(ctx context.Context, llm llm.LLM, config OptimizationConfig) (*llm.Prompt, *providers.Response, error) {
+func OptimizePrompt(
+	ctx context.Context,
+	llm llm.LLM,
+	config OptimizationConfig,
+) (*llm.Prompt, *providers.Response, error) {
 	// Initialize debug manager for logging optimization process
 	debugManager := utils.NewDebugManager(llm.GetLogger(), utils.DebugOptions{LogPrompts: true, LogResponses: true})
 
@@ -59,7 +65,7 @@ func OptimizePrompt(ctx context.Context, llm llm.LLM, config OptimizationConfig)
 	optimizer := NewPromptOptimizer(llm, debugManager, initialPrompt, config.Description,
 		WithCustomMetrics(config.Metrics...),
 		WithRatingSystem(config.RatingSystem),
-		WithOptimizationGoal(fmt.Sprintf("Optimize the prompt for %s", config.Description)),
+		WithOptimizationGoal("Optimize the prompt for "+config.Description),
 		WithMaxRetries(config.MaxRetries),
 		WithRetryDelay(config.RetryDelay),
 		WithThreshold(config.Threshold),
@@ -73,7 +79,7 @@ func OptimizePrompt(ctx context.Context, llm llm.LLM, config OptimizationConfig)
 
 	// Validate optimization result
 	if optimizedPrompt == nil {
-		return nil, nil, fmt.Errorf("optimized prompt is nil")
+		return nil, nil, errors.New("optimized prompt is nil")
 	}
 
 	// Generate response using optimized prompt

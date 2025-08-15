@@ -1,6 +1,6 @@
 // File: examples/chatbot.go
 
-package chatbot
+package main
 
 import (
 	"bufio"
@@ -40,7 +40,11 @@ func main() {
 
 	for {
 		fmt.Print("You: ")
-		input, _ := reader.ReadString('\n')
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			continue
+		}
 		input = strings.TrimSpace(input)
 
 		if input == "exit" {

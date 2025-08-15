@@ -2,7 +2,7 @@ package basic_usage_test
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -34,7 +34,7 @@ func TestBasicUsageExample(t *testing.T) {
 				if response != "" {
 					return nil
 				}
-				return fmt.Errorf("retry mechanism failed to recover from errors")
+				return errors.New("retry mechanism failed to recover from errors")
 			}
 			return nil
 		})
@@ -45,7 +45,7 @@ func TestBasicUsageExample(t *testing.T) {
 		WithOption("max_tokens", 150).
 		Validate(func(response string) error {
 			if response == "" {
-				return fmt.Errorf("empty response")
+				return errors.New("empty response")
 			}
 			return nil
 		})
@@ -61,7 +61,7 @@ Please structure your response to include:
 		WithOption("max_tokens", 500).
 		Validate(func(response string) error {
 			if response == "" {
-				return fmt.Errorf("empty response")
+				return errors.New("empty response")
 			}
 			return nil
 		})
@@ -75,7 +75,7 @@ Task: Write a concise summary of the main points.`).
 		WithOption("max_tokens", 100).
 		Validate(func(response string) error {
 			if response == "" {
-				return fmt.Errorf("empty response")
+				return errors.New("empty response")
 			}
 			return nil
 		})
@@ -87,10 +87,10 @@ Break down your reasoning into clear steps.`).
 		WithOption("max_tokens", 300).
 		Validate(func(response string) error {
 			if response == "" {
-				return fmt.Errorf("empty response")
+				return errors.New("empty response")
 			}
 			if len(response) < 100 {
-				return fmt.Errorf("response too short for a step-by-step explanation")
+				return errors.New("response too short for a step-by-step explanation")
 			}
 			return nil
 		})
@@ -163,7 +163,7 @@ Please structure your response to include:
 		WithOption("temperature", 0.7).
 		Validate(func(response string) error {
 			if response == "" {
-				return fmt.Errorf("empty response")
+				return errors.New("empty response")
 			}
 			return nil
 		})
@@ -175,7 +175,7 @@ Please structure your response to include:
 		WithOption("max_tokens", 150).
 		Validate(func(response string) error {
 			if response == "" {
-				return fmt.Errorf("empty response")
+				return errors.New("empty response")
 			}
 			return nil
 		})

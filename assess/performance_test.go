@@ -2,6 +2,7 @@ package assess
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestCachingBehavior(t *testing.T) {
 	query := "What is 2+2?"
 
 	// Run the query multiple times to test caching
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		test.AddCase(fmt.Sprintf("cache_test_%d", i), query).
 			WithTimeout(30 * time.Second)
 	}
@@ -156,7 +157,7 @@ func TestErrorHandling(t *testing.T) {
 			if err := context.DeadlineExceeded; err != nil {
 				return nil // Expected timeout
 			}
-			return fmt.Errorf("expected timeout error")
+			return errors.New("expected timeout error")
 		})
 
 	ctx := context.Background()

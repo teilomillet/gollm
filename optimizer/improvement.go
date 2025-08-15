@@ -56,7 +56,10 @@ import (
 //	        "bold": 18.0
 //	    }
 //	}
-func (po *PromptOptimizer) generateImprovedPrompt(ctx context.Context, prevEntry OptimizationEntry) (*llm.Prompt, error) {
+func (po *PromptOptimizer) generateImprovedPrompt(
+	ctx context.Context,
+	prevEntry OptimizationEntry,
+) (*llm.Prompt, error) {
 	recentHistory := po.recentHistory()
 	improvePrompt := llm.NewPrompt(fmt.Sprintf(`
 		Based on the following assessment and recent history, generate an improved version of the entire prompt structure:

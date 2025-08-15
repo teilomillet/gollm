@@ -21,7 +21,7 @@ type Example struct {
 func ReadExamplesFromFile(filePath string) ([]string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
 	defer file.Close()
 
@@ -35,19 +35,19 @@ func ReadExamplesFromFile(filePath string) ([]string, error) {
 			examples = append(examples, scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scanner error reading text file: %w", err)
 		}
 	case ".jsonl":
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			var example Example
 			if err := json.Unmarshal(scanner.Bytes(), &example); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to unmarshal JSON example: %w", err)
 			}
 			examples = append(examples, example.Content)
 		}
 		if err := scanner.Err(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scanner error reading JSONL file: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported file format: %s", ext)

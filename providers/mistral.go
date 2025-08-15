@@ -3,6 +3,7 @@ package providers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -15,11 +16,11 @@ import (
 // It supports Mistral's language models and provides access to their capabilities,
 // including chat completion and structured output.
 type MistralProvider struct {
-	apiKey       string            // API key for authentication
-	model        string            // Model identifier (e.g., "mistral-large", "mistral-medium")
-	extraHeaders map[string]string // Additional HTTP headers
-	options      map[string]any    // Model-specific options
-	logger       utils.Logger      // Logger instance
+	logger       utils.Logger
+	extraHeaders map[string]string
+	options      map[string]any
+	apiKey       string
+	model        string
 }
 
 // NewMistralProvider creates a new Mistral provider instance.
@@ -32,7 +33,7 @@ type MistralProvider struct {
 //
 // Returns:
 //   - A configured Mistral Provider instance
-func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) *MistralProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -206,7 +207,7 @@ func (p *MistralProvider) ParseResponse(body []byte) (*Response, error) {
 	}
 
 	if len(response.Choices) == 0 || response.Choices[0].Message.Content == "" {
-		return nil, fmt.Errorf("empty response from API")
+		return nil, errors.New("empty response from API")
 	}
 
 	// Combine content and tool calls
@@ -280,13 +281,16 @@ func (p *MistralProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 		return nil, fmt.Errorf("malformed response: %w", err)
 	}
 	if len(response.Choices) == 0 || response.Choices[0].Delta.Content == "" {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 	return &Response{Content: Text{Value: response.Choices[0].Delta.Content}}, nil
 }
 
 // PrepareRequestWithMessages creates a request using structured message objects.
-func (p *MistralProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *MistralProvider) PrepareRequestWithMessages(
+	messages []types.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	request := map[string]any{
 		"model":    p.model,
 		"messages": []map[string]any{},
