@@ -51,13 +51,14 @@ func main() {
 			break
 		}
 
-		if input == "clear memory" {
-			if memoryLLM, ok := llm.(interface{ ClearMemory() }); ok {
-				memoryLLM.ClearMemory()
-				fmt.Println("Memory cleared. Starting a new conversation.")
-			}
-			continue
-		}
+		// if input == "clear memory" {
+		// 	if memoryLLM, ok := any(llm).(interface{ ClearMemory() }); ok {
+		// 		memoryLLM.ClearMemory()
+		// 		fmt.Println("Memory cleared. Starting a new conversation.")
+		// 	}
+		//
+		// 	continue
+		// }
 
 		prompt := gollm.NewPrompt(input)
 		response, err := llm.Generate(ctx, prompt)

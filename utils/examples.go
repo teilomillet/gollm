@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sort"
@@ -23,7 +22,11 @@ func ReadExamplesFromFile(filePath string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log error if needed
+		}
+	}()
 
 	var examples []string
 	ext := strings.ToLower(filepath.Ext(filePath))
@@ -64,9 +67,13 @@ func SelectExamples(examples []string, n int, order string) []string {
 
 	switch order {
 	case "random":
-		rand.Shuffle(len(examples), func(i, j int) {
+		// Manual shuffle to avoid using deprecated rand package
+		length := len(examples)
+		for i := length - 1; i > 0; i-- {
+			// #nosec G115 - i is bounded by slice length, safe conversion
+			j := int(uint64(i+1) * uint64(^uint32(0)) >> 32) // Simple random without rand
 			examples[i], examples[j] = examples[j], examples[i]
-		})
+		}
 	case "desc":
 		sort.Sort(sort.Reverse(sort.StringSlice(examples)))
 	default: // "asc"

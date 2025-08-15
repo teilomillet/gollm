@@ -33,6 +33,7 @@ func extractJSONFromText(text string) (string, error) {
 	// Find the matching closing brace
 	depth := 1
 	end := -1
+outer:
 	for i := start + 1; i < len(text); i++ {
 		switch text[i] {
 		case '{':
@@ -41,11 +42,8 @@ func extractJSONFromText(text string) (string, error) {
 			depth--
 			if depth == 0 {
 				end = i + 1
-				break
+				break outer
 			}
-		}
-		if end != -1 {
-			break
 		}
 	}
 

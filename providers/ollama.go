@@ -38,7 +38,7 @@ type OllamaProvider struct {
 //
 // Returns:
 //   - A configured Ollama Provider instance
-func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) *OllamaProvider {
 	endpoint := "http://localhost:11434"
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
@@ -259,7 +259,11 @@ func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response
 	if err != nil {
 		return nil, "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			p.logger.Error("Failed to close response body", "error", err)
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

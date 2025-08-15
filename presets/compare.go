@@ -326,7 +326,7 @@ func AnalyzeComparisonResults[T any](results []ComparisonResult[T]) string {
 			prettyJSON, err := json.MarshalIndent(result.Data, "", "  ")
 			if err != nil {
 				analysis.WriteString(fmt.Sprintf("Error prettifying JSON: %v\n", err))
-				analysis.WriteString(fmt.Sprintf("Raw response: %s\n", result.Response))
+				analysis.WriteString(fmt.Sprintf("Raw response: %s\n", result.Response.AsText()))
 			} else {
 				analysis.WriteString(fmt.Sprintf("Response: %s\n", string(prettyJSON)))
 			}

@@ -33,7 +33,7 @@ type MistralProvider struct {
 //
 // Returns:
 //   - A configured Mistral Provider instance
-func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) *MistralProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}

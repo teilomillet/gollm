@@ -12,7 +12,7 @@ import (
 func TestOpenRouterProvider(t *testing.T) {
 	apiKey := "test_api_key"
 	model := "anthropic/claude-3-5-sonnet"
-	provider := NewOpenRouterProvider(apiKey, model, nil).(*OpenRouterProvider)
+	provider := NewOpenRouterProvider(apiKey, model, nil)
 
 	t.Run("Name returns openrouter", func(t *testing.T) {
 		assert.Equal(t, "openrouter", provider.Name())

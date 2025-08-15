@@ -27,7 +27,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 
 	t.Run("Basic Chat Completion", func(t *testing.T) {
 		// Create provider with Claude model
-		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil).(*OpenRouterProvider)
+		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil)
 		provider.SetLogger(logger)
 
 		// Create a simple prompt
@@ -51,12 +51,12 @@ func TestOpenRouterIntegration(t *testing.T) {
 
 		// Validate the response
 		require.Contains(t, response, "Paris")
-		t.Logf("Response: %s", response)
+		t.Logf("Response: %s", response.AsText())
 	})
 
 	t.Run("Model Fallback", func(t *testing.T) {
 		// Create provider with an intentionally invalid model and fallbacks
-		provider := NewOpenRouterProvider(apiKey, "invalid-model", nil).(*OpenRouterProvider)
+		provider := NewOpenRouterProvider(apiKey, "invalid-model", nil)
 		provider.SetLogger(logger)
 
 		// Prepare the request with fallbacks
@@ -94,7 +94,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 
 	t.Run("JSON Schema Validation", func(t *testing.T) {
 		// Create provider with Claude model (supports JSON schema)
-		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil).(*OpenRouterProvider)
+		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil)
 		provider.SetLogger(logger)
 
 		// Define the schema
@@ -147,7 +147,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 
 	t.Run("Message History with Reasoning", func(t *testing.T) {
 		// Create provider with Claude model
-		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil).(*OpenRouterProvider)
+		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil)
 		provider.SetLogger(logger)
 
 		// Create a conversation history
@@ -177,12 +177,12 @@ func TestOpenRouterIntegration(t *testing.T) {
 		require.Contains(t, response, "17")
 		require.Contains(t, response, "6")
 		require.Contains(t, response, "102") // Result of 17 × 6
-		t.Logf("Response with reasoning: %s", response)
+		t.Logf("Response with reasoning: %s", response.AsText())
 	})
 
 	t.Run("Tool Calling", func(t *testing.T) {
 		// Use a model that supports tool calling
-		provider := NewOpenRouterProvider(apiKey, "openai/gpt-4o", nil).(*OpenRouterProvider)
+		provider := NewOpenRouterProvider(apiKey, "openai/gpt-4o", nil)
 		provider.SetLogger(logger)
 
 		// Define the tools

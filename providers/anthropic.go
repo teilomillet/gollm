@@ -42,7 +42,7 @@ type AnthropicProvider struct {
 //
 // Returns:
 //   - A configured Anthropic Provider instance
-func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) *AnthropicProvider {
 	provider := &AnthropicProvider{
 		apiKey:       apiKey,
 		model:        model,

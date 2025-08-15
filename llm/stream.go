@@ -64,7 +64,15 @@ func (s *DefaultRetryStrategy) ShouldRetry(_ error) bool {
 
 func (s *DefaultRetryStrategy) NextDelay() time.Duration {
 	s.attempts++
-	delay := s.InitialWait * time.Duration(1<<uint(s.attempts-1))
+	attempts := s.attempts - 1
+	if attempts < 0 {
+		attempts = 0
+	}
+	if attempts > 63 {
+		attempts = 63
+	}
+	// #nosec G115 - attempts is clamped to max 63 above, safe to convert
+	delay := s.InitialWait * time.Duration(1<<uint(attempts))
 	if delay > s.MaxWait {
 		delay = s.MaxWait
 	}

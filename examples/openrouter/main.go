@@ -273,7 +273,15 @@ func runIntegrationTests(apiKey string) {
 	}
 
 	// Construct the test command
-	cmd := exec.Command("go", "test", "-v", "../../providers", "-run", "TestOpenRouterIntegration")
+	cmd := exec.CommandContext(
+		context.Background(),
+		"go",
+		"test",
+		"-v",
+		"../../providers",
+		"-run",
+		"TestOpenRouterIntegration",
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

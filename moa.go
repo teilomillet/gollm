@@ -117,7 +117,7 @@ func NewMOA(moaConfig MOAConfig, aggregatorOpts ...ConfigOption) (*MOA, error) {
 // 3. This process repeats for the specified number of iterations
 // 4. Results from all iterations are aggregated into the final output
 func (moa *MOA) Generate(ctx context.Context, input string) (string, error) {
-	var layerOutputs []string
+	layerOutputs := make([]string, 0, moa.Config.Iterations)
 
 	// Process through each iteration
 	for range moa.Config.Iterations {

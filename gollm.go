@@ -40,10 +40,10 @@ type LLM interface {
 	SetSystemPrompt(prompt string, cacheType CacheType)
 }
 
-// llmImpl is the concrete implementation of the LLM interface.
+// LlmImpl is the concrete implementation of the LLM interface.
 // It wraps the base LLM implementation and adds provider-specific functionality,
 // logging capabilities, and configuration management.
-type llmImpl struct {
+type LlmImpl struct {
 	llm.LLM
 	provider providers.Provider
 	logger   utils.Logger
@@ -52,39 +52,39 @@ type llmImpl struct {
 }
 
 // SetSystemPrompt sets the system prompt for the LLM.
-func (l *llmImpl) SetSystemPrompt(prompt string, cacheType CacheType) {
+func (l *LlmImpl) SetSystemPrompt(prompt string, cacheType CacheType) {
 	newPrompt := NewPrompt(prompt, WithSystemPrompt(prompt, cacheType))
 	l.SetOption("system_prompt", newPrompt)
 }
 
 // GetProvider returns the provider of the LLM.
-func (l *llmImpl) GetProvider() string {
+func (l *LlmImpl) GetProvider() string {
 	return l.provider.Name()
 }
 
 // GetModel returns the model of the LLM.
-func (l *llmImpl) GetModel() string {
+func (l *LlmImpl) GetModel() string {
 	return l.model
 }
 
 // Debug logs a debug message with optional key-value pairs.
-func (l *llmImpl) Debug(msg string, keysAndValues ...any) {
+func (l *LlmImpl) Debug(msg string, keysAndValues ...any) {
 	l.logger.Debug(msg, keysAndValues...)
 }
 
 // GetLogLevel returns the current log level of the LLM.
-func (l *llmImpl) GetLogLevel() LogLevel {
-	return LogLevel(l.config.LogLevel)
+func (l *LlmImpl) GetLogLevel() LogLevel {
+	return l.config.LogLevel
 }
 
 // SetOption sets an option for the LLM with the given key and value.
-func (l *llmImpl) SetOption(key string, value any) {
+func (l *LlmImpl) SetOption(key string, value any) {
 	l.logger.Debug("Setting option", "key", key, "value", value)
 	l.LLM.SetOption(key, value)
 	l.logger.Debug("Option set successfully")
 }
 
-func (l *llmImpl) SetOllamaEndpoint(endpoint string) error {
+func (l *LlmImpl) SetOllamaEndpoint(endpoint string) error {
 	if p, ok := l.provider.(interface{ SetEndpoint(string) }); ok {
 		p.SetEndpoint(endpoint)
 		return nil
@@ -93,22 +93,22 @@ func (l *llmImpl) SetOllamaEndpoint(endpoint string) error {
 }
 
 // GetPromptJSONSchema generates and returns the JSON schema for the Prompt.
-func (l *llmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
+func (l *LlmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
 	p := &Prompt{}
 	return p.GenerateJSONSchema(opts...)
 }
 
 // UpdateLogLevel updates the log level for both the gollm package and the internal llm package.
-func (l *llmImpl) UpdateLogLevel(level LogLevel) {
-	l.config.LogLevel = utils.LogLevel(level)
-	l.logger.SetLevel(utils.LogLevel(level))
+func (l *LlmImpl) UpdateLogLevel(level LogLevel) {
+	l.config.LogLevel = level
+	l.logger.SetLevel(level)
 	if internalLLM, ok := l.LLM.(interface{ SetLogLevel(utils.LogLevel) }); ok {
-		internalLLM.SetLogLevel(utils.LogLevel(level))
+		internalLLM.SetLogLevel(level)
 	}
 }
 
 // Generate Implement the base Generate method (if not already provided by embedded llm.LLM)
-func (l *llmImpl) Generate(
+func (l *LlmImpl) Generate(
 	ctx context.Context,
 	prompt *llm.Prompt,
 	opts ...llm.GenerateOption,
@@ -139,7 +139,7 @@ func (l *llmImpl) Generate(
 // - Configuration loading fails
 // - Provider initialization fails
 // - Memory setup fails (if memory option is enabled)
-func NewLLM(opts ...ConfigOption) (LLM, error) {
+func NewLLM(opts ...ConfigOption) (*LlmImpl, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
@@ -185,7 +185,7 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		return nil, fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	llmInstance := &llmImpl{
+	llmInstance := &LlmImpl{
 		LLM:      baseLLM,
 		provider: provider,
 		logger:   logger,

@@ -41,7 +41,6 @@ func TestPromptOptimizer(t *testing.T) {
 
 	// Create a simple example
 	example := optimizer.PromptExample{
-		Name:        "Creative Writing",
 		Prompt:      "Mystery story in six words.", // Keep minimal
 		Description: "Write concise mystery",
 		Threshold:   0.7, // Lower threshold

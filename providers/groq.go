@@ -32,7 +32,7 @@ type GroqProvider struct {
 //
 // Returns:
 //   - A configured Groq Provider instance
-func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) *GroqProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}

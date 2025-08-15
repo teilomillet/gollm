@@ -352,7 +352,11 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (*provide
 	if err != nil {
 		return response, NewLLMError(ErrorTypeRequest, "failed to send request", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			l.logger.Error("Failed to close response body", "error", err)
+		}
+	}()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return response, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
@@ -426,7 +430,11 @@ func (l *LLMImpl) attemptGenerateWithSchema(
 	if err != nil {
 		return nil, fullPrompt, NewLLMError(ErrorTypeRequest, "failed to send request", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			l.logger.Error("Failed to close response body", "error", err)
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -528,7 +536,9 @@ func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOpti
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			l.logger.Error("Failed to close response body", "error", err)
+		}
 		return nil, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
 	}
 
@@ -551,14 +561,14 @@ type providerStream struct {
 	currentIndex  int
 }
 
-func newProviderStream(reader io.ReadCloser, provider providers.Provider, config *StreamConfig) *providerStream {
+func newProviderStream(reader io.ReadCloser, provider providers.Provider, streamConfig *StreamConfig) *providerStream {
 	return &providerStream{
 		decoder:       NewSSEDecoder(reader),
 		provider:      provider,
-		config:        config,
+		config:        streamConfig,
 		buffer:        make([]byte, 0, 4096),
 		currentIndex:  0,
-		retryStrategy: config.RetryStrategy,
+		retryStrategy: streamConfig.RetryStrategy,
 	}
 }
 

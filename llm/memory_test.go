@@ -56,7 +56,7 @@ func (p *MockProvider) ParseResponse(body []byte) (string, error)       { return
 func (p *MockProvider) SetExtraHeaders(extraHeaders map[string]string)  {}
 func (p *MockProvider) HandleFunctionCalls(body []byte) ([]byte, error) { return nil, nil }
 func (p *MockProvider) SupportsJSONSchema() bool                        { return false }
-func (p *MockProvider) SetDefaultOptions(config *config.Config)         {}
+func (p *MockProvider) SetDefaultOptions(cfg *config.Config)            {}
 func (p *MockProvider) SetOption(key string, value any)                 {}
 func (p *MockProvider) SetLogger(logger utils.Logger)                   { p.logger = logger }
 func (p *MockProvider) SupportsStreaming() bool                         { return false }
@@ -80,9 +80,9 @@ func NewMockLLM(provider *MockProvider, logger utils.Logger) *MockLLM {
 
 // Implement required LLM interface methods for testing
 func (l *MockLLM) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error) {
-	config := &GenerateConfig{}
+	genConfig := &GenerateConfig{}
 	for _, opt := range opts {
-		opt(config)
+		opt(genConfig)
 	}
 
 	// Get the structured messages that were set with SetOption

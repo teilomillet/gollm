@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -26,13 +26,31 @@ type Logger interface {
 }
 
 type DefaultLogger struct {
-	logger *log.Logger
+	logger *slog.Logger
 	level  LogLevel
 }
 
+func slogLevel(level LogLevel) slog.Level {
+	switch level {
+	case LogLevelDebug:
+		return slog.LevelDebug
+	case LogLevelInfo:
+		return slog.LevelInfo
+	case LogLevelWarn:
+		return slog.LevelWarn
+	case LogLevelError:
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
 func NewLogger(level LogLevel) *DefaultLogger {
+	opts := &slog.HandlerOptions{
+		Level: slogLevel(level),
+	}
 	return &DefaultLogger{
-		logger: log.New(os.Stderr, "", log.LstdFlags),
+		logger: slog.New(slog.NewTextHandler(os.Stderr, opts)),
 		level:  level,
 	}
 }
@@ -41,26 +59,28 @@ func (l *DefaultLogger) SetLevel(level LogLevel) {
 	l.level = level
 }
 
-func (l *DefaultLogger) log(level LogLevel, msg string, keysAndValues ...any) {
-	if level <= l.level {
-		l.logger.Printf("%s: %s %v", level, msg, keysAndValues)
+func (l *DefaultLogger) Debug(msg string, keysAndValues ...any) {
+	if l.level >= LogLevelDebug {
+		l.logger.Debug(msg, keysAndValues...)
 	}
 }
 
-func (l *DefaultLogger) Debug(msg string, keysAndValues ...any) {
-	l.log(LogLevelDebug, msg, keysAndValues...)
-}
-
 func (l *DefaultLogger) Info(msg string, keysAndValues ...any) {
-	l.log(LogLevelInfo, msg, keysAndValues...)
+	if l.level >= LogLevelInfo {
+		l.logger.Info(msg, keysAndValues...)
+	}
 }
 
 func (l *DefaultLogger) Warn(msg string, keysAndValues ...any) {
-	l.log(LogLevelWarn, msg, keysAndValues...)
+	if l.level >= LogLevelWarn {
+		l.logger.Warn(msg, keysAndValues...)
+	}
 }
 
 func (l *DefaultLogger) Error(msg string, keysAndValues ...any) {
-	l.log(LogLevelError, msg, keysAndValues...)
+	if l.level >= LogLevelError {
+		l.logger.Error(msg, keysAndValues...)
+	}
 }
 
 func (l LogLevel) String() string {

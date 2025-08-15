@@ -34,7 +34,7 @@ type OpenRouterProvider struct {
 //
 // Returns:
 //   - A configured OpenRouter Provider instance
-func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string) *OpenRouterProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -691,5 +691,7 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(
 func init() {
 	// Register the OpenRouter provider
 	registry := GetDefaultRegistry()
-	registry.Register("openrouter", NewOpenRouterProvider)
+	registry.Register("openrouter", func(apiKey, model string, extraHeaders map[string]string) Provider {
+		return NewOpenRouterProvider(apiKey, model, extraHeaders)
+	})
 }

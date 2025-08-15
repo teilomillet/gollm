@@ -305,8 +305,8 @@ func TestExtractReview(t *testing.T) {
 		)
 		assert.Error(t, err, "Should fail with invalid text")
 
-		// Test with nil context
-		_, err = presets.ExtractStructuredData[MovieReview](nil, llm, "Some text",
+		// Test with context.TODO
+		_, err = presets.ExtractStructuredData[MovieReview](context.TODO(), llm, "Some text",
 			gollm.WithDirectives(
 				"Extract all relevant information from the text",
 				"Ensure the output is a valid JSON object",

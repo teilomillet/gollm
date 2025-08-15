@@ -40,7 +40,7 @@ func ExtractFunctionCalls(response string) ([]map[string]any, error) {
 // and any function calls. It returns the cleaned text and a slice of function call JSON strings.
 func CleanResponse(rawResponse string) (string, []string, error) {
 	var cleanedResponse strings.Builder
-	var functionCalls []string
+	functionCalls := make([]string, 0, 5)
 
 	// Extract function calls
 	functionCallRegex := regexp.MustCompile(`<function_call>(.*?)</function_call>`)

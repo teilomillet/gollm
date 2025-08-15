@@ -35,7 +35,7 @@ type OpenAIProvider struct {
 //
 // Returns:
 //   - A configured OpenAI Provider instance
-func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) *OpenAIProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -176,17 +176,21 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]any) (
 
 	// Handle system prompt as developer message
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-			"role":    "developer",
-			"content": systemPrompt,
-		})
+		if messages, ok := request["messages"].([]map[string]any); ok {
+			request["messages"] = append(messages, map[string]any{
+				"role":    "developer",
+				"content": systemPrompt,
+			})
+		}
 	}
 
 	// Add user message
-	request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-		"role":    "user",
-		"content": prompt,
-	})
+	if messages, ok := request["messages"].([]map[string]any); ok {
+		request["messages"] = append(messages, map[string]any{
+			"role":    "user",
+			"content": prompt,
+		})
+	}
 
 	// Handle tool_choice
 	if toolChoice, ok := options["tool_choice"].(string); ok {
@@ -294,8 +298,9 @@ func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[str
 	cleanSchema := cleanSchemaForOpenAI(schemaObj)
 
 	// Debug log the cleaned schema
-	cleanSchemaJSON, _ := json.MarshalIndent(cleanSchema, "", "  ")
-	p.logger.Debug("Cleaned schema for OpenAI", "schema", string(cleanSchemaJSON))
+	if cleanSchemaJSON, err := json.MarshalIndent(cleanSchema, "", "  "); err == nil {
+		p.logger.Debug("Cleaned schema for OpenAI", "schema", string(cleanSchemaJSON))
+	}
 
 	request := map[string]any{
 		"model": p.model,
@@ -314,9 +319,11 @@ func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[str
 
 	// Handle system prompt as system message
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append([]map[string]any{
-			{"role": "system", "content": systemPrompt},
-		}, request["messages"].([]map[string]any)...)
+		if messages, ok := request["messages"].([]map[string]any); ok {
+			request["messages"] = append([]map[string]any{
+				{"role": "system", "content": systemPrompt},
+			}, messages...)
+		}
 	}
 
 	// Create a merged copy of options to handle token parameters properly
@@ -621,10 +628,12 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(
 
 	// Handle system prompt as system message
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-			"role":    "system",
-			"content": systemPrompt,
-		})
+		if messagesArray, ok := request["messages"].([]map[string]any); ok {
+			request["messages"] = append(messagesArray, map[string]any{
+				"role":    "system",
+				"content": systemPrompt,
+			})
+		}
 	}
 
 	// Convert MemoryMessage objects to OpenAI messages format
@@ -641,7 +650,9 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(
 			}
 		}
 
-		request["messages"] = append(request["messages"].([]map[string]any), message)
+		if messagesArray, ok := request["messages"].([]map[string]any); ok {
+			request["messages"] = append(messagesArray, message)
+		}
 	}
 
 	// Handle tool_choice

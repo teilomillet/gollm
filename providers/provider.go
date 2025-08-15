@@ -176,14 +176,30 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 
 	// Register all known providers
 	knownProviders := map[string]ProviderConstructor{
-		"openai":        NewOpenAIProvider,
-		"anthropic":     NewAnthropicProvider,
-		"groq":          NewGroqProvider,
-		"ollama":        NewOllamaProvider,
-		"mistral":       NewMistralProvider,
-		"cohere":        NewCohereProvider,
-		"deepseek":      NewDeepSeekProvider,
-		"google-openai": NewGeminiProvider,
+		"openai": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewOpenAIProvider(apiKey, model, extraHeaders)
+		},
+		"anthropic": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewAnthropicProvider(apiKey, model, extraHeaders)
+		},
+		"groq": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewGroqProvider(apiKey, model, extraHeaders)
+		},
+		"ollama": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewOllamaProvider(apiKey, model, extraHeaders)
+		},
+		"mistral": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewMistralProvider(apiKey, model, extraHeaders)
+		},
+		"cohere": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewCohereProvider(apiKey, model, extraHeaders)
+		},
+		"deepseek": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewDeepSeekProvider(apiKey, model, extraHeaders)
+		},
+		"google-openai": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewGeminiProvider(apiKey, model, extraHeaders)
+		},
 		// Add other providers here as they are implemented
 	}
 
@@ -343,10 +359,10 @@ func RegisterGenericProvider(name string, config ProviderConfig) {
 // Parameters:
 //   - name: The identifier for the provider (e.g., "openai")
 //   - constructor: A function that creates new instances of the provider
-func (pr *ProviderRegistry) Register(name string, constructor ProviderConstructor) {
-	pr.mutex.Lock()
-	defer pr.mutex.Unlock()
-	pr.providers[name] = constructor
+func (r *ProviderRegistry) Register(name string, constructor ProviderConstructor) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	r.providers[name] = constructor
 }
 
 // Get retrieves a provider instance by name.
@@ -365,10 +381,10 @@ func (pr *ProviderRegistry) Register(name string, constructor ProviderConstructo
 // Example:
 //
 //	provider, err := registry.Get("openai", "sk-...", "gpt-4", nil)
-func (pr *ProviderRegistry) Get(name, apiKey, model string, extraHeaders map[string]string) (Provider, error) {
-	pr.mutex.RLock()
-	constructor, exists := pr.providers[name]
-	pr.mutex.RUnlock()
+func (r *ProviderRegistry) Get(name, apiKey, model string, extraHeaders map[string]string) (Provider, error) {
+	r.mutex.RLock()
+	constructor, exists := r.providers[name]
+	r.mutex.RUnlock()
 
 	if !exists {
 		return nil, fmt.Errorf("unknown provider: %s", name)

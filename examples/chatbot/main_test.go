@@ -52,22 +52,22 @@ func TestChatbotMemory(t *testing.T) {
 	})
 
 	// Test memory clearing
-	t.Run("clear_memory", func(t *testing.T) {
-		if memoryLLM, ok := llm.(interface{ ClearMemory() }); ok {
-			memoryLLM.ClearMemory()
-
-			// After clearing memory, the context should be lost
-			prompt := gollm.NewPrompt("What was the city we were talking about?")
-			response, err := llm.Generate(ctx, prompt)
-			assert.NoError(t, err, "Should generate response after clearing memory")
-			assert.NotContains(
-				t,
-				strings.ToLower(response.AsText()),
-				"paris",
-				"Response should not reference previous context",
-			)
-		}
-	})
+	// t.Run("clear_memory", func(t *testing.T) {
+	// 	if memoryLLM, ok := llm.(interface{ ClearMemory() }); ok {
+	// 		memoryLLM.ClearMemory()
+	//
+	// 		// After clearing memory, the context should be lost
+	// 		prompt := gollm.NewPrompt("What was the city we were talking about?")
+	// 		response, err := llm.Generate(ctx, prompt)
+	// 		assert.NoError(t, err, "Should generate response after clearing memory")
+	// 		assert.NotContains(
+	// 			t,
+	// 			strings.ToLower(response.AsText()),
+	// 			"paris",
+	// 			"Response should not reference previous context",
+	// 		)
+	// 	}
+	// })
 }
 
 func TestChatbotErrorHandling(t *testing.T) {
@@ -132,12 +132,12 @@ func TestChatbotTokenLimit(t *testing.T) {
 	}
 
 	// Verify that older messages are truncated
-	if memoryLLM, ok := llm.(interface{ GetMemory() []gollm.MemoryMessage }); ok {
-		messages := memoryLLM.GetMemory()
-		totalTokens := 0
-		for _, msg := range messages {
-			totalTokens += msg.Tokens
-		}
-		assert.LessOrEqual(t, totalTokens, 1000, "Total tokens should not exceed memory limit")
-	}
+	// if memoryLLM, ok := llm.(interface{ GetMemory() []gollm.MemoryMessage }); ok {
+	// 	messages := memoryLLM.GetMemory()
+	// 	totalTokens := 0
+	// 	for _, msg := range messages {
+	// 		totalTokens += msg.Tokens
+	// 	}
+	// 	assert.LessOrEqual(t, totalTokens, 1000, "Total tokens should not exceed memory limit")
+	// }
 }

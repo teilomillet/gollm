@@ -35,7 +35,7 @@ type GeminiProvider struct {
 //
 // Returns:
 //   - A configured GeminiProvider instance
-func NewGeminiProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewGeminiProvider(apiKey, model string, extraHeaders map[string]string) *GeminiProvider {
 	provider := &GeminiProvider{
 		apiKey:       apiKey,
 		model:        model,

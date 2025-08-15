@@ -28,12 +28,8 @@ func TestNeedsMaxCompletionTokens(t *testing.T) {
 			// Create a provider with the test model
 			provider := NewOpenAIProvider("fake-api-key", tc.modelName, nil)
 
-			// Get the OpenAIProvider concrete type from the Provider interface
-			openAIProvider, ok := provider.(*OpenAIProvider)
-			assert.True(t, ok, "Provider should be of type *OpenAIProvider")
-
 			// Test the needsMaxCompletionTokens function
-			result := openAIProvider.needsMaxCompletionTokens()
+			result := provider.needsMaxCompletionTokens()
 			assert.Equal(
 				t,
 				tc.expectedResult,

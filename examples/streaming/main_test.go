@@ -94,7 +94,7 @@ func TestStreaming(t *testing.T) {
 
 // Helper function to collect stream tokens
 func collectStreamTokens(stream gollm.TokenStream, ctx context.Context) ([]string, error) {
-	var tokens []string
+	tokens := make([]string, 0, 100)
 	for {
 		token, err := stream.Next(ctx)
 		if errors.Is(err, io.EOF) {

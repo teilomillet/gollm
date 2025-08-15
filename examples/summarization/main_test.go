@@ -138,8 +138,8 @@ func TestSummarizationErrorHandling(t *testing.T) {
 	)
 	require.Error(t, err, "Should error with invalid provider")
 
-	// Test with nil context (should use background context)
-	summary, err := presets.Summarize(nil, llm, "Test text")
+	// Test with context.TODO (should use background context)
+	summary, err := presets.Summarize(context.TODO(), llm, "Test text")
 	require.NoError(t, err, "Should not error with nil context")
 	require.NotEmpty(t, summary, "Should generate summary with nil context")
 

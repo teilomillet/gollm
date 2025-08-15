@@ -2,6 +2,7 @@
 package llm
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -57,11 +59,20 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 			endpoint = "http://localhost:11434" // default endpoint
 		}
 		// Try to make a HEAD request to the Ollama endpoint
-		resp, err := http.Head(endpoint + "/api/tags")
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodHead, endpoint+"/api/tags", http.NoBody)
 		if err != nil {
 			return false
 		}
-		defer func() { _ = resp.Body.Close() }()
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			return false
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Log error if we have a way to log it
+			}
+		}()
 		return resp.StatusCode == http.StatusOK
 	}
 
