@@ -26,12 +26,12 @@ type LLM interface {
 	// Generate produces text based on the given prompt and options.
 	// Returns ErrorTypeRequest for request preparation failures,
 	// ErrorTypeAPI for provider API errors, or ErrorTypeResponse for response processing issues.
-	Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (response string, err error)
+	Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (response *providers.Response, err error)
 
 	// GenerateWithSchema generates text that conforms to a specific JSON schema.
 	// Returns ErrorTypeInvalidInput for schema validation failures,
 	// or other error types as per Generate.
-	GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (string, error)
+	GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (*providers.Response, error)
 
 	// Stream initiates a streaming response from the LLM.
 	// Returns ErrorTypeUnsupported if the provider doesn't support streaming.
@@ -169,10 +169,10 @@ func (l *LLMImpl) SupportsJSONSchema() bool {
 //   - ErrorTypeAPI for provider API errors
 //   - ErrorTypeResponse for response processing issues
 //   - ErrorTypeRateLimit if provider rate limit is exceeded
-func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error) {
-	config := &GenerateConfig{}
+func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (*providers.Response, error) {
+	generateConfig := &GenerateConfig{}
 	for _, opt := range opts {
-		opt(config)
+		opt(generateConfig)
 	}
 	// Set the system prompt in the LLM's options
 	if prompt.SystemPrompt != "" {
@@ -189,11 +189,11 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 		if attempt < l.MaxRetries {
 			l.logger.Debug("Retrying", "delay", l.RetryDelay)
 			if err := l.wait(ctx); err != nil {
-				return "", err
+				return nil, err
 			}
 		}
 	}
-	return "", fmt.Errorf("failed to generate after %d attempts", l.MaxRetries+1)
+	return nil, fmt.Errorf("failed to generate after %d attempts", l.MaxRetries+1)
 }
 
 // wait implements a cancellable delay between retry attempts.
@@ -216,7 +216,9 @@ func (l *LLMImpl) wait(ctx context.Context) error {
 //   - ErrorTypeAPI for provider API errors
 //   - ErrorTypeResponse for response processing issues
 //   - ErrorTypeRateLimit if provider rate limit is exceeded
-func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, error) {
+func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (*providers.Response, error) {
+	response := &providers.Response{}
+
 	// Create a new options map that includes both l.Options and prompt-specific options
 	options := make(map[string]interface{})
 
@@ -270,13 +272,13 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 	}
 
 	if err != nil {
-		return "", NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
+		return response, NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
 	}
 
 	l.logger.Debug("Full request body", "body", string(reqBody))
 	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {
-		return "", NewLLMError(ErrorTypeRequest, "failed to create request", err)
+		return response, NewLLMError(ErrorTypeRequest, "failed to create request", err)
 	}
 
 	l.logger.Debug("Full API request", "method", req.Method, "url", req.URL.String(), "headers", req.Header, "body", string(reqBody))
@@ -286,12 +288,12 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 	}
 	resp, err := l.client.Do(req)
 	if err != nil {
-		return "", NewLLMError(ErrorTypeRequest, "failed to send request", err)
+		return response, NewLLMError(ErrorTypeRequest, "failed to send request", err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", NewLLMError(ErrorTypeResponse, "failed to read response body", err)
+		return response, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
 	}
 
 	// Log the full API response
@@ -299,7 +301,7 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 
 	if resp.StatusCode != http.StatusOK {
 		l.logger.Error("API error", "provider", l.Provider.Name(), "status", resp.StatusCode, "body", string(body))
-		return "", NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
+		return response, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
 	}
 
 	// Extract and log caching information
@@ -329,8 +331,9 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 
 	result, err := l.Provider.ParseResponse(body)
 	if err != nil {
-		return "", NewLLMError(ErrorTypeResponse, "failed to parse response", err)
+		return response, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
 	}
+
 	l.logger.Debug("Text generated successfully", "result", result)
 	return result, nil
 }
@@ -342,13 +345,13 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 //   - Generated text response
 //   - ErrorTypeInvalidInput for schema validation failures
 //   - Other error types as per Generate
-func (l *LLMImpl) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (string, error) {
-	config := &GenerateConfig{}
+func (l *LLMImpl) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (*providers.Response, error) {
+	generateConfig := &GenerateConfig{}
 	for _, opt := range opts {
-		opt(config)
+		opt(generateConfig)
 	}
 
-	var result string
+	var result *providers.Response
 	var lastErr error
 
 	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
@@ -365,14 +368,14 @@ func (l *LLMImpl) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema
 			l.logger.Debug("Retrying", "delay", l.RetryDelay)
 			select {
 			case <-ctx.Done():
-				return "", ctx.Err()
+				return nil, ctx.Err()
 			case <-time.After(l.RetryDelay):
 				// Continue to next attempt
 			}
 		}
 	}
 
-	return "", fmt.Errorf("failed to generate with schema after %d attempts: %w", l.MaxRetries+1, lastErr)
+	return nil, fmt.Errorf("failed to generate with schema after %d attempts: %w", l.MaxRetries+1, lastErr)
 }
 
 // attemptGenerateWithSchema makes a single attempt to generate text using the provider and a JSON schema.
@@ -383,7 +386,7 @@ func (l *LLMImpl) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema
 //   - Full prompt used for generation
 //   - ErrorTypeInvalidInput for schema validation failures
 //   - Other error types as per attemptGenerate
-func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, schema interface{}) (string, string, error) {
+func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, schema interface{}) (*providers.Response, string, error) {
 	var reqBody []byte
 	var err error
 	var fullPrompt string
@@ -404,14 +407,14 @@ func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, 
 	}
 
 	if err != nil {
-		return "", fullPrompt, NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
+		return nil, fullPrompt, NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
 	}
 
 	l.logger.Debug("Request body", "provider", l.Provider.Name(), "body", string(reqBody))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", l.Provider.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {
-		return "", fullPrompt, NewLLMError(ErrorTypeRequest, "failed to create request", err)
+		return nil, fullPrompt, NewLLMError(ErrorTypeRequest, "failed to create request", err)
 	}
 
 	for k, v := range l.Provider.Headers() {
@@ -420,28 +423,28 @@ func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, 
 
 	resp, err := l.client.Do(req)
 	if err != nil {
-		return "", fullPrompt, NewLLMError(ErrorTypeRequest, "failed to send request", err)
+		return nil, fullPrompt, NewLLMError(ErrorTypeRequest, "failed to send request", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fullPrompt, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
+		return nil, fullPrompt, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		l.logger.Error("API error", "provider", l.Provider.Name(), "status", resp.StatusCode, "body", string(body))
-		return "", fullPrompt, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
+		return nil, fullPrompt, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
 	}
 
 	result, err := l.Provider.ParseResponse(body)
 	if err != nil {
-		return "", fullPrompt, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
+		return nil, fullPrompt, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
 	}
 
 	// Validate the result against the schema
-	if err := ValidateAgainstSchema(result, schema); err != nil {
-		return "", fullPrompt, NewLLMError(ErrorTypeResponse, "response does not match schema", err)
+	if err := ValidateAgainstSchema(result.Content.(providers.Text).Value, schema); err != nil {
+		return nil, fullPrompt, NewLLMError(ErrorTypeResponse, "response does not match schema", err)
 	}
 
 	l.logger.Debug("Text generated successfully", "result", result)
@@ -467,7 +470,7 @@ func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOpti
 	}
 
 	// Apply stream options
-	config := &StreamConfig{
+	streamConfig := &StreamConfig{
 		BufferSize: 100,
 		RetryStrategy: &DefaultRetryStrategy{
 			MaxRetries:  l.MaxRetries,
@@ -476,7 +479,7 @@ func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOpti
 		},
 	}
 	for _, opt := range opts {
-		opt(config)
+		opt(streamConfig)
 	}
 
 	// Prepare request with streaming enabled
@@ -516,7 +519,7 @@ func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOpti
 	}
 
 	// Create and return stream
-	return newProviderStream(resp.Body, l.Provider, config), nil
+	return newProviderStream(resp.Body, l.Provider, streamConfig), nil
 }
 
 // SupportsStreaming checks if the provider supports streaming responses.
@@ -568,9 +571,9 @@ func (s *providerStream) Next(ctx context.Context) (*StreamToken, error) {
 			}
 
 			// Process the event
-			token, err := s.provider.ParseStreamResponse(event.Data)
+			resp, err := s.provider.ParseStreamResponse(event.Data)
 			if err != nil {
-				if err.Error() == "skip token" {
+				if err.Error() == "skip resp" {
 					continue
 				}
 				if err == io.EOF {
@@ -579,12 +582,26 @@ func (s *providerStream) Next(ctx context.Context) (*StreamToken, error) {
 				continue // Not enough data or malformed
 			}
 
-			// Create and return token
-			return &StreamToken{
-				Text:  token,
+			streamToken := &StreamToken{
+				Text:  "",
 				Type:  event.Type,
 				Index: s.currentIndex,
-			}, nil
+			}
+
+			if resp == nil {
+				return streamToken, nil
+			}
+
+			if resp.Content != nil {
+				streamToken.Text = resp.String()
+			}
+
+			if resp.Usage != nil {
+				streamToken.InputTokens = resp.Usage.InputTokens
+				streamToken.OutputTokens = resp.Usage.OutputTokens
+			}
+
+			return streamToken, nil
 		}
 	}
 }

@@ -300,39 +300,20 @@ func (p *AnthropicProvider) PrepareRequestWithSchema(prompt string, options map[
 // Returns:
 //   - Generated text content
 //   - Any error encountered during parsing
-func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
-	p.logger.Debug("Raw API response: %s", string(body))
+func (p *AnthropicProvider) ParseResponse(body []byte) (*Response, error) {
+	p.logger.Debug("Raw API anthropicResponse: %s", string(body))
 
-	var response struct {
-		ID      string `json:"id"`
-		Type    string `json:"type"`
-		Role    string `json:"role"`
-		Model   string `json:"model"`
-		Content []struct {
-			Type  string          `json:"type"`
-			Text  string          `json:"text,omitempty"`
-			ID    string          `json:"id,omitempty"`
-			Name  string          `json:"name,omitempty"`
-			Input json.RawMessage `json:"input,omitempty"`
-		} `json:"content"`
-		StopReason string  `json:"stop_reason"`
-		StopSeq    *string `json:"stop_sequence"`
-		Usage      struct {
-			InputTokens              int `json:"input_tokens"`
-			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
-			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
-			OutputTokens             int `json:"output_tokens"`
-		} `json:"usage"`
+	anthropicResponse := anthropicResponse{}
+
+	if err := json.Unmarshal(body, &anthropicResponse); err != nil {
+		return nil, fmt.Errorf("error parsing anthropicResponse: %w", err)
 	}
-	if err := json.Unmarshal(body, &response); err != nil {
-		return "", fmt.Errorf("error parsing response: %w", err)
-	}
-	if len(response.Content) == 0 {
-		return "", fmt.Errorf("empty response from LLM")
+	if len(anthropicResponse.Content) == 0 {
+		return nil, fmt.Errorf("empty anthropicResponse from LLM")
 	}
 
-	p.logger.Debug("Number of content blocks: %d", len(response.Content))
-	p.logger.Debug("Stop reason: %s", response.StopReason)
+	p.logger.Debug("Number of content blocks: %d", len(anthropicResponse.Content))
+	p.logger.Debug("Stop reason: %s", anthropicResponse.StopReason)
 
 	var finalResponse strings.Builder
 	var functionCalls []string
@@ -340,7 +321,7 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 	var lastType string
 
 	// First pass: collect all function calls and text
-	for i, content := range response.Content {
+	for i, content := range anthropicResponse.Content {
 		p.logger.Debug("Processing content block %d: type=%s", i, content.Type)
 
 		switch content.Type {
@@ -353,7 +334,7 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 			p.logger.Debug("Added text content: %s", content.Text)
 
 		case "tool_use", "tool_calls":
-			// If we have any pending text, add it to the final response
+			// If we have any pending text, add it to the final anthropicResponse
 			if pendingText.Len() > 0 {
 				if finalResponse.Len() > 0 {
 					finalResponse.WriteString("\n")
@@ -366,13 +347,13 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 			var args interface{}
 			if err := json.Unmarshal(content.Input, &args); err != nil {
 				p.logger.Debug("Error parsing tool input: %v, raw input: %s", err, string(content.Input))
-				return "", fmt.Errorf("error parsing tool input: %w", err)
+				return nil, fmt.Errorf("error parsing tool input: %w", err)
 			}
 
 			functionCall, err := utils.FormatFunctionCall(content.Name, args)
 			if err != nil {
 				p.logger.Debug("Error formatting function call: %v", err)
-				return "", fmt.Errorf("error formatting function call: %w", err)
+				return nil, fmt.Errorf("error formatting function call: %w", err)
 			}
 			functionCalls = append(functionCalls, functionCall)
 			p.logger.Debug("Added function call: %s", functionCall)
@@ -402,8 +383,19 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	result := finalResponse.String()
-	p.logger.Debug("Final response: %s", result)
-	return result, nil
+	p.logger.Debug("Final anthropicResponse: %s", result)
+
+	response := &Response{
+		Content: Text{result},
+		Usage: NewUsage(
+			anthropicResponse.Usage.InputTokens,
+			anthropicResponse.Usage.CacheCreationInputTokens,
+			anthropicResponse.Usage.OutputTokens,
+			anthropicResponse.Usage.CacheReadInputTokens,
+		),
+	}
+
+	return response, nil
 }
 
 // HandleFunctionCalls processes structured output in the response.
@@ -479,46 +471,63 @@ func (p *AnthropicProvider) PrepareStreamRequest(prompt string, options map[stri
 	return json.Marshal(requestBody)
 }
 
-// ParseStreamResponse processes a single chunk from a streaming response
-func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (string, error) {
+// ParseStreamResponse processes a single SSE JSON "data:" payload from Anthropic Messages streaming.
+// It returns either a text Content token, a Usage-only token, io.EOF for message_stop, or "skip token".
+func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty lines
 	if len(bytes.TrimSpace(chunk)) == 0 {
-		return "", fmt.Errorf("empty chunk")
+		return nil, fmt.Errorf("empty chunk")
 	}
-
-	// Check for [DONE] marker
+	// [DONE] guard (if your decoder ever passes this through)
 	if bytes.Equal(bytes.TrimSpace(chunk), []byte("[DONE]")) {
-		return "", io.EOF
+		return nil, io.EOF
 	}
 
-	// Parse the event
-	var event struct {
-		Type  string `json:"type"`
-		Index int    `json:"index"`
-		Delta struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		} `json:"delta"`
+	var ev anthropicEvent
+	if err := json.Unmarshal(chunk, &ev); err != nil {
+		return nil, fmt.Errorf("malformed event: %w", err)
 	}
 
-	if err := json.Unmarshal(chunk, &event); err != nil {
-		return "", fmt.Errorf("malformed event: %w", err)
-	}
-
-	// Handle different event types
-	switch event.Type {
+	switch ev.Type {
 	case "content_block_delta":
-		if event.Delta.Type == "text_delta" {
-			if event.Delta.Text == "" {
-				return "", fmt.Errorf("skip token")
-			}
-			return event.Delta.Text, nil
+		// Only emit text deltas as tokens
+		if ev.Delta != nil && ev.Delta.Type == "text_delta" && ev.Delta.Text != "" {
+			return &Response{
+				Content: Text{Value: ev.Delta.Text},
+			}, nil
 		}
-		return "", fmt.Errorf("skip token")
+		return nil, fmt.Errorf("skip token")
+
+	case "message_start":
+		// Usage may be present on the embedded message
+		if ev.Message != nil && ev.Message.Usage != nil {
+			return &Response{Usage: NewUsage(
+				ev.Message.Usage.InputTokens,
+				ev.Message.Usage.CacheCreationInputTokens,
+				ev.Message.Usage.OutputTokens,
+				ev.Message.Usage.CacheReadInputTokens,
+			)}, nil
+		}
+		return nil, fmt.Errorf("skip token")
+
+	case "message_delta":
+		// Usage may be present at the top level; counts are cumulative
+		if ev.Usage != nil {
+			return &Response{Usage: NewUsage(
+				ev.Usage.InputTokens,
+				ev.Usage.CacheCreationInputTokens,
+				ev.Usage.OutputTokens,
+				ev.Usage.CacheReadInputTokens,
+			)}, nil
+		}
+		return nil, fmt.Errorf("skip token")
+
 	case "message_stop":
-		return "", io.EOF
+		return nil, io.EOF
+
+	// Ignore pings, starts/stops of blocks, tool JSON partials, thinking/signature, etc.
 	default:
-		return "", fmt.Errorf("skip token")
+		return nil, fmt.Errorf("skip token")
 	}
 }
 
@@ -631,4 +640,61 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMe
 	}
 
 	return json.Marshal(requestBody)
+}
+
+// anthropicResponse represents the structure of a response from the Anthropic API.
+type anthropicResponse struct {
+	ID         string             `json:"id"`
+	Type       string             `json:"type"`
+	Role       string             `json:"role"`
+	Model      string             `json:"model"`
+	Content    []anthropicContent `json:"content"`
+	StopReason string             `json:"stop_reason"`
+	StopSeq    *string            `json:"stop_sequence"`
+	Usage      anthropicUsage     `json:"usage"`
+}
+
+// anthropicContent represents a single content block in an Anthropic response.
+type anthropicContent struct {
+	Type  string          `json:"type"`
+	Text  string          `json:"text,omitempty"`
+	ID    string          `json:"id,omitempty"`
+	Name  string          `json:"name,omitempty"`
+	Input json.RawMessage `json:"input,omitempty"`
+}
+
+type anthropicEvent struct {
+	Type    string            `json:"type"`
+	Index   *int              `json:"index,omitempty"`
+	Delta   *anthropicDelta   `json:"delta,omitempty"`
+	Usage   *anthropicUsage   `json:"usage,omitempty"`   // present on message_delta
+	Message *anthropicMessage `json:"message,omitempty"` // present on message_start
+}
+
+type anthropicMessage struct {
+	ID           string          `json:"id"`
+	Type         string          `json:"type"`
+	Role         string          `json:"role"`
+	Content      []any           `json:"content"`
+	Model        string          `json:"model"`
+	StopReason   *string         `json:"stop_reason"`
+	StopSequence *string         `json:"stop_sequence"`
+	Usage        *anthropicUsage `json:"usage,omitempty"` // initial usage snapshot
+}
+
+type anthropicDelta struct {
+	Type         string  `json:"type,omitempty"`          // "text_delta", "input_json_delta", "thinking_delta", "signature_delta", etc.
+	Text         string  `json:"text,omitempty"`          // for text_delta
+	PartialJSON  string  `json:"partial_json,omitempty"`  // for input_json_delta
+	Thinking     string  `json:"thinking,omitempty"`      // for thinking_delta
+	Signature    string  `json:"signature,omitempty"`     // for signature_delta
+	StopReason   *string `json:"stop_reason,omitempty"`   // appears on message_delta.delta
+	StopSequence *string `json:"stop_sequence,omitempty"` // appears on message_delta.delta
+}
+
+type anthropicUsage struct {
+	InputTokens              int64 `json:"input_tokens,omitempty"`
+	OutputTokens             int64 `json:"output_tokens,omitempty"`
+	CacheCreationInputTokens int64 `json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     int64 `json:"cache_read_input_tokens,omitempty"`
 }

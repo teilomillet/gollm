@@ -4,6 +4,7 @@ package assess
 import (
 	"context"
 	"fmt"
+	"github.com/teilomillet/gollm/providers"
 	"os"
 	"regexp"
 	"strings"
@@ -277,7 +278,7 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 
 				// Create a sub-test for proper test organization
 				tr.t.Run(fmt.Sprintf("%s/%s", p.Name, testCase.Name), func(t *testing.T) {
-					response, testErr = tr.runBatchCase(ctx, t, client, p, testCase)
+					response, testErr = tr.runBatchCase(ctx, t, client, testCase)
 				})
 
 				duration := time.Since(start)
@@ -344,7 +345,7 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 }
 
 // Helper method to run a single batch test case
-func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm.LLM, provider TestProvider, tc *TestCase) (string, error) {
+func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm.LLM, tc *TestCase) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, tc.Timeout)
 	defer cancel()
 
@@ -360,7 +361,7 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 		}
 	}
 
-	var response string
+	var response *providers.Response
 	var err error
 
 	if tc.ExpectedSchema != nil {
@@ -376,12 +377,12 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 
 	// Run validations
 	for _, validate := range tc.Validations {
-		if err := validate(response); err != nil {
+		if err := validate(response.String()); err != nil {
 			t.Errorf("Validation failed: %v", err)
 		}
 	}
 
-	return response, nil
+	return response.String(), nil
 }
 
 func (tr *TestRunner) setupClient(provider TestProvider) llm.LLM {
@@ -438,7 +439,7 @@ func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM,
 	defer cancel()
 
 	// Create prompt with all options
-	promptOpts := []gollm.PromptOption{}
+	var promptOpts []gollm.PromptOption
 
 	if tc.SystemPrompt != "" {
 		promptOpts = append(promptOpts, gollm.WithSystemPrompt(tc.SystemPrompt, gollm.CacheTypeEphemeral))
@@ -490,7 +491,7 @@ func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM,
 	}
 
 	start := time.Now()
-	var response string
+	var response *providers.Response
 	var err error
 
 	if tc.ExpectedSchema != nil {
@@ -510,7 +511,7 @@ func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM,
 
 	// Run validations
 	for _, validate := range tc.Validations {
-		if err := validate(response); err != nil {
+		if err := validate(response.String()); err != nil {
 			t.Errorf("Validation failed: %v", err)
 		}
 	}
@@ -529,7 +530,7 @@ func getDefaultHeaders(provider string) map[string]string {
 	return headers
 }
 
-// Common validation functions
+// ExpectContains Common validation functions
 func ExpectContains(substr string) ValidationFunc {
 	return func(response string) error {
 		if !strings.Contains(response, substr) {

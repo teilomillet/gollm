@@ -186,7 +186,7 @@ func (p *MistralProvider) PrepareRequestWithSchema(prompt string, options map[st
 // Returns:
 //   - Generated text content
 //   - Any error encountered during parsing
-func (p *MistralProvider) ParseResponse(body []byte) (string, error) {
+func (p *MistralProvider) ParseResponse(body []byte) (*Response, error) {
 	var response struct {
 		Choices []struct {
 			Message struct {
@@ -202,11 +202,11 @@ func (p *MistralProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
-		return "", fmt.Errorf("error parsing response: %w", err)
+		return nil, fmt.Errorf("error parsing response: %w", err)
 	}
 
 	if len(response.Choices) == 0 || response.Choices[0].Message.Content == "" {
-		return "", fmt.Errorf("empty response from API")
+		return nil, fmt.Errorf("empty response from API")
 	}
 
 	// Combine content and tool calls
@@ -218,12 +218,12 @@ func (p *MistralProvider) ParseResponse(body []byte) (string, error) {
 		// Parse arguments as raw JSON to preserve the exact format
 		var args interface{}
 		if err := json.Unmarshal(toolCall.Function.Arguments, &args); err != nil {
-			return "", fmt.Errorf("error parsing function arguments: %w", err)
+			return nil, fmt.Errorf("error parsing function arguments: %w", err)
 		}
 
 		functionCall, err := utils.FormatFunctionCall(toolCall.Function.Name, args)
 		if err != nil {
-			return "", fmt.Errorf("error formatting function call: %w", err)
+			return nil, fmt.Errorf("error formatting function call: %w", err)
 		}
 		if finalResponse.Len() > 0 {
 			finalResponse.WriteString("\n")
@@ -231,7 +231,7 @@ func (p *MistralProvider) ParseResponse(body []byte) (string, error) {
 		finalResponse.WriteString(functionCall)
 	}
 
-	return finalResponse.String(), nil
+	return &Response{Content: Text{Value: finalResponse.String()}}, nil
 }
 
 // HandleFunctionCalls processes structured output in the response.
@@ -268,7 +268,7 @@ func (p *MistralProvider) PrepareStreamRequest(prompt string, options map[string
 }
 
 // ParseStreamResponse parses a single chunk from a streaming response
-func (p *MistralProvider) ParseStreamResponse(chunk []byte) (string, error) {
+func (p *MistralProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	var response struct {
 		Choices []struct {
 			Delta struct {
@@ -277,12 +277,12 @@ func (p *MistralProvider) ParseStreamResponse(chunk []byte) (string, error) {
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(chunk, &response); err != nil {
-		return "", err
+		return nil, fmt.Errorf("malformed response: %w", err)
 	}
-	if len(response.Choices) == 0 {
-		return "", nil
+	if len(response.Choices) == 0 || response.Choices[0].Delta.Content == "" {
+		return nil, fmt.Errorf("skip resp")
 	}
-	return response.Choices[0].Delta.Content, nil
+	return &Response{Content: Text{Value: response.Choices[0].Delta.Content}}, nil
 }
 
 // PrepareRequestWithMessages creates a request using structured message objects.

@@ -4,6 +4,7 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
@@ -326,7 +327,7 @@ func (p *OpenRouterProvider) PrepareRequestWithSchema(prompt string, options map
 }
 
 // ParseResponse extracts the completion text from the OpenRouter API response.
-func (p *OpenRouterProvider) ParseResponse(body []byte) (string, error) {
+func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 	// First try to parse as chat completion to see if it's a chat/completions response
 	var chatResp struct {
 		Choices []struct {
@@ -341,6 +342,13 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (string, error) {
 		} `json:"error"`
 		ID    string `json:"id"`
 		Model string `json:"model"`
+		Usage *struct {
+			PromptTokens             int64 `json:"prompt_tokens"`
+			CompletionTokens         int64 `json:"completion_tokens"`
+			TotalTokens              int64 `json:"total_tokens"`
+			CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+			CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+		} `json:"usage"`
 	}
 
 	// Try to parse as a chat completion
@@ -352,7 +360,7 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (string, error) {
 
 		// Check for errors
 		if chatResp.Error.Message != "" {
-			return "", fmt.Errorf("OpenRouter API error: %s", chatResp.Error.Message)
+			return nil, fmt.Errorf("OpenRouter API error: %s", chatResp.Error.Message)
 		}
 
 		// Store the generation ID and used model in the logger for potential later use
@@ -363,7 +371,11 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (string, error) {
 			p.logger.Info("Model used", "requested", p.model, "actual", chatResp.Model)
 		}
 
-		return chatResp.Choices[0].Message.Content, nil
+		resp := &Response{Content: Text{Value: chatResp.Choices[0].Message.Content}}
+		if chatResp.Usage != nil {
+			resp.Usage = NewUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CacheCreationInputTokens+chatResp.Usage.CacheReadInputTokens, chatResp.Usage.CompletionTokens, 0)
+		}
+		return resp, nil
 	}
 
 	// If it wasn't a valid chat completion, try parsing as a text completion
@@ -376,21 +388,28 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (string, error) {
 		} `json:"error"`
 		ID    string `json:"id"`
 		Model string `json:"model"`
+		Usage *struct {
+			PromptTokens             int64 `json:"prompt_tokens"`
+			CompletionTokens         int64 `json:"completion_tokens"`
+			TotalTokens              int64 `json:"total_tokens"`
+			CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+			CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+		} `json:"usage"`
 	}
 
 	if err := json.Unmarshal(body, &textResp); err != nil {
 		// If we can't parse as text completion either, return the original chat parsing error
-		return "", fmt.Errorf("error parsing OpenRouter response: %w", chatErr)
+		return nil, fmt.Errorf("error parsing OpenRouter response: %w", chatErr)
 	}
 
 	// Check for errors
 	if textResp.Error.Message != "" {
-		return "", fmt.Errorf("OpenRouter API error: %s", textResp.Error.Message)
+		return nil, fmt.Errorf("OpenRouter API error: %s", textResp.Error.Message)
 	}
 
 	// Check if we have at least one choice
 	if len(textResp.Choices) == 0 {
-		return "", fmt.Errorf("no completion choices in OpenRouter response")
+		return nil, fmt.Errorf("no completion choices in OpenRouter response")
 	}
 
 	// Store the generation ID and used model in the logger for potential later use
@@ -403,8 +422,11 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (string, error) {
 
 	p.logger.Debug("Parsed text completion", "text", textResp.Choices[0].Text)
 
-	// Return text completion
-	return textResp.Choices[0].Text, nil
+	resp := &Response{Content: Text{Value: textResp.Choices[0].Text}}
+	if textResp.Usage != nil {
+		resp.Usage = NewUsage(textResp.Usage.PromptTokens, textResp.Usage.CacheCreationInputTokens+textResp.Usage.CacheReadInputTokens, textResp.Usage.CompletionTokens, 0)
+	}
+	return resp, nil
 }
 
 // HandleFunctionCalls processes function/tool calling in OpenRouter responses.
@@ -479,10 +501,14 @@ func (p *OpenRouterProvider) PrepareStreamRequest(prompt string, options map[str
 }
 
 // ParseStreamResponse processes a chunk from a streaming OpenRouter response.
-func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (string, error) {
-	// Skip empty chunks and "[DONE]" markers
-	if len(chunk) == 0 || string(chunk) == "[DONE]" {
-		return "", nil
+func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
+	// Skip empty chunks
+	if len(chunk) == 0 {
+		return nil, fmt.Errorf("skip resp")
+	}
+	// Handle "[DONE]" marker
+	if string(chunk) == "[DONE]" {
+		return nil, io.EOF
 	}
 
 	// Parse the chunk
@@ -514,12 +540,12 @@ func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (string, error) {
 	}
 
 	if err := json.Unmarshal(chunk, &resp); err != nil {
-		return "", fmt.Errorf("error parsing OpenRouter stream chunk: %w", err)
+		return nil, fmt.Errorf("malformed response: %w", err)
 	}
 
 	// Check for errors
 	if resp.Error.Message != "" {
-		return "", fmt.Errorf("OpenRouter API streaming error: %s", resp.Error.Message)
+		return nil, fmt.Errorf("OpenRouter API streaming error: %s", resp.Error.Message)
 	}
 
 	// Store the generation ID and used model in the logger for potential later use
@@ -530,28 +556,32 @@ func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (string, error) {
 		p.logger.Info("Model used for streaming", "requested", p.model, "actual", resp.Model)
 	}
 
-	// If we have usage information, log it
+	// Prepare usage if present
+	var usage *Usage
 	if resp.Usage != nil {
 		p.logger.Debug("Token usage",
 			"prompt_tokens", resp.Usage.PromptTokens,
 			"completion_tokens", resp.Usage.CompletionTokens,
 			"total_tokens", resp.Usage.TotalTokens)
+		usage = NewUsage(int64(resp.Usage.PromptTokens), 0, int64(resp.Usage.CompletionTokens), 0)
 	}
 
 	// Check if we have at least one choice with content
-	if len(resp.Choices) == 0 {
-		return "", nil
+	if len(resp.Choices) == 0 || resp.Choices[0].Delta.Content == "" {
+		return nil, fmt.Errorf("skip resp")
 	}
 
-	// Handle tool calls in streaming mode
+	// Handle tool calls in streaming mode (log only)
 	if len(resp.Choices[0].Delta.ToolCalls) > 0 {
-		toolCallData, err := json.Marshal(resp.Choices[0].Delta.ToolCalls)
-		if err == nil {
+		if toolCallData, err := json.Marshal(resp.Choices[0].Delta.ToolCalls); err == nil {
 			p.logger.Debug("Tool call in streaming mode", "data", string(toolCallData))
 		}
 	}
 
-	return resp.Choices[0].Delta.Content, nil
+	return &Response{
+		Content: Text{Value: resp.Choices[0].Delta.Content},
+		Usage:   usage,
+	}, nil
 }
 
 // PrepareRequestWithMessages creates a request with structured message objects.

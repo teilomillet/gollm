@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 
@@ -159,14 +160,14 @@ func (p *GenericProvider) PrepareRequestWithSchema(prompt string, options map[st
 }
 
 // ParseResponse extracts the generated text from the API response.
-func (p *GenericProvider) ParseResponse(body []byte) (string, error) {
+func (p *GenericProvider) ParseResponse(body []byte) (*Response, error) {
 	switch p.config.Type {
 	case TypeOpenAI:
 		return p.parseOpenAIResponse(body)
 	case TypeAnthropic, TypeClaude:
 		return p.parseAnthropicResponse(body)
 	default:
-		return "", fmt.Errorf("unsupported provider type: %s", p.config.Type)
+		return nil, fmt.Errorf("unsupported provider type: %s", p.config.Type)
 	}
 }
 
@@ -239,14 +240,14 @@ func (p *GenericProvider) PrepareStreamRequest(prompt string, options map[string
 }
 
 // ParseStreamResponse processes a single chunk from a streaming response.
-func (p *GenericProvider) ParseStreamResponse(chunk []byte) (string, error) {
+func (p *GenericProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	switch p.config.Type {
 	case TypeOpenAI:
 		return p.parseOpenAIStreamResponse(chunk)
 	case TypeAnthropic, TypeClaude:
 		return p.parseAnthropicStreamResponse(chunk)
 	default:
-		return "", fmt.Errorf("streaming not implemented for provider type: %s", p.config.Type)
+		return nil, fmt.Errorf("streaming not implemented for provider type: %s", p.config.Type)
 	}
 }
 
@@ -301,7 +302,7 @@ func (p *GenericProvider) prepareOpenAIRequest(prompt string, options map[string
 	return json.Marshal(requestOptions)
 }
 
-func (p *GenericProvider) parseOpenAIResponse(body []byte) (string, error) {
+func (p *GenericProvider) parseOpenAIResponse(body []byte) (*Response, error) {
 	var response struct {
 		Choices []struct {
 			Message struct {
@@ -318,23 +319,24 @@ func (p *GenericProvider) parseOpenAIResponse(body []byte) (string, error) {
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
-		return "", fmt.Errorf("failed to parse response: %v", err)
+		return nil, fmt.Errorf("failed to parse response: %v", err)
 	}
 
 	if response.Error.Message != "" {
-		return "", fmt.Errorf("API error: %s", response.Error.Message)
+		return nil, fmt.Errorf("API error: %s", response.Error.Message)
 	}
 
 	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("empty response from API")
+		return nil, fmt.Errorf("empty response from API")
 	}
 
 	// Check for function calling response
+	content := response.Choices[0].Message.Content
 	if response.Choices[0].Message.FunctionCall.Arguments != "" {
-		return response.Choices[0].Message.FunctionCall.Arguments, nil
+		content = response.Choices[0].Message.FunctionCall.Arguments
 	}
 
-	return response.Choices[0].Message.Content, nil
+	return &Response{Content: Text{Value: content}}, nil
 }
 
 func (p *GenericProvider) handleOpenAIFunctionCalls(body []byte) ([]byte, error) {
@@ -342,18 +344,18 @@ func (p *GenericProvider) handleOpenAIFunctionCalls(body []byte) ([]byte, error)
 	return body, nil // Simplified for now
 }
 
-func (p *GenericProvider) parseOpenAIStreamResponse(chunk []byte) (string, error) {
+func (p *GenericProvider) parseOpenAIStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty chunks
-	if len(chunk) == 0 {
-		return "", nil
+	if len(bytes.TrimSpace(chunk)) == 0 {
+		return nil, fmt.Errorf("skip resp")
 	}
 
 	// Remove "data: " prefix
 	data := bytes.TrimPrefix(chunk, []byte("data: "))
 
 	// Handle "[DONE]" marker
-	if bytes.Equal(data, []byte("[DONE]")) {
-		return "", nil
+	if bytes.Equal(bytes.TrimSpace(data), []byte("[DONE]")) {
+		return nil, io.EOF
 	}
 
 	var response struct {
@@ -365,14 +367,14 @@ func (p *GenericProvider) parseOpenAIStreamResponse(chunk []byte) (string, error
 	}
 
 	if err := json.Unmarshal(data, &response); err != nil {
-		return "", err
+		return nil, fmt.Errorf("malformed response: %w", err)
 	}
 
-	if len(response.Choices) == 0 {
-		return "", nil
+	if len(response.Choices) == 0 || response.Choices[0].Delta.Content == "" {
+		return nil, fmt.Errorf("skip resp")
 	}
 
-	return response.Choices[0].Delta.Content, nil
+	return &Response{Content: Text{Value: response.Choices[0].Delta.Content}}, nil
 }
 
 // Anthropic implementation methods
@@ -434,7 +436,7 @@ func (p *GenericProvider) prepareAnthropicStructuredRequest(prompt string, optio
 	return p.prepareAnthropicRequest(enhancedPrompt, requestOptions)
 }
 
-func (p *GenericProvider) parseAnthropicResponse(body []byte) (string, error) {
+func (p *GenericProvider) parseAnthropicResponse(body []byte) (*Response, error) {
 	var response struct {
 		Content []struct {
 			Text string `json:"text"`
@@ -445,32 +447,32 @@ func (p *GenericProvider) parseAnthropicResponse(body []byte) (string, error) {
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
-		return "", fmt.Errorf("failed to parse response: %v", err)
+		return nil, fmt.Errorf("failed to parse response: %v", err)
 	}
 
 	if response.Error.Message != "" {
-		return "", fmt.Errorf("API error: %s", response.Error.Message)
+		return nil, fmt.Errorf("API error: %s", response.Error.Message)
 	}
 
 	if len(response.Content) == 0 {
-		return "", fmt.Errorf("empty response from API")
+		return nil, fmt.Errorf("empty response from API")
 	}
 
-	return response.Content[0].Text, nil
+	return &Response{Content: Text{Value: response.Content[0].Text}}, nil
 }
 
-func (p *GenericProvider) parseAnthropicStreamResponse(chunk []byte) (string, error) {
+func (p *GenericProvider) parseAnthropicStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty chunks
-	if len(chunk) == 0 {
-		return "", nil
+	if len(bytes.TrimSpace(chunk)) == 0 {
+		return nil, fmt.Errorf("skip resp")
 	}
 
 	// Remove "data: " prefix
 	data := bytes.TrimPrefix(chunk, []byte("data: "))
 
 	// Handle end event
-	if bytes.Equal(data, []byte("[DONE]")) {
-		return "", nil
+	if bytes.Equal(bytes.TrimSpace(data), []byte("[DONE]")) {
+		return nil, io.EOF
 	}
 
 	var response struct {
@@ -481,14 +483,14 @@ func (p *GenericProvider) parseAnthropicStreamResponse(chunk []byte) (string, er
 	}
 
 	if err := json.Unmarshal(data, &response); err != nil {
-		return "", err
+		return nil, fmt.Errorf("malformed response: %w", err)
 	}
 
-	if response.Type == "content_block_delta" && len(response.Content) > 0 {
-		return response.Content[0].Text, nil
+	if response.Type == "content_block_delta" && len(response.Content) > 0 && response.Content[0].Text != "" {
+		return &Response{Content: Text{Value: response.Content[0].Text}}, nil
 	}
 
-	return "", nil
+	return nil, fmt.Errorf("skip resp")
 }
 
 // PrepareRequestWithMessages creates a request body using structured message objects

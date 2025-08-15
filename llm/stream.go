@@ -19,6 +19,12 @@ type StreamToken struct {
 	// Index is the position of this token in the sequence
 	Index int
 
+	// Number of input tokens processed before this token
+	InputTokens int64
+
+	// Number of output tokens generated up to this token
+	OutputTokens int64
+
 	// Metadata contains provider-specific metadata
 	Metadata map[string]interface{}
 }

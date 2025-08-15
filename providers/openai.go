@@ -398,34 +398,33 @@ func cleanSchemaForOpenAI(schema interface{}) interface{} {
 // Returns:
 //   - Generated text content
 //   - Any error encountered during parsing
-func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
-	var response struct {
-		Choices []struct {
-			Message struct {
-				Content   string `json:"content"`
-				ToolCalls []struct {
-					ID       string `json:"id"`
-					Type     string `json:"type"`
-					Function struct {
-						Name      string          `json:"name"`
-						Arguments json.RawMessage `json:"arguments"`
-					} `json:"function"`
-				} `json:"tool_calls"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
+func (p *OpenAIProvider) ParseResponse(body []byte) (*Response, error) {
+	response := openAIResponse{}
 
 	if err := json.Unmarshal(body, &response); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("empty response from API")
+		return nil, fmt.Errorf("empty response from API")
+	}
+
+	usage := &Usage{}
+
+	if response.Usage != nil && response.Usage.PromptTokensDetails != nil {
+		usage = NewUsage(
+			response.Usage.PromptTokens,
+			response.Usage.PromptTokensDetails.CacheTokens,
+			response.Usage.CompletionTokens,
+			0,
+		)
 	}
 
 	message := response.Choices[0].Message
 	if message.Content != "" {
-		return message.Content, nil
+		return &Response{
+			Content: Text{message.Content},
+			Usage:   usage}, nil
 	}
 
 	if len(message.ToolCalls) > 0 {
@@ -434,19 +433,22 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (string, error) {
 			// Parse arguments as raw JSON to preserve the exact format
 			var args interface{}
 			if err := json.Unmarshal(call.Function.Arguments, &args); err != nil {
-				return "", fmt.Errorf("error parsing function arguments: %w", err)
+				return nil, fmt.Errorf("error parsing function arguments: %w", err)
 			}
 
 			functionCall, err := utils.FormatFunctionCall(call.Function.Name, args)
 			if err != nil {
-				return "", fmt.Errorf("error formatting function call: %w", err)
+				return nil, fmt.Errorf("error formatting function call: %w", err)
 			}
 			functionCalls = append(functionCalls, functionCall)
 		}
-		return strings.Join(functionCalls, "\n"), nil
+
+		return &Response{
+			Content: Text{strings.Join(functionCalls, "\n")},
+			Usage:   usage}, nil
 	}
 
-	return "", fmt.Errorf("no content or tool calls in response")
+	return nil, fmt.Errorf("no content or tool calls in response")
 }
 
 // HandleFunctionCalls processes function calling in the response.
@@ -487,6 +489,9 @@ func (p *OpenAIProvider) PrepareStreamRequest(prompt string, options map[string]
 			{"role": "user", "content": prompt},
 		},
 		"stream": true,
+		"stream_options": []map[string]bool{
+			{"include_usage": true},
+		},
 	}
 
 	// Create a merged copy of options to handle token parameters properly
@@ -532,47 +537,55 @@ func (p *OpenAIProvider) PrepareStreamRequest(prompt string, options map[string]
 }
 
 // ParseStreamResponse processes a single chunk from a streaming response
-func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (string, error) {
+func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty lines
 	if len(bytes.TrimSpace(chunk)) == 0 {
-		return "", fmt.Errorf("empty chunk")
+		return nil, fmt.Errorf("empty chunk")
 	}
 
 	// Check for [DONE] marker
 	if bytes.Equal(bytes.TrimSpace(chunk), []byte("[DONE]")) {
-		return "", io.EOF
+		return nil, io.EOF
 	}
 
 	// Parse the chunk
-	var response struct {
-		Choices []struct {
-			Delta struct {
-				Role    string `json:"role"`
-				Content string `json:"content"`
-			} `json:"delta"`
-			FinishReason string `json:"finish_reason"`
-		} `json:"choices"`
-	}
+	response := openAIStreamResponse{}
 
 	if err := json.Unmarshal(chunk, &response); err != nil {
-		return "", fmt.Errorf("malformed response: %w", err)
+		return nil, fmt.Errorf("malformed response: %w", err)
 	}
 
 	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
+		return nil, fmt.Errorf("no choices in response")
 	}
 
 	// Handle finish reason
 	if response.Choices[0].FinishReason != "" {
-		return "", io.EOF
+		return nil, io.EOF
 	}
 
 	// Skip role-only messages
 	if response.Choices[0].Delta.Role != "" && response.Choices[0].Delta.Content == "" {
-		return "", fmt.Errorf("skip token")
+		return nil, fmt.Errorf("skip token")
 	}
 
-	return response.Choices[0].Delta.Content, nil
+	usage := &Usage{}
+
+	if response.Usage != nil && response.Usage.PromptTokensDetails != nil {
+		usage = NewUsage(
+			response.Usage.PromptTokens,
+			response.Usage.PromptTokensDetails.CacheTokens,
+			response.Usage.CompletionTokens,
+			0,
+		)
+	}
+
+	return &Response{
+		Content: Text{
+			response.Choices[0].Delta.Content,
+		},
+		Usage: usage,
+	}, nil
 }
 
 // PrepareRequestWithMessages creates a request body using structured message objects
@@ -679,4 +692,63 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 	}
 
 	return json.Marshal(request)
+}
+
+type openAIResponse struct {
+	Choices []openAIChoice `json:"choices"`
+	Usage   *openAIUsage   `json:"usage"`
+}
+
+type openAIChoice struct {
+	Message *openAIMessage `json:"message"`
+}
+
+type openAIMessage struct {
+	Content   string           `json:"content"`
+	ToolCalls []openAIToolCall `json:"tool_calls"`
+}
+
+type openAIToolCall struct {
+	ID       string          `json:"id"`
+	Type     string          `json:"type"`
+	Function *openAIFunction `json:"function"`
+}
+
+type openAIFunction struct {
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
+}
+type openAIUsage struct {
+	PromptTokens            int64                          `json:"prompt_tokens"`
+	CompletionTokens        int64                          `json:"completion_tokens"`
+	TotalTokens             int64                          `json:"total_tokens"`
+	PromptTokensDetails     *openAIPromptTokensDetails     `json:"prompt_tokens_details"`
+	CompletionTokensDetails *openAICompletionTokensDetails `json:"completion_tokens_details"`
+}
+
+type openAIPromptTokensDetails struct {
+	CacheTokens int64 `json:"cache_tokens"`
+	AudioTokens int64 `json:"audio_tokens"`
+}
+
+type openAICompletionTokensDetails struct {
+	ReasoningTokens          int64 `json:"reasoning_tokens"`
+	AudioTokens              int64 `json:"audio_tokens"`
+	AcceptedPredictionTokens int64 `json:"accepted_prediction_tokens"`
+	RejectedPredictionTokens int64 `json:"rejected_prediction_tokens"`
+}
+
+type openAIStreamResponse struct {
+	Choices []openAIStreamChoice `json:"choices"`
+	Usage   *openAIUsage         `json:"usage,omitempty"`
+}
+
+type openAIStreamChoice struct {
+	Delta        openAIStreamDelta `json:"delta"`
+	FinishReason string            `json:"finish_reason"`
+}
+
+type openAIStreamDelta struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }

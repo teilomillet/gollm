@@ -199,7 +199,7 @@ func (moa *MOA) processLayer(ctx context.Context, layer MOALayer, input string) 
 				errors[index] = err
 				return
 			}
-			results[index] = output
+			results[index] = output.String()
 		}(i, model)
 	}
 
@@ -224,9 +224,9 @@ func (moa *MOA) processLayer(ctx context.Context, layer MOALayer, input string) 
 // Returns:
 //   - A combined string containing all model outputs
 func (moa *MOA) combineResults(results []string) string {
-	combined := ""
+	var combined string
 	for _, result := range results {
-		combined += result + "\n---\n"
+		combined += fmt.Sprintf("\n---\n%s", result)
 	}
 	return combined
 }
@@ -242,8 +242,12 @@ func (moa *MOA) combineResults(results []string) string {
 //   - The final synthesized output
 //   - Any error encountered during aggregation
 func (moa *MOA) aggregate(ctx context.Context, outputs []string) (string, error) {
-	aggregationPrompt := fmt.Sprintf("Synthesise these responses into a single, high-quality response:\n\n%s", moa.combineResults(outputs))
-	response, err := moa.Aggregator.Generate(ctx, llm.NewPrompt(aggregationPrompt))
+	response, err := moa.Aggregator.Generate(ctx, llm.NewPrompt(
+		fmt.Sprintf("Synthesise these responses into a single, high-quality response:\n\n%s",
+			moa.combineResults(outputs))))
+	if err != nil {
+		return "", fmt.Errorf("error during aggregation: %w", err)
+	}
 
-	return response, err
+	return response.String(), err
 }

@@ -163,26 +163,45 @@ func (p *OllamaProvider) PrepareRequestWithSchema(prompt string, options map[str
 // Returns:
 //   - Generated text content
 //   - Any error encountered during parsing
-func (p *OllamaProvider) ParseResponse(body []byte) (string, error) {
-	var fullResponse strings.Builder
+func (p *OllamaProvider) ParseResponse(body []byte) (*Response, error) {
+	var fullText strings.Builder
+	var promptEvalCount int64
+	var evalCount int64
+
 	decoder := json.NewDecoder(bytes.NewReader(body))
 
 	for decoder.More() {
 		var response struct {
-			Model    string `json:"model"`
-			Response string `json:"response"`
-			Done     bool   `json:"done"`
+			Model           string `json:"model"`
+			Response        string `json:"response"`
+			Done            bool   `json:"done"`
+			PromptEvalCount int64  `json:"prompt_eval_count"`
+			EvalCount       int64  `json:"eval_count"`
 		}
 		if err := decoder.Decode(&response); err != nil {
-			return "", fmt.Errorf("error parsing Ollama response: %w", err)
+			return nil, fmt.Errorf("error parsing Ollama response: %w", err)
 		}
-		fullResponse.WriteString(response.Response)
+		if response.Response != "" {
+			fullText.WriteString(response.Response)
+		}
+		// Capture usage as we see it; typically populated on the final object
+		if response.PromptEvalCount > 0 {
+			promptEvalCount = response.PromptEvalCount
+		}
+		if response.EvalCount > 0 {
+			evalCount = response.EvalCount
+		}
 		if response.Done {
 			break
 		}
 	}
 
-	return fullResponse.String(), nil
+	resp := &Response{Content: Text{Value: fullText.String()}}
+	// Attach usage if we captured any token counts
+	if promptEvalCount > 0 || evalCount > 0 {
+		resp.Usage = NewUsage(promptEvalCount, 0, evalCount, 0)
+	}
+	return resp, nil
 }
 
 // HandleFunctionCalls processes function calling capabilities.
@@ -224,15 +243,15 @@ func (p *OllamaProvider) SetEndpoint(endpoint string) {
 //   - Generated text
 //   - Original prompt
 //   - Any error encountered
-func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (string, string, error) {
+func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response, string, error) {
 	reqBody, err := p.PrepareRequest(prompt, p.options)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", p.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	for k, v := range p.Headers() {
@@ -242,18 +261,18 @@ func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (string, s
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	result, err := p.ParseResponse(body)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	return result, prompt, nil
@@ -279,15 +298,28 @@ func (p *OllamaProvider) PrepareStreamRequest(prompt string, options map[string]
 }
 
 // ParseStreamResponse parses a single chunk from a streaming response
-func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (string, error) {
+func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	var response struct {
-		Response string `json:"response"`
-		Done     bool   `json:"done"`
+		Response        string `json:"response"`
+		Done            bool   `json:"done"`
+		PromptEvalCount int64  `json:"prompt_eval_count"`
+		EvalCount       int64  `json:"eval_count"`
 	}
 	if err := json.Unmarshal(chunk, &response); err != nil {
-		return "", err
+		return nil, fmt.Errorf("malformed response: %w", err)
 	}
-	return response.Response, nil
+	// When done=true, no more content; return usage so stream can expose token counts
+	if response.Done {
+		usage := (*Usage)(nil)
+		if response.PromptEvalCount > 0 || response.EvalCount > 0 {
+			usage = NewUsage(response.PromptEvalCount, 0, response.EvalCount, 0)
+		}
+		return &Response{Usage: usage}, nil
+	}
+	if strings.TrimSpace(response.Response) == "" {
+		return nil, fmt.Errorf("skip resp")
+	}
+	return &Response{Content: Text{Value: response.Response}}, nil
 }
 
 // PrepareRequestWithMessages creates a request body using structured message objects

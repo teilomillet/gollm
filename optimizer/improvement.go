@@ -16,8 +16,9 @@ import (
 // The improvement process:
 // 1. Analyzes previous assessment and optimization history
 // 2. Generates two alternative improvements:
-//    - Incremental: Refines existing approach
-//    - Bold: Reimagines prompt structure
+//   - Incremental: Refines existing approach
+//   - Bold: Reimagines prompt structure
+//
 // 3. Evaluates expected impact of each version
 // 4. Selects the version with higher potential impact
 //
@@ -118,10 +119,10 @@ func (po *PromptOptimizer) generateImprovedPrompt(ctx context.Context, prevEntry
 	}
 
 	// Log the raw response for debugging
-	po.debugManager.LogResponse(response)
+	po.debugManager.LogResponse(response.String())
 
 	// Extract and parse JSON response
-	cleanedResponse := cleanJSONResponse(response)
+	cleanedResponse := cleanJSONResponse(response.String())
 
 	var improvedPrompts struct {
 		IncrementalImprovement llm.Prompt `json:"incrementalImprovement"`

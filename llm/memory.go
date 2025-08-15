@@ -4,6 +4,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"github.com/teilomillet/gollm/providers"
 	"sync"
 
 	"github.com/pkoukk/tiktoken-go"
@@ -264,11 +265,11 @@ func NewLLMWithMemory(llm LLM, maxTokens int, model string) (LLM, error) {
 // Returns:
 //   - Generated text response
 //   - Error types as per the base LLM's Generate method
-func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (string, error) {
+func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (*providers.Response, error) {
 	// Add user message to memory
 	l.memory.Add("user", prompt.Input)
 
-	var response string
+	var response *providers.Response
 	var err error
 
 	if l.useStructuredMessages {
@@ -314,11 +315,11 @@ func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...Ge
 	}
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Add assistant response to memory
-	l.memory.Add("assistant", response)
+	l.memory.Add("assistant", response.String())
 	return response, nil
 }
 
@@ -357,7 +358,7 @@ func (l *LLMWithMemory) GetMemory() []types.MemoryMessage {
 // Returns:
 //   - Generated text response
 //   - Error types as per the base LLM's GenerateWithSchema method
-func (l *LLMWithMemory) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (string, error) {
+func (l *LLMWithMemory) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (*providers.Response, error) {
 	l.memory.Add("user", prompt.Input)
 	fullPrompt := l.memory.GetPrompt()
 
@@ -368,10 +369,10 @@ func (l *LLMWithMemory) GenerateWithSchema(ctx context.Context, prompt *Prompt, 
 
 	response, err := l.LLM.GenerateWithSchema(ctx, memoryPrompt, schema, opts...)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	l.memory.Add("assistant", response)
+	l.memory.Add("assistant", response.String())
 	return response, nil
 }
 

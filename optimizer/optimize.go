@@ -4,6 +4,7 @@ package optimizer
 import (
 	"context"
 	"fmt"
+	"github.com/teilomillet/gollm/providers"
 
 	"github.com/teilomillet/gollm/llm"
 	"github.com/teilomillet/gollm/utils"
@@ -48,7 +49,7 @@ import (
 // - Configurable rating system
 // - Retry mechanisms for reliability
 // - Quality thresholds for acceptance
-func OptimizePrompt(ctx context.Context, llm llm.LLM, config OptimizationConfig) (optimizedPrompt string, response string, err error) {
+func OptimizePrompt(ctx context.Context, llm llm.LLM, config OptimizationConfig) (*llm.Prompt, *providers.Response, error) {
 	// Initialize debug manager for logging optimization process
 	debugManager := utils.NewDebugManager(llm.GetLogger(), utils.DebugOptions{LogPrompts: true, LogResponses: true})
 
@@ -66,20 +67,20 @@ func OptimizePrompt(ctx context.Context, llm llm.LLM, config OptimizationConfig)
 	)
 
 	// Perform prompt optimization
-	optimizedPromptObj, err := optimizer.OptimizePrompt(ctx)
+	optimizedPrompt, err := optimizer.OptimizePrompt(ctx)
 	if err != nil {
-		return "", "", fmt.Errorf("optimization failed: %w", err)
+		return nil, nil, fmt.Errorf("optimization failed: %w", err)
 	}
 
 	// Validate optimization result
-	if optimizedPromptObj == nil {
-		return "", "", fmt.Errorf("optimized prompt is nil")
+	if optimizedPrompt == nil {
+		return nil, nil, fmt.Errorf("optimized prompt is nil")
 	}
 
 	// Generate response using optimized prompt
-	response, err = llm.Generate(ctx, optimizedPromptObj)
+	response, err := llm.Generate(ctx, optimizedPrompt)
 	if err != nil {
-		return optimizedPrompt, "", fmt.Errorf("response generation failed: %w", err)
+		return optimizedPrompt, nil, fmt.Errorf("response generation failed: %w", err)
 	}
 
 	return optimizedPrompt, response, nil

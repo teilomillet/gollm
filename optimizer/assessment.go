@@ -83,7 +83,7 @@ func (po *PromptOptimizer) assessPrompt(ctx context.Context, prompt *llm.Prompt)
 	}
 
 	// Parse and validate assessment response
-	cleanedResponse := cleanJSONResponse(response)
+	cleanedResponse := cleanJSONResponse(response.String())
 	var assessment PromptAssessment
 	err = json.Unmarshal([]byte(cleanedResponse), &assessment)
 	if err != nil {

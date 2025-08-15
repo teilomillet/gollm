@@ -170,25 +170,34 @@ func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[strin
 // Returns:
 //   - Generated text content
 //   - Any error encountered during parsing
-func (p *GroqProvider) ParseResponse(body []byte) (string, error) {
+func (p *GroqProvider) ParseResponse(body []byte) (*Response, error) {
 	var response struct {
 		Choices []struct {
 			Message struct {
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
+		Usage *struct {
+			PromptTokens     int64 `json:"prompt_tokens"`
+			CompletionTokens int64 `json:"completion_tokens"`
+			TotalTokens      int64 `json:"total_tokens"`
+		} `json:"usage"`
 	}
 
 	err := json.Unmarshal(body, &response)
 	if err != nil {
-		return "", fmt.Errorf("error parsing response: %w", err)
+		return nil, fmt.Errorf("error parsing response: %w", err)
 	}
 
 	if len(response.Choices) == 0 || response.Choices[0].Message.Content == "" {
-		return "", fmt.Errorf("empty response from API")
+		return nil, fmt.Errorf("empty response from API")
 	}
 
-	return response.Choices[0].Message.Content, nil
+	resp := &Response{Content: Text{Value: response.Choices[0].Message.Content}}
+	if response.Usage != nil {
+		resp.Usage = NewUsage(response.Usage.PromptTokens, 0, response.Usage.CompletionTokens, 0)
+	}
+	return resp, nil
 }
 
 // HandleFunctionCalls processes function calling capabilities.
@@ -225,7 +234,7 @@ func (p *GroqProvider) PrepareStreamRequest(prompt string, options map[string]in
 }
 
 // ParseStreamResponse parses a single chunk from a streaming response
-func (p *GroqProvider) ParseStreamResponse(chunk []byte) (string, error) {
+func (p *GroqProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	var response struct {
 		Choices []struct {
 			Delta struct {
@@ -234,12 +243,12 @@ func (p *GroqProvider) ParseStreamResponse(chunk []byte) (string, error) {
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(chunk, &response); err != nil {
-		return "", err
+		return nil, fmt.Errorf("malformed response: %w", err)
 	}
-	if len(response.Choices) == 0 {
-		return "", nil
+	if len(response.Choices) == 0 || response.Choices[0].Delta.Content == "" {
+		return nil, fmt.Errorf("skip resp")
 	}
-	return response.Choices[0].Delta.Content, nil
+	return &Response{Content: Text{Value: response.Choices[0].Delta.Content}}, nil
 }
 
 // PrepareRequestWithMessages creates a request body using structured message objects

@@ -190,7 +190,7 @@ func (p *CohereProvider) PrepareRequestWithSchema(prompt string, options map[str
 // Returns:
 //   - Generated text content
 //   - Any error encountered during parsing
-func (p *CohereProvider) ParseResponse(body []byte) (string, error) {
+func (p *CohereProvider) ParseResponse(body []byte) (*Response, error) {
 	var response struct {
 		Message struct {
 			Role    string `json:"role"`
@@ -210,11 +210,11 @@ func (p *CohereProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
-		return "", fmt.Errorf("error parsing response: %w", err)
+		return nil, fmt.Errorf("error parsing response: %w", err)
 	}
 
 	if len(response.Message.Content) == 0 {
-		return "", fmt.Errorf("empty response from API")
+		return nil, fmt.Errorf("empty response from API")
 	}
 
 	var finalResponse strings.Builder
@@ -231,12 +231,12 @@ func (p *CohereProvider) ParseResponse(body []byte) (string, error) {
 		// Parse arguments as raw JSON to preserve the exact format
 		var args interface{}
 		if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-			return "", fmt.Errorf("error parsing function arguments: %w", err)
+			return nil, fmt.Errorf("error parsing function arguments: %w", err)
 		}
 
 		functionCall, err := utils.FormatFunctionCall(toolCall.Function.Name, args)
 		if err != nil {
-			return "", fmt.Errorf("error formatting function call: %w", err)
+			return nil, fmt.Errorf("error formatting function call: %w", err)
 		}
 		if finalResponse.Len() > 0 {
 			finalResponse.WriteString("\n")
@@ -245,7 +245,7 @@ func (p *CohereProvider) ParseResponse(body []byte) (string, error) {
 	}
 
 	p.logger.Debug("Final response: %s", finalResponse.String())
-	return finalResponse.String(), nil
+	return &Response{Content: Text{Value: finalResponse.String()}}, nil
 }
 
 // HandleFunctionCalls processes structured output in the response.
@@ -283,14 +283,17 @@ func (p *CohereProvider) PrepareStreamRequest(prompt string, options map[string]
 }
 
 // ParseStreamResponse parses a single chunk from a streaming response
-func (p *CohereProvider) ParseStreamResponse(chunk []byte) (string, error) {
+func (p *CohereProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	var response struct {
 		Text string `json:"text"`
 	}
 	if err := json.Unmarshal(chunk, &response); err != nil {
-		return "", err
+		return nil, fmt.Errorf("malformed response: %w", err)
 	}
-	return response.Text, nil
+	if response.Text == "" {
+		return nil, fmt.Errorf("skip resp")
+	}
+	return &Response{Content: Text{Value: response.Text}}, nil
 }
 
 // PrepareRequestWithMessages creates a request using structured message objects.

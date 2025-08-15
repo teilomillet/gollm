@@ -50,7 +50,7 @@ type Provider interface {
 
 	// ParseResponse extracts the generated text from the API response.
 	// It handles provider-specific response formats and error cases.
-	ParseResponse(body []byte) (string, error)
+	ParseResponse(body []byte) (*Response, error)
 
 	// SetExtraHeaders configures additional HTTP headers for API requests.
 	// This is useful for provider-specific features or authentication methods.
@@ -81,7 +81,7 @@ type Provider interface {
 
 	// ParseStreamResponse processes a single chunk from a streaming response.
 	// It returns the token text and any error encountered.
-	ParseStreamResponse(chunk []byte) (string, error)
+	ParseStreamResponse(chunk []byte) (*Response, error)
 }
 
 // ProviderType represents the general type of LLM API
@@ -183,7 +183,7 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"mistral":       NewMistralProvider,
 		"cohere":        NewCohereProvider,
 		"deepseek":      NewDeepSeekProvider,
-		"google-openai": NewGoogleProvider,
+		"google-openai": NewGeminiProvider,
 		// Add other providers here as they are implemented
 	}
 
@@ -259,7 +259,17 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			SupportsSchema:    true,
 			SupportsStreaming: true,
 		},
-		// Add other provider configurations
+		"google": {
+			Name:              "google",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		// Add other provider configurations""
 	}
 
 	// Store standard configs

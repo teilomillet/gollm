@@ -106,25 +106,25 @@ func (l *llmImpl) UpdateLogLevel(level LogLevel) {
 	}
 }
 
-// Implement the base Generate method (if not already provided by embedded llm.LLM)
-func (l *llmImpl) Generate(ctx context.Context, prompt *llm.Prompt, opts ...llm.GenerateOption) (string, error) {
+// Generate Implement the base Generate method (if not already provided by embedded llm.LLM)
+func (l *llmImpl) Generate(ctx context.Context, prompt *llm.Prompt, opts ...llm.GenerateOption) (*providers.Response, error) {
 	l.logger.Debug("Starting Generate method", "prompt_length", len(prompt.String()), "context", ctx)
 
-	config := &llm.GenerateConfig{}
+	generateConfig := &llm.GenerateConfig{}
 	for _, opt := range opts {
-		opt(config)
+		opt(generateConfig)
 	}
 
-	if config.UseJSONSchema {
+	if generateConfig.UseJSONSchema {
 		if err := prompt.Validate(); err != nil {
-			return "", fmt.Errorf("invalid prompt: %w", err)
+			return nil, fmt.Errorf("invalid prompt: %w", err)
 		}
 	}
 
 	// Call the base LLM's Generate method
 	response, err := l.LLM.Generate(ctx, prompt, opts...)
 	if err != nil {
-		return "", fmt.Errorf("LLM.Generate error: %w", err)
+		return nil, fmt.Errorf("LLM.Generate error: %w", err)
 	}
 
 	return response, nil
@@ -155,7 +155,7 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		opt(cfg)
 	}
 
-	// For Ollama, ensure we have a dummy API key if none is provided
+	// For Ollama, ensure we have a fake API key if none is provided
 	if cfg.Provider == "ollama" {
 		if cfg.APIKeys == nil {
 			cfg.APIKeys = make(map[string]string)
