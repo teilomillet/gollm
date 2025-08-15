@@ -310,7 +310,7 @@ func (p *GeminiProvider) PrepareRequestWithMessages(
 // PrepareRequestWithSchema builds a request similar to PrepareRequest but enforces a JSON output schema.
 // It uses the GenerationConfig.responseMimeType and responseSchema fields to instruct the model to return JSON adhering
 // to the schema.
-func (p *GeminiProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
+func (p *GeminiProvider) PrepareRequestWithSchema(prompt string, _ map[string]any, schema any) ([]byte, error) {
 	// Base content with user prompt
 	requestBody := map[string]any{
 		"model": p.model,

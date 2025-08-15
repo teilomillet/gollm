@@ -113,25 +113,6 @@ func (m *Memory) AddStructured(message types.MemoryMessage) {
 		"total_tokens", m.totalTokens)
 }
 
-// truncate removes oldest messages until the total token count is within limits.
-// This is called automatically by Add when necessary.
-func (m *Memory) truncate() {
-	for m.totalTokens > m.maxTokens && len(m.messages) > 1 {
-		removed := m.messages[0]
-		m.messages = m.messages[1:]
-		m.totalTokens -= removed.Tokens
-		m.logger.Debug(
-			"Removed message from memory",
-			"role",
-			removed.Role,
-			"tokens",
-			removed.Tokens,
-			"total_tokens",
-			m.totalTokens,
-		)
-	}
-}
-
 // truncateIfNeeded truncates messages if the total token count exceeds the maxTokens.
 // This is called automatically by Add when necessary.
 func (m *Memory) truncateIfNeeded() {

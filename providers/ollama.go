@@ -38,7 +38,7 @@ type OllamaProvider struct {
 //
 // Returns:
 //   - A configured Ollama Provider instance
-func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) *OllamaProvider {
+func NewOllamaProvider(_ string, model string, extraHeaders map[string]string) *OllamaProvider {
 	endpoint := "http://localhost:11434"
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
@@ -144,7 +144,7 @@ func (p *OllamaProvider) PrepareRequest(prompt string, options map[string]any) (
 // PrepareRequestWithSchema creates a request with JSON schema validation.
 // Since Ollama doesn't support schema validation natively, this falls back to
 // standard request preparation.
-func (p *OllamaProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
+func (p *OllamaProvider) PrepareRequestWithSchema(prompt string, options map[string]any, _ any) ([]byte, error) {
 	// Ollama doesn't support JSON schema validation natively
 	// We'll just use the regular PrepareRequest method
 	return p.PrepareRequest(prompt, options)
