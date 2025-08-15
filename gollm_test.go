@@ -140,8 +140,12 @@ func TestJSONSchemaValidation(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
-	prompt := gollm.NewPrompt("Generate a user profile",
-		gollm.WithSystemPrompt("You are data analyst who specializes in generating user data.", gollm.CacheTypeEphemeral),
+	prompt := gollm.NewPrompt(
+		"Generate a user profile",
+		gollm.WithSystemPrompt(
+			"You are data analyst who specializes in generating user data.",
+			gollm.CacheTypeEphemeral,
+		),
 	)
 
 	response, err := llm.Generate(ctx, prompt, llm.WithStructuredResponseSchema(UserProfile{}))

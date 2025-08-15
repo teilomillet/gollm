@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -107,7 +108,7 @@ func (l *MockLLM) GenerateWithSchema(
 	return "mock schema response", nil
 }
 func (l *MockLLM) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOption) (TokenStream, error) {
-	return nil, nil
+	return nil, errors.New("streaming not supported")
 }
 func (l *MockLLM) SupportsStreaming() bool { return false }
 func (l *MockLLM) SetOption(key string, value any) {

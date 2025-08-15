@@ -143,7 +143,6 @@ func TestExtractReview(t *testing.T) {
 		         It seamlessly blends elements of science fiction, action, and psychological drama. The movie explores the concept 
 		         of dream infiltration and leaves you questioning reality long after the credits roll.`
 
-		review := MovieReview{}
 		extracted, err := presets.ExtractStructuredData[MovieReview](ctx, llm, text,
 			gollm.WithDirectives(
 				"Extract all relevant information from the text",
@@ -155,13 +154,12 @@ func TestExtractReview(t *testing.T) {
 		)
 		assert.NoError(t, err, "Should extract review without validation")
 		assert.NotNil(t, extracted, "Review should not be nil")
-		review = *extracted
-		assert.Equal(t, "Inception", review.Title, "Should extract correct title")
-		assert.Equal(t, "Christopher Nolan", review.Director, "Should extract correct director")
-		assert.Equal(t, 2010, review.Year, "Should extract correct year")
-		assert.Equal(t, 9.5, review.Rating, "Should extract correct rating")
-		assert.True(t, containsIgnoreCase(review.Genres, "Science Fiction"), "Should extract genres")
-		assert.NotEmpty(t, review.Summary, "Should extract summary")
+		assert.Equal(t, "Inception", extracted.Title, "Should extract correct title")
+		assert.Equal(t, "Christopher Nolan", extracted.Director, "Should extract correct director")
+		assert.Equal(t, 2010, extracted.Year, "Should extract correct year")
+		assert.Equal(t, 9.5, extracted.Rating, "Should extract correct rating")
+		assert.True(t, containsIgnoreCase(extracted.Genres, "Science Fiction"), "Should extract genres")
+		assert.NotEmpty(t, extracted.Summary, "Should extract summary")
 	})
 
 	// Test extraction with validation
@@ -171,7 +169,6 @@ func TestExtractReview(t *testing.T) {
 		         It seamlessly blends elements of science fiction, action, and psychological drama. The movie explores the concept 
 		         of dream infiltration and leaves you questioning reality long after the credits roll.`
 
-		review := MovieReviewValidated{}
 		extracted, err := presets.ExtractStructuredData[MovieReviewValidated](ctx, llm, text,
 			gollm.WithDirectives(
 				"Extract all relevant information from the text",
@@ -183,16 +180,15 @@ func TestExtractReview(t *testing.T) {
 		)
 		assert.NoError(t, err, "Should extract review with validation")
 		assert.NotNil(t, extracted, "Review should not be nil")
-		review = *extracted
-		assert.Equal(t, "Inception", review.Title, "Should extract correct title")
-		assert.Equal(t, "Christopher Nolan", review.Director, "Should extract correct director")
-		assert.Equal(t, 2010, review.Year, "Should extract correct year")
-		assert.Equal(t, 9.5, review.Rating, "Should extract correct rating")
-		assert.True(t, containsIgnoreCase(review.Genres, "Science Fiction"), "Should extract genres")
-		assert.NotEmpty(t, review.Summary, "Should extract summary")
+		assert.Equal(t, "Inception", extracted.Title, "Should extract correct title")
+		assert.Equal(t, "Christopher Nolan", extracted.Director, "Should extract correct director")
+		assert.Equal(t, 2010, extracted.Year, "Should extract correct year")
+		assert.Equal(t, 9.5, extracted.Rating, "Should extract correct rating")
+		assert.True(t, containsIgnoreCase(extracted.Genres, "Science Fiction"), "Should extract genres")
+		assert.NotEmpty(t, extracted.Summary, "Should extract summary")
 
 		// Validate the extracted review
-		err = gollm.Validate(&review)
+		err = gollm.Validate(extracted)
 		assert.NoError(t, err, "Extracted review should pass validation")
 	})
 

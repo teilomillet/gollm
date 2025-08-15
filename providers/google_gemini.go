@@ -407,8 +407,12 @@ func (p *GeminiProvider) ParseResponse(body []byte) (*Response, error) {
 				var formattedCall string
 				if argsOK {
 					// Marshal the args object to JSON string
-					argsJSON, _ := json.Marshal(argsVal)
-					formattedCall = fmt.Sprintf("%s(%s)", nameVal, argsJSON)
+					argsJSON, err := json.Marshal(argsVal)
+					if err != nil {
+						formattedCall = nameVal + "()"
+					} else {
+						formattedCall = fmt.Sprintf("%s(%s)", nameVal, argsJSON)
+					}
 				} else {
 					formattedCall = nameVal + "()"
 				}
@@ -536,8 +540,12 @@ func (p *GeminiProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 		if nameOK {
 			var formattedCall string
 			if argsOK {
-				argsJSON, _ := json.Marshal(argsVal)
-				formattedCall = fmt.Sprintf("%s(%s)", nameVal, argsJSON)
+				argsJSON, err := json.Marshal(argsVal)
+				if err != nil {
+					formattedCall = nameVal + "()"
+				} else {
+					formattedCall = fmt.Sprintf("%s(%s)", nameVal, argsJSON)
+				}
 			} else {
 				formattedCall = nameVal + "()"
 			}

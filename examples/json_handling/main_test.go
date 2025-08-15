@@ -248,7 +248,7 @@ func TestJSONHandlingExamples(t *testing.T) {
 				var data map[string]any
 				if err := json.Unmarshal([]byte(jsonStr), &data); err == nil {
 					if tech, ok := data["technical"].(map[string]any); ok {
-						if rgb, hasRGB := tech["rgb"]; hasRGB {
+						if rgb, hasRGBField := tech["rgb"]; hasRGBField {
 							if rgbArr, isArray := rgb.([]any); isArray && len(rgbArr) == 3 {
 								// Valid RGB array found
 								return nil

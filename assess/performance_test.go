@@ -154,10 +154,11 @@ func TestErrorHandling(t *testing.T) {
 	test.AddCase("timeout_test", "Generate a very long response").
 		WithTimeout(1 * time.Millisecond).
 		Validate(func(response string) error {
-			if err := context.DeadlineExceeded; err != nil {
-				return nil // Expected timeout
+			// With such a short timeout (1ms), we expect an empty response
+			if response == "" {
+				return nil // Expected timeout resulted in empty response
 			}
-			return errors.New("expected timeout error")
+			return errors.New("expected timeout to prevent response generation")
 		})
 
 	ctx := context.Background()

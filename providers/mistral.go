@@ -172,7 +172,9 @@ func (p *MistralProvider) PrepareRequestWithSchema(prompt string, options map[st
 
 	// Add strict option if provided
 	if strict, ok := options["strict"].(bool); ok && strict {
-		requestBody["response_format"].(map[string]any)["strict"] = true
+		if responseFormat, ok := requestBody["response_format"].(map[string]any); ok {
+			responseFormat["strict"] = true
+		}
 	}
 
 	return json.Marshal(requestBody)
@@ -298,18 +300,22 @@ func (p *MistralProvider) PrepareRequestWithMessages(
 
 	// Add system prompt if present
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-			"role":    "system",
-			"content": systemPrompt,
-		})
+		if messagesArray, ok := request["messages"].([]map[string]any); ok {
+			request["messages"] = append(messagesArray, map[string]any{
+				"role":    "system",
+				"content": systemPrompt,
+			})
+		}
 	}
 
 	// Convert memory messages to Mistral format
 	for _, msg := range messages {
-		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-			"role":    msg.Role,
-			"content": msg.Content,
-		})
+		if messagesArray, ok := request["messages"].([]map[string]any); ok {
+			request["messages"] = append(messagesArray, map[string]any{
+				"role":    msg.Role,
+				"content": msg.Content,
+			})
+		}
 	}
 
 	// Add other options

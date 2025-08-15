@@ -203,7 +203,7 @@ func TestProviderStreaming(t *testing.T) {
 			fullResponse.WriteString(token.Text)
 
 			for {
-				token, err := stream.Next(ctx)
+				nextToken, err := stream.Next(ctx)
 				if errors.Is(err, io.EOF) {
 					break
 				}
@@ -211,8 +211,8 @@ func TestProviderStreaming(t *testing.T) {
 					t.Logf("Error reading token: %v", err)
 					break
 				}
-				tokens = append(tokens, token.Text)
-				fullResponse.WriteString(token.Text)
+				tokens = append(tokens, nextToken.Text)
+				fullResponse.WriteString(nextToken.Text)
 			}
 
 			t.Logf("Total tokens received: %d", len(tokens)+1)
