@@ -47,7 +47,7 @@ type (
 
 	// MemoryMessage represents a message stored in the LLM's conversation memory.
 	// These messages provide context for maintaining coherent conversations.
-	MemoryMessage = llm.MemoryMessage
+	MemoryMessage = types.MemoryMessage
 
 	// PromptTemplate defines a reusable template for generating prompts.
 	// Templates can include variables that are filled in at runtime.

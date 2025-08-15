@@ -34,7 +34,7 @@ type OpenRouterProvider struct {
 //
 // Returns:
 //   - A configured OpenRouter Provider instance
-func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string) *OpenRouterProvider {
+func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}

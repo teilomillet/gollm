@@ -21,7 +21,7 @@ type DeepSeekProvider struct {
 //
 // Returns:
 //   - A configured DeepSeek Provider instance
-func NewDeepSeekProvider(apiKey, model string, extraHeaders map[string]string) *DeepSeekProvider {
+func NewDeepSeekProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	// Create a base OpenAI provider directly
 	baseProvider := &OpenAIProvider{
 		apiKey:       apiKey,

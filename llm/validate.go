@@ -14,6 +14,16 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// JSON schema type constants
+const (
+	typeObject  = "object"
+	typeString  = "string"
+	typeInteger = "integer"
+	typeNumber  = "number"
+	typeBoolean = "boolean"
+	typeArray   = "array"
+)
+
 // validate is the shared validator instance used across the package.
 var validate *validator.Validate
 
@@ -51,7 +61,7 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 		if err != nil {
 			return false
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		return resp.StatusCode == http.StatusOK
 	}
 
@@ -138,7 +148,7 @@ func RegisterCustomValidation(tag string, fn validator.Func) error {
 //	schema, err := GenerateJSONSchema(&Prompt{})
 func GenerateJSONSchema(v any) ([]byte, error) {
 	schema := make(map[string]any)
-	schema["type"] = "object"
+	schema["type"] = typeObject
 	properties, required, err := getStructProperties(reflect.TypeOf(v))
 	if err != nil {
 		return nil, err
@@ -203,23 +213,23 @@ func getFieldSchema(field reflect.StructField) (map[string]any, error) {
 
 	switch field.Type.Kind() {
 	case reflect.String:
-		schema["type"] = "string"
+		schema["type"] = typeString
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		schema["type"] = "integer"
+		schema["type"] = typeInteger
 	case reflect.Float32, reflect.Float64:
-		schema["type"] = "number"
+		schema["type"] = typeNumber
 	case reflect.Bool:
-		schema["type"] = "boolean"
+		schema["type"] = typeBoolean
 	case reflect.Slice:
-		schema["type"] = "array"
+		schema["type"] = typeArray
 		itemSchema, err := getFieldSchema(reflect.StructField{Type: field.Type.Elem()})
 		if err != nil {
 			return nil, err
 		}
 		schema["items"] = itemSchema
 	case reflect.Struct:
-		schema["type"] = "object"
+		schema["type"] = typeObject
 		properties, required, err := getStructProperties(field.Type)
 		if err != nil {
 			return nil, err
@@ -303,7 +313,11 @@ func addValidationToSchema(schema map[string]any, validateTag string) {
 			if schema["allOf"] == nil {
 				schema["allOf"] = []map[string]any{}
 			}
-			schema["allOf"] = append(schema["allOf"].([]map[string]any),
+			allOf, ok := schema["allOf"].([]map[string]any)
+			if !ok {
+				continue
+			}
+			schema["allOf"] = append(allOf,
 				map[string]any{
 					"pattern": fmt.Sprintf(".*%s.*", regexp.QuoteMeta(value)),
 				})
@@ -312,7 +326,10 @@ func addValidationToSchema(schema map[string]any, validateTag string) {
 			if schema["not"] == nil {
 				schema["not"] = map[string]any{}
 			}
-			schema["not"].(map[string]any)["pattern"] = fmt.Sprintf(".*%s.*", regexp.QuoteMeta(value))
+			notSchema, ok := schema["not"].(map[string]any)
+			if ok {
+				notSchema["pattern"] = fmt.Sprintf(".*%s.*", regexp.QuoteMeta(value))
+			}
 
 		case "unique":
 			if value == "true" {
@@ -413,11 +430,11 @@ func validateJSONAgainstSchema(data any, schema map[string]any) error {
 	}
 
 	switch schemaType {
-	case "object":
+	case typeObject:
 		return validateObject(data, schema)
-	case "array":
+	case typeArray:
 		return validateArray(data, schema)
-	case "string", "number", "integer", "boolean":
+	case typeString, typeNumber, typeInteger, typeBoolean:
 		return validatePrimitive(data, schemaType)
 	default:
 		return fmt.Errorf("unsupported schema type: %s", schemaType)
@@ -449,7 +466,8 @@ func validateObject(data any, schema map[string]any) error {
 		if !exists {
 			if required, ok := schema["required"].([]any); ok {
 				for _, req := range required {
-					if req.(string) == key {
+					reqStr, ok := req.(string)
+					if ok && reqStr == key {
 						return fmt.Errorf("missing required field: %s", key)
 					}
 				}
@@ -457,7 +475,11 @@ func validateObject(data any, schema map[string]any) error {
 			continue
 		}
 
-		if err := validateJSONAgainstSchema(propData, propSchema.(map[string]any)); err != nil {
+		propSchemaMap, ok := propSchema.(map[string]any)
+		if !ok {
+			continue
+		}
+		if err := validateJSONAgainstSchema(propData, propSchemaMap); err != nil {
 			return fmt.Errorf("invalid field '%s': %w", key, err)
 		}
 	}

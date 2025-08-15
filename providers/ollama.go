@@ -38,7 +38,7 @@ type OllamaProvider struct {
 //
 // Returns:
 //   - A configured Ollama Provider instance
-func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) *OllamaProvider {
+func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	endpoint := "http://localhost:11434"
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)

@@ -352,7 +352,7 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (*provide
 	if err != nil {
 		return response, NewLLMError(ErrorTypeRequest, "failed to send request", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return response, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
@@ -426,7 +426,7 @@ func (l *LLMImpl) attemptGenerateWithSchema(
 	if err != nil {
 		return nil, fullPrompt, NewLLMError(ErrorTypeRequest, "failed to send request", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -448,7 +448,11 @@ func (l *LLMImpl) attemptGenerateWithSchema(
 	}
 
 	// Validate the result against the schema
-	if err := ValidateAgainstSchema(result.Content.(providers.Text).Value, schema); err != nil {
+	textContent, ok := result.Content.(providers.Text)
+	if !ok {
+		return nil, fullPrompt, NewLLMError(ErrorTypeResponse, "response content is not text", nil)
+	}
+	if err := ValidateAgainstSchema(textContent.Value, schema); err != nil {
 		return nil, fullPrompt, NewLLMError(ErrorTypeResponse, "response does not match schema", err)
 	}
 
@@ -524,7 +528,7 @@ func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOpti
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
 	}
 

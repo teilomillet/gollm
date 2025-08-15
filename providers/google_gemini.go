@@ -35,7 +35,7 @@ type GeminiProvider struct {
 //
 // Returns:
 //   - A configured GeminiProvider instance
-func NewGeminiProvider(apiKey, model string, extraHeaders map[string]string) *GeminiProvider {
+func NewGeminiProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	provider := &GeminiProvider{
 		apiKey:       apiKey,
 		model:        model,
@@ -145,7 +145,9 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]any) (
 			{"text": prompt},
 		},
 	}
-	requestBody["contents"] = append(requestBody["contents"].([]map[string]any), userContent)
+	if contents, ok := requestBody["contents"].([]map[string]any); ok {
+		requestBody["contents"] = append(contents, userContent)
+	}
 
 	// Include tool definitions if any are provided
 	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
@@ -276,7 +278,9 @@ func (p *GeminiProvider) PrepareRequestWithMessages(
 			"role":  role,
 			"parts": contentParts,
 		}
-		requestBody["contents"] = append(requestBody["contents"].([]map[string]any), contentEntry)
+		if contents, ok := requestBody["contents"].([]map[string]any); ok {
+			requestBody["contents"] = append(contents, contentEntry)
+		}
 	}
 
 	// Add generationConfig parameters similar to PrepareRequest
@@ -383,7 +387,6 @@ func (p *GeminiProvider) ParseResponse(body []byte) (*Response, error) {
 	candidate := resp.Candidates[0]
 
 	var finalText strings.Builder
-	var functionCalls []string
 
 	// Iterate through parts of the content
 	for _, part := range candidate.Content.Parts {
@@ -414,7 +417,6 @@ func (p *GeminiProvider) ParseResponse(body []byte) (*Response, error) {
 					finalText.WriteString("\n")
 				}
 				finalText.WriteString(formattedCall)
-				functionCalls = append(functionCalls, formattedCall)
 			}
 		}
 		// If the part is a function response (function output fed back to model), we skip it for final content.

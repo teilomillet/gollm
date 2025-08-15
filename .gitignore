@@ -1,4 +1,4 @@
-# If you prefer the allow list template instead of the deny list, see community template:
+ If you prefer the allow list template instead of the deny list, see community template:
 # https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
 #
 # Binaries for programs and plugins
@@ -26,3 +26,7 @@ go.work.sum
 goal
 
 testexamples/
+/.idea/
+/CLAUDE.md
+/NOLINT_JUSTIFICATION.md
+/.claude/settings.local.json

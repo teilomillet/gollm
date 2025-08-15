@@ -35,7 +35,7 @@ type OpenAIProvider struct {
 //
 // Returns:
 //   - A configured OpenAI Provider instance
-func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) *OpenAIProvider {
+func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}

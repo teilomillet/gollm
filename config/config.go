@@ -4,12 +4,22 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/teilomillet/gollm/utils"
+)
+
+// Default configuration values
+const (
+	defaultTemperature = 0.7
+	defaultMaxTokens   = 300
+	defaultTimeout     = 30
+	defaultMaxRetries  = 3
+	defaultRetryDelay  = 2
 )
 
 // MemoryOption configures conversation memory settings, controlling how much
@@ -98,7 +108,7 @@ func LoadConfig() (*Config, error) {
 		APIKeys: make(map[string]string),
 	}
 	if err := env.Parse(cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse environment variables: %w", err)
 	}
 
 	loadAPIKeys(cfg)
@@ -145,11 +155,11 @@ func NewConfig() *Config {
 	return &Config{
 		Provider:     "openai",
 		Model:        "gpt-4o-mini",
-		Temperature:  0.7,
-		MaxTokens:    300,
-		Timeout:      30 * time.Second,
-		MaxRetries:   3,
-		RetryDelay:   2 * time.Second,
+		Temperature:  defaultTemperature,
+		MaxTokens:    defaultMaxTokens,
+		Timeout:      defaultTimeout * time.Second,
+		MaxRetries:   defaultMaxRetries,
+		RetryDelay:   defaultRetryDelay * time.Second,
 		APIKeys:      make(map[string]string),
 		LogLevel:     utils.LogLevelWarn,
 		ExtraHeaders: make(map[string]string),

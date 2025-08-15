@@ -170,7 +170,7 @@ func WithMemorySize(size int) OptimizerOption {
 // Returns:
 //   - Normalized letter grade
 //   - Error if grade format is invalid
-func normalizeGrade(grade string, score float64) (string, error) {
+func normalizeGrade(grade string, _ float64) (string, error) {
 	validGrades := map[string]bool{
 		"A+": true, "A": true, "A-": true,
 		"B+": true, "B": true, "B-": true,

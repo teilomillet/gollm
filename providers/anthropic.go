@@ -14,6 +14,13 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+// Common parameter keys
+const (
+	keyMaxTokens = "max_tokens"
+	keyStream    = "stream"
+	keyText      = "text"
+)
+
 // AnthropicProvider implements the Provider interface for Anthropic's Claude API.
 // It supports Claude models and provides access to Anthropic's language model capabilities,
 // including structured output and system prompts.
@@ -35,7 +42,7 @@ type AnthropicProvider struct {
 //
 // Returns:
 //   - A configured Anthropic Provider instance
-func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) *AnthropicProvider {
+func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	provider := &AnthropicProvider{
 		apiKey:       apiKey,
 		model:        model,
@@ -78,7 +85,7 @@ func (p *AnthropicProvider) SetOption(key string, value any) {
 // This includes temperature, max tokens, and sampling parameters.
 func (p *AnthropicProvider) SetDefaultOptions(config *config.Config) {
 	p.SetOption("temperature", config.Temperature)
-	p.SetOption("max_tokens", config.MaxTokens)
+	p.SetOption(keyMaxTokens, config.MaxTokens)
 	if config.Seed != nil {
 		p.SetOption("seed", *config.Seed)
 	}
@@ -134,7 +141,7 @@ func (p *AnthropicProvider) Headers() map[string]string {
 func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	requestBody := map[string]any{
 		"model":      p.model,
-		"max_tokens": p.options["max_tokens"],
+		keyMaxTokens: p.options[keyMaxTokens],
 		"system":     []map[string]any{},
 		"messages":   []map[string]any{},
 	}
@@ -191,7 +198,9 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any
 			if i > 0 {
 				systemMessage["cache_control"] = map[string]string{"type": "ephemeral"}
 			}
-			requestBody["system"] = append(requestBody["system"].([]map[string]any), systemMessage)
+			if systemArray, ok := requestBody["system"].([]map[string]any); ok {
+				requestBody["system"] = append(systemArray, systemMessage)
+			}
 		}
 	}
 
@@ -208,10 +217,14 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any
 
 	// Add cache_control only if caching is enabled
 	if caching, ok := options["enable_caching"].(bool); ok && caching {
-		userMessage["content"].([]map[string]any)[0]["cache_control"] = map[string]string{"type": "ephemeral"}
+		if contentArray, ok := userMessage["content"].([]map[string]any); ok && len(contentArray) > 0 {
+			contentArray[0]["cache_control"] = map[string]string{"type": "ephemeral"}
+		}
 	}
 
-	requestBody["messages"] = append(requestBody["messages"].([]map[string]any), userMessage)
+	if messagesArray, ok := requestBody["messages"].([]map[string]any); ok {
+		requestBody["messages"] = append(messagesArray, userMessage)
+	}
 
 	// Add other options
 	for k, v := range options {
@@ -556,7 +569,7 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 ) ([]byte, error) {
 	requestBody := map[string]any{
 		"model":      p.model,
-		"max_tokens": p.options["max_tokens"],
+		keyMaxTokens: p.options[keyMaxTokens],
 		"system":     []map[string]any{},
 		"messages":   []map[string]any{},
 	}
@@ -578,7 +591,9 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 			if i > 0 {
 				systemMessage["cache_control"] = map[string]string{"type": "ephemeral"}
 			}
-			requestBody["system"] = append(requestBody["system"].([]map[string]any), systemMessage)
+			if systemArray, ok := requestBody["system"].([]map[string]any); ok {
+				requestBody["system"] = append(systemArray, systemMessage)
+			}
 		}
 	}
 
@@ -602,7 +617,9 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 				"type": "text",
 				"text": toolUsagePrompt,
 			}
-			requestBody["system"] = append(requestBody["system"].([]map[string]any), systemMessage)
+			if systemArray, ok := requestBody["system"].([]map[string]any); ok {
+				requestBody["system"] = append(systemArray, systemMessage)
+			}
 		}
 
 		// Only set tool_choice when tools are provided
@@ -640,7 +657,9 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 			"content": content,
 		}
 
-		requestBody["messages"] = append(requestBody["messages"].([]map[string]any), message)
+		if messagesArray, ok := requestBody["messages"].([]map[string]any); ok {
+			requestBody["messages"] = append(messagesArray, message)
+		}
 	}
 
 	// Add other options

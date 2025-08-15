@@ -116,8 +116,8 @@ func (tr *TestRunner) WithProvider(name, model string) *TestRunner {
 	return tr
 }
 
-func (tr *TestRunner) WithProviders(providers map[string]string) *TestRunner {
-	for name, model := range providers {
+func (tr *TestRunner) WithProviders(providerList map[string]string) *TestRunner {
+	for name, model := range providerList {
 		tr.WithProvider(name, model)
 	}
 	return tr
@@ -592,9 +592,9 @@ func (tc *TestCase) WithDirectives(directives []string) *TestCase {
 }
 
 // WithContext adds context to the test case
-func (tc *TestCase) WithContext(context string) *TestCase {
-	tc.context = context
-	tc.options["context"] = context
+func (tc *TestCase) WithContext(ctx string) *TestCase {
+	tc.context = ctx
+	tc.options["context"] = ctx
 	return tc
 }
 

@@ -58,7 +58,7 @@ type DefaultRetryStrategy struct {
 	attempts    int
 }
 
-func (s *DefaultRetryStrategy) ShouldRetry(err error) bool {
+func (s *DefaultRetryStrategy) ShouldRetry(_ error) bool {
 	return s.attempts < s.MaxRetries
 }
 
@@ -128,7 +128,7 @@ func (d *SSEDecoder) Next() bool {
 			event = string(value)
 		case "data":
 			data.Write(value)
-			data.WriteRune('\n')
+			data.WriteByte('\n')
 		}
 	}
 

@@ -32,7 +32,7 @@ type CohereProvider struct {
 //
 // Returns:
 //   - A configured Cohere Provider instance
-func NewCohereProvider(apiKey, model string, extraHeaders map[string]string) *CohereProvider {
+func NewCohereProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}

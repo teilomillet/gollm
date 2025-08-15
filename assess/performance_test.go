@@ -108,15 +108,15 @@ func TestPerformanceCharacteristics(t *testing.T) {
 		}
 
 		// Calculate statistics
-		var total, max, min time.Duration
-		min = times[0]
+		var total, maxDur, minDur time.Duration
+		minDur = times[0]
 		for _, duration := range times {
 			total += duration
-			if duration > max {
-				max = duration
+			if duration > maxDur {
+				maxDur = duration
 			}
-			if duration < min {
-				min = duration
+			if duration < minDur {
+				minDur = duration
 			}
 		}
 		avg := total / time.Duration(len(times))
@@ -124,12 +124,12 @@ func TestPerformanceCharacteristics(t *testing.T) {
 		// Log detailed metrics
 		t.Logf("%s Performance Metrics:", providerName)
 		t.Logf("  Average: %v", avg)
-		t.Logf("  Min: %v", min)
-		t.Logf("  Max: %v", max)
-		t.Logf("  Variance: %v", max-min)
+		t.Logf("  Min: %v", minDur)
+		t.Logf("  Max: %v", maxDur)
+		t.Logf("  Variance: %v", maxDur-minDur)
 
 		// Ensure max response time is within reasonable bounds
-		assert.Less(t, max, 2*time.Minute,
+		assert.Less(t, maxDur, 2*time.Minute,
 			"Maximum response time for %s should be under 2 minutes", providerName)
 	}
 }

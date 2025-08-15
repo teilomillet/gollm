@@ -156,9 +156,10 @@ func prepareConfigOptions(
 	if *apiKey != "" {
 		configOpts = append(configOpts, gollm.SetAPIKey(*apiKey))
 	}
-	configOpts = append(configOpts, gollm.SetMaxRetries(*maxRetries))
-	configOpts = append(configOpts, gollm.SetRetryDelay(*retryDelay))
-	configOpts = append(configOpts, gollm.SetLogLevel(getLogLevel(*debugLevel)))
+	configOpts = append(configOpts,
+		gollm.SetMaxRetries(*maxRetries),
+		gollm.SetRetryDelay(*retryDelay),
+		gollm.SetLogLevel(getLogLevel(*debugLevel)))
 
 	return configOpts
 }

@@ -139,7 +139,7 @@ func (l *llmImpl) Generate(
 // - Configuration loading fails
 // - Provider initialization fails
 // - Memory setup fails (if memory option is enabled)
-func NewLLM(opts ...ConfigOption) (*llmImpl, error) {
+func NewLLM(opts ...ConfigOption) (LLM, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)

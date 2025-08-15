@@ -32,7 +32,7 @@ type GroqProvider struct {
 //
 // Returns:
 //   - A configured Groq Provider instance
-func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) *GroqProvider {
+func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -156,7 +156,9 @@ func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[strin
 
 	// Add strict option if provided
 	if strict, ok := options["strict"].(bool); ok && strict {
-		requestBody["response_format"].(map[string]any)["strict"] = true
+		if responseFormat, ok := requestBody["response_format"].(map[string]any); ok {
+			responseFormat["strict"] = true
+		}
 	}
 
 	return json.Marshal(requestBody)
@@ -265,18 +267,22 @@ func (p *GroqProvider) PrepareRequestWithMessages(
 
 	// Add system prompt if present
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-			"role":    "system",
-			"content": systemPrompt,
-		})
+		if messages, ok := request["messages"].([]map[string]any); ok {
+			request["messages"] = append(messages, map[string]any{
+				"role":    "system",
+				"content": systemPrompt,
+			})
+		}
 	}
 
 	// Convert structured messages to Groq format (OpenAI compatible)
 	for _, msg := range messages {
-		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-			"role":    msg.Role,
-			"content": msg.Content,
-		})
+		if messagesArray, ok := request["messages"].([]map[string]any); ok {
+			request["messages"] = append(messagesArray, map[string]any{
+				"role":    msg.Role,
+				"content": msg.Content,
+			})
+		}
 	}
 
 	// Add other options from provider and request

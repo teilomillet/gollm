@@ -306,7 +306,7 @@ func (l *LLMWithMemory) Generate(
 		}
 
 		// Add structured messages to the options
-		withMessages := func(config *GenerateConfig) {
+		withMessages := func(_ *GenerateConfig) {
 			// We're simply passing this function to keep the original options
 			// The structured messages will be added in the WithOption call
 		}
