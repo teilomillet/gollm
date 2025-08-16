@@ -4,6 +4,8 @@
 package gollm
 
 import (
+	"fmt"
+
 	"github.com/weave-labs/gollm/llm"
 )
 
@@ -46,7 +48,10 @@ import (
 // Returns:
 //   - error: nil if validation passes, otherwise returns detailed validation errors
 func Validate(s any) error {
-	return llm.Validate(s)
+	if err := llm.Validate(s); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+	return nil
 }
 
 // GenerateJSONSchema generates a JSON schema for the given struct.
@@ -86,5 +91,9 @@ func Validate(s any) error {
 //   - []byte: The generated JSON schema as a byte slice
 //   - error: Any error encountered during schema generation
 func GenerateJSONSchema(v any) ([]byte, error) {
-	return llm.GenerateJSONSchema(v)
+	schema, err := llm.GenerateJSONSchema(v)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate JSON schema: %w", err)
+	}
+	return schema, nil
 }

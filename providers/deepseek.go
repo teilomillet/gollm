@@ -21,9 +21,15 @@ type DeepSeekProvider struct {
 //
 // Returns:
 //   - A configured DeepSeek Provider instance
-func NewDeepSeekProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewDeepSeekProvider(apiKey, model string, extraHeaders map[string]string) *DeepSeekProvider {
+	// Create a base OpenAI provider directly
+	baseProvider := &OpenAIProvider{
+		apiKey:       apiKey,
+		model:        model,
+		extraHeaders: extraHeaders,
+	}
 	provider := &DeepSeekProvider{
-		OpenAIProvider: *NewOpenAIProvider(apiKey, model, extraHeaders).(*OpenAIProvider),
+		OpenAIProvider: *baseProvider,
 	}
 	// Override the endpoint
 	return provider
@@ -46,11 +52,11 @@ func (p *DeepSeekProvider) Endpoint() string {
 //
 // Parameters:
 //   - config: The global configuration containing options to set
-func (p *DeepSeekProvider) SetDefaultOptions(config *config.Config) {
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption("max_tokens", config.MaxTokens)
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+func (p *DeepSeekProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("max_tokens", cfg.MaxTokens)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
-	p.logger.Debug("Default options set", "temperature", config.Temperature, "max_tokens", config.MaxTokens)
+	p.logger.Debug("Default options set", "temperature", cfg.Temperature, "max_tokens", cfg.MaxTokens)
 }

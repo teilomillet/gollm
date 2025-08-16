@@ -11,10 +11,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/weave-labs/gollm"
 	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/internal/logging"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // MockProvider implements the Provider interface for testing
@@ -34,12 +36,20 @@ func (m *MockProvider) Endpoint() string {
 
 func (m *MockProvider) Headers() map[string]string {
 	args := m.Called()
-	return args.Get(0).(map[string]string)
+	headers, ok := args.Get(0).(map[string]string)
+	if !ok {
+		panic("Headers() must return map[string]string")
+	}
+	return headers
 }
 
 func (m *MockProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	args := m.Called(prompt, options)
-	return args.Get(0).([]byte), args.Error(1)
+	body, ok := args.Get(0).([]byte)
+	if !ok {
+		panic("PrepareRequest() must return []byte")
+	}
+	return body, args.Error(1)
 }
 
 func (m *MockProvider) ParseResponse(body []byte) (string, error) {
@@ -56,11 +66,11 @@ func (m *MockProvider) SetOption(key string, value any) {
 	m.Called(key, value)
 }
 
-func (m *MockProvider) SetDefaultOptions(config *config.Config) {
-	m.Called(config)
+func (m *MockProvider) SetDefaultOptions(cfg *config.Config) {
+	m.Called(cfg)
 }
 
-func (m *MockProvider) SetLogger(logger utils.Logger) {
+func (m *MockProvider) SetLogger(logger logging.Logger) {
 	m.Called(logger)
 }
 
@@ -101,7 +111,7 @@ func TestStructuredOutput(t *testing.T) {
 		gollm.SetAPIKey("test-key"),
 		gollm.WithProviderRegistry(registry),
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	prompt := gollm.NewPrompt("List the top 3 benefits of exercise",
 		gollm.WithOutput("JSON array of benefits"),
@@ -109,7 +119,7 @@ func TestStructuredOutput(t *testing.T) {
 	)
 
 	response, err := llm.Generate(ctx, prompt)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedJSON, response)
 
 	// Verify that all expected mock calls were made
@@ -138,14 +148,18 @@ func TestJSONSchemaValidation(t *testing.T) {
 		gollm.SetModel("mock-model"),
 		gollm.SetAPIKey("test-key"),
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	prompt := gollm.NewPrompt("Generate a user profile",
-		gollm.WithSystemPrompt("You are data analyst who specializes in generating user data.", gollm.CacheTypeEphemeral),
+	prompt := gollm.NewPrompt(
+		"Generate a user profile",
+		gollm.WithSystemPrompt(
+			"You are data analyst who specializes in generating user data.",
+			gollm.CacheTypeEphemeral,
+		),
 	)
 
 	response, err := llm.Generate(ctx, prompt, llm.WithStructuredResponseSchema(UserProfile{}))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedJSON, response)
 
 	// Verify that all expected mock calls were made

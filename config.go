@@ -5,7 +5,7 @@ package gollm
 
 import (
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // Re-export core configuration types for easier access
@@ -34,7 +34,7 @@ type (
 	// Example usage:
 	//   cfg := NewConfig()
 	//   cfg = ApplyOptions(cfg, SetLogLevel(LogLevelInfo))
-	LogLevel = utils.LogLevel
+	LogLevel = logging.LogLevel
 
 	// MemoryOption configures the memory settings for conversation history.
 	// It controls how much context is retained between interactions.
@@ -111,9 +111,8 @@ var (
 
 // LogLevel constants define available logging verbosity levels
 const (
-	LogLevelOff   = utils.LogLevelOff   // Disables all logging
-	LogLevelError = utils.LogLevelError // Logs only errors
-	LogLevelWarn  = utils.LogLevelWarn  // Logs warnings and errors
-	LogLevelInfo  = utils.LogLevelInfo  // Logs info, warnings, and errors
-	LogLevelDebug = utils.LogLevelDebug // Logs all messages including debug
+	LogLevelError = logging.LogLevelError // Logs only errors
+	LogLevelWarn  = logging.LogLevelWarn  // Logs warnings and errors
+	LogLevelInfo  = logging.LogLevelInfo  // Logs info, warnings, and errors
+	LogLevelDebug = logging.LogLevelDebug // Logs all messages including debug
 )

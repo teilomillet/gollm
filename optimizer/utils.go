@@ -2,6 +2,7 @@
 package optimizer
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -170,7 +171,7 @@ func WithMemorySize(size int) OptimizerOption {
 // Returns:
 //   - Normalized letter grade
 //   - Error if grade format is invalid
-func normalizeGrade(grade string, score float64) (string, error) {
+func normalizeGrade(grade string, _ float64) (string, error) {
 	validGrades := map[string]bool{
 		"A+": true, "A": true, "A-": true,
 		"B+": true, "B": true, "B-": true,
@@ -185,31 +186,31 @@ func normalizeGrade(grade string, score float64) (string, error) {
 
 	numericGrade, err := strconv.ParseFloat(grade, 64)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse grade '%s' as float: %w", grade, err)
 	}
 
 	switch {
-	case numericGrade >= 19:
+	case numericGrade >= GradeThresholdAPlus:
 		return "A+", nil // 95%+
-	case numericGrade >= 17:
+	case numericGrade >= GradeThresholdA:
 		return "A", nil // 85%+
-	case numericGrade >= 15:
+	case numericGrade >= GradeThresholdAMinus:
 		return "A-", nil // 75%+
-	case numericGrade >= 13:
+	case numericGrade >= GradeThresholdBPlus:
 		return "B+", nil // 65%+
-	case numericGrade >= 11:
+	case numericGrade >= GradeThresholdB:
 		return "B", nil // 55%+
-	case numericGrade >= 9:
+	case numericGrade >= GradeThresholdBMinus:
 		return "B-", nil // 45%+
-	case numericGrade >= 7:
+	case numericGrade >= GradeThresholdCPlus:
 		return "C+", nil // 35%+
-	case numericGrade >= 5:
+	case numericGrade >= GradeThresholdC:
 		return "C", nil // 25%+
-	case numericGrade >= 3:
+	case numericGrade >= GradeThresholdCMinus:
 		return "C-", nil // 15%+
-	case numericGrade >= 2:
+	case numericGrade >= GradeThresholdDPlus:
 		return "D+", nil // 10%+
-	case numericGrade >= 1:
+	case numericGrade >= GradeThresholdD:
 		return "D", nil // 5%+
 	default:
 		return "F", nil // <5%

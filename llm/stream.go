@@ -9,23 +9,12 @@ import (
 
 // StreamToken represents a single token from the streaming response.
 type StreamToken struct {
-	// Text is the actual token text
-	Text string
-
-	// Type indicates the type of token (e.g., "text", "function_call", "error")
-	Type string
-
-	// Index is the position of this token in the sequence
-	Index int
-
-	// Number of input tokens processed before this token
-	InputTokens int64
-
-	// Number of output tokens generated up to this token
+	Metadata     map[string]any
+	Text         string
+	Type         string
+	Index        int
+	InputTokens  int64
 	OutputTokens int64
-
-	// Metadata contains provider-specific metadata
-	Metadata map[string]any
 }
 
 // TokenStream represents a stream of tokens from the LLM.
@@ -33,7 +22,7 @@ type StreamToken struct {
 type TokenStream interface {
 	// Next returns the next token in the stream.
 	// When the stream is finished, it returns io.EOF.
-	Next(context.Context) (*StreamToken, error)
+	Next(ctx context.Context) (*StreamToken, error)
 
 	// Closer Close releases any resources associated with the stream.
 	io.Closer
@@ -41,9 +30,9 @@ type TokenStream interface {
 
 // SSEDecoder handles Server-Sent Events (SSE) streaming
 type SSEDecoder struct {
+	err     error
 	reader  *bufio.Scanner
 	current Event
-	err     error
 }
 
 type Event struct {
@@ -92,7 +81,7 @@ func (d *SSEDecoder) Next() bool {
 			event = string(value)
 		case "data":
 			data.Write(value)
-			data.WriteRune('\n')
+			data.WriteByte('\n')
 		}
 	}
 

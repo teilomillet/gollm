@@ -8,15 +8,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
-// Provider defines the interface that all LLM providers must implement.
-// This interface abstracts the common operations needed to interact with
-// different LLM services, allowing for a unified approach to LLM integration.
-type Provider interface {
+// BaseProvider defines the core interface that all LLM providers must implement.
+// This interface covers the essential operations for provider identification and basic requests.
+type BaseProvider interface {
 	// Name returns the provider's identifier (e.g., "openai", "anthropic").
 	Name() string
 
@@ -27,6 +27,26 @@ type Provider interface {
 	// This typically includes authentication and content-type headers.
 	Headers() map[string]string
 
+	// ParseResponse extracts the generated text from the API response.
+	// It handles provider-specific response formats and error cases.
+	ParseResponse(body []byte) (*Response, error)
+
+	// SetExtraHeaders configures additional HTTP headers for API requests.
+	// This is useful for provider-specific features or authentication methods.
+	SetExtraHeaders(extraHeaders map[string]string)
+
+	// SetDefaultOptions configures provider-specific defaults from the global configuration.
+	SetDefaultOptions(cfg *config.Config)
+
+	// SetOption sets a specific option for the provider (e.g., temperature, max_tokens).
+	SetOption(key string, value any)
+
+	// SetLogger configures the logger for the provider instance.
+	SetLogger(logger logging.Logger)
+}
+
+// RequestProvider defines the interface for preparing different types of requests.
+type RequestProvider interface {
 	// PrepareRequest creates the request body for an API call.
 	// It takes a prompt string and additional options, returning the serialized request body.
 	PrepareRequest(prompt string, options map[string]any) ([]byte, error)
@@ -46,19 +66,7 @@ type Provider interface {
 	// Returns:
 	//   - Serialized JSON request body
 	//   - Any error encountered during preparation
-	PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error)
-
-	// ParseResponse extracts the generated text from the API response.
-	// It handles provider-specific response formats and error cases.
-	ParseResponse(body []byte) (*Response, error)
-
-	// SetExtraHeaders configures additional HTTP headers for API requests.
-	// This is useful for provider-specific features or authentication methods.
-	SetExtraHeaders(extraHeaders map[string]string)
-
-	// HandleFunctionCalls processes function calling capabilities.
-	// This is particularly relevant for providers that support function/tool calling.
-	HandleFunctionCalls(body []byte) ([]byte, error)
+	PrepareRequestWithMessages(messages []models.MemoryMessage, options map[string]any) ([]byte, error)
 
 	// SupportsStructuredResponse indicates whether the provider supports native JSON schema validation.
 	SupportsStructuredResponse() bool
@@ -70,7 +78,7 @@ type Provider interface {
 	SetOption(key string, value any)
 
 	// SetLogger configures the logger for the provider instance.
-	SetLogger(logger utils.Logger)
+	SetLogger(logger logging.Logger)
 
 	// SupportsStreaming indicates whether the provider supports streaming responses.
 	SupportsStreaming() bool
@@ -82,6 +90,24 @@ type Provider interface {
 	// ParseStreamResponse processes a single chunk from a streaming response.
 	// It returns the token text and any error encountered.
 	ParseStreamResponse(chunk []byte) (*Response, error)
+}
+
+// ExtendedProvider defines the interface for advanced provider features.
+type ExtendedProvider interface {
+	// HandleFunctionCalls processes function calling capabilities.
+	// This is particularly relevant for providers that support function/tool calling.
+	HandleFunctionCalls(body []byte) ([]byte, error)
+
+	// SupportsStructuredResponse indicates whether the provider supports native JSON schema validation.
+	SupportsStructuredResponse() bool
+}
+
+// Provider defines the complete interface that all LLM providers must implement.
+// This interface combines all the sub-interfaces for a unified approach to LLM integration.
+type Provider interface {
+	BaseProvider
+	RequestProvider
+	ExtendedProvider
 }
 
 // ProviderType represents the general type of LLM API
@@ -174,21 +200,94 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		configs:   make(map[string]ProviderConfig),
 	}
 
-	// Register all known providers
-	knownProviders := map[string]ProviderConstructor{
-		"openai":        NewOpenAIProvider,
-		"anthropic":     NewAnthropicProvider,
-		"groq":          NewGroqProvider,
-		"ollama":        NewOllamaProvider,
-		"mistral":       NewMistralProvider,
-		"cohere":        NewCohereProvider,
-		"deepseek":      NewDeepSeekProvider,
-		"google-openai": NewGeminiProvider,
-		// Add other providers here as they are implemented
+	// Get known providers and configs
+	knownProviders := getKnownProviders()
+	standardConfigs := getStandardConfigs()
+
+	// Store standard configs
+	for name, config := range standardConfigs {
+		registry.configs[name] = config
 	}
 
-	// Standard provider configurations
-	standardConfigs := map[string]ProviderConfig{
+	if len(providerNames) == 0 {
+		// If no specific providers are requested, register all known providers
+		for name, constructor := range knownProviders {
+			registry.providers[name] = constructor
+		}
+	} else {
+		// Otherwise, register only the requested providers
+		for _, name := range providerNames {
+			if constructor, ok := knownProviders[name]; ok {
+				registry.providers[name] = constructor
+			}
+		}
+	}
+
+	return registry
+}
+
+// getKnownProviders returns all known provider constructors
+func getKnownProviders() map[string]ProviderConstructor {
+	return map[string]ProviderConstructor{
+		"openai": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewOpenAIProvider(apiKey, model, extraHeaders)
+		},
+		"anthropic": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewAnthropicProvider(apiKey, model, extraHeaders)
+		},
+		"groq": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewGroqProvider(apiKey, model, extraHeaders)
+		},
+		"ollama": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewOllamaProvider(apiKey, model, extraHeaders)
+		},
+		"mistral": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewMistralProvider(apiKey, model, extraHeaders)
+		},
+		"cohere": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewCohereProvider(apiKey, model, extraHeaders)
+		},
+		"deepseek": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewDeepSeekProvider(apiKey, model, extraHeaders)
+		},
+		"google-openai": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewGeminiProvider(apiKey, model, extraHeaders)
+		},
+		"openrouter": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewOpenRouterProvider(apiKey, model, extraHeaders)
+		},
+	}
+}
+
+// getGoogleConfigs returns Google provider configurations
+func getGoogleConfigs() map[string]ProviderConfig {
+	return map[string]ProviderConfig{
+		"google-openai": {
+			Name:              "google-openai",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"google": {
+			Name:              "google",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+	}
+}
+
+// getStandardConfigs returns standard provider configurations
+func getStandardConfigs() map[string]ProviderConfig {
+	configs := map[string]ProviderConfig{
 		"openai": {
 			Name:              "openai",
 			Type:              TypeOpenAI,
@@ -249,49 +348,12 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			SupportsSchema:    true,
 			SupportsStreaming: true,
 		},
-		"google-openai": {
-			Name:              "google-openai",
-			Type:              TypeOpenAI,
-			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-			AuthHeader:        "Authorization",
-			AuthPrefix:        "Bearer ",
-			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
-			SupportsSchema:    true,
-			SupportsStreaming: true,
-		},
-		"google": {
-			Name:              "google",
-			Type:              TypeOpenAI,
-			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-			AuthHeader:        "Authorization",
-			AuthPrefix:        "Bearer ",
-			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
-			SupportsSchema:    true,
-			SupportsStreaming: true,
-		},
-		// Add other provider configurations
 	}
-
-	// Store standard configs
-	for name, config := range standardConfigs {
-		registry.configs[name] = config
+	// Merge Google configs
+	for k, v := range getGoogleConfigs() {
+		configs[k] = v
 	}
-
-	if len(providerNames) == 0 {
-		// If no specific providers are requested, register all known providers
-		for name, constructor := range knownProviders {
-			registry.providers[name] = constructor
-		}
-	} else {
-		// Otherwise, register only the requested providers
-		for _, name := range providerNames {
-			if constructor, ok := knownProviders[name]; ok {
-				registry.providers[name] = constructor
-			}
-		}
-	}
-
-	return registry
+	return configs
 }
 
 // GetProviderConfig returns the configuration for a named provider
@@ -300,16 +362,16 @@ func (r *ProviderRegistry) GetProviderConfig(name string) (ProviderConfig, bool)
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	config, exists := r.configs[name]
-	return config, exists
+	cfg, exists := r.configs[name]
+	return cfg, exists
 }
 
 // RegisterProviderConfig registers a new provider configuration
-func (r *ProviderRegistry) RegisterProviderConfig(name string, config ProviderConfig) {
+func (r *ProviderRegistry) RegisterProviderConfig(name string, cfg ProviderConfig) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	r.configs[name] = config
+	r.configs[name] = cfg
 }
 
 // defaultRegistry is a singleton instance of the provider registry
@@ -327,9 +389,9 @@ func GetDefaultRegistry() *ProviderRegistry {
 
 // RegisterGenericProvider creates a constructor for a generic provider
 // with the specified name and configuration
-func RegisterGenericProvider(name string, config ProviderConfig) {
+func RegisterGenericProvider(name string, cfg ProviderConfig) {
 	registry := GetDefaultRegistry()
-	registry.RegisterProviderConfig(name, config)
+	registry.RegisterProviderConfig(name, cfg)
 
 	// Register a constructor that creates a GenericProvider with this config
 	registry.providers[name] = func(apiKey, model string, extraHeaders map[string]string) Provider {
@@ -343,10 +405,10 @@ func RegisterGenericProvider(name string, config ProviderConfig) {
 // Parameters:
 //   - name: The identifier for the provider (e.g., "openai")
 //   - constructor: A function that creates new instances of the provider
-func (pr *ProviderRegistry) Register(name string, constructor ProviderConstructor) {
-	pr.mutex.Lock()
-	defer pr.mutex.Unlock()
-	pr.providers[name] = constructor
+func (r *ProviderRegistry) Register(name string, constructor ProviderConstructor) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	r.providers[name] = constructor
 }
 
 // Get retrieves a provider instance by name.
@@ -365,10 +427,10 @@ func (pr *ProviderRegistry) Register(name string, constructor ProviderConstructo
 // Example:
 //
 //	provider, err := registry.Get("openai", "sk-...", "gpt-4", nil)
-func (pr *ProviderRegistry) Get(name, apiKey, model string, extraHeaders map[string]string) (Provider, error) {
-	pr.mutex.RLock()
-	constructor, exists := pr.providers[name]
-	pr.mutex.RUnlock()
+func (r *ProviderRegistry) Get(name, apiKey, model string, extraHeaders map[string]string) (Provider, error) {
+	r.mutex.RLock()
+	constructor, exists := r.providers[name]
+	r.mutex.RUnlock()
 
 	if !exists {
 		return nil, fmt.Errorf("unknown provider: %s", name)

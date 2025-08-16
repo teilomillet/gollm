@@ -4,6 +4,7 @@ package presets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/weave-labs/gollm"
@@ -105,7 +106,7 @@ func Summarize(ctx context.Context, l gollm.LLM, text string, opts ...gollm.Prom
 		ctx = context.Background()
 	}
 	if l == nil {
-		return "", fmt.Errorf("LLM instance cannot be nil")
+		return "", errors.New("LLM instance cannot be nil")
 	}
 
 	prompt, err := summarizeTemplate.Execute(map[string]any{

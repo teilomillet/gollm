@@ -5,11 +5,13 @@ package gollm
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
 	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/internal/logging"
 	"github.com/weave-labs/gollm/llm"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // LLM is the interface that wraps the basic LLM operations.
@@ -38,75 +40,84 @@ type LLM interface {
 	SetSystemPrompt(prompt string, cacheType CacheType)
 }
 
-// llmImpl is the concrete implementation of the LLM interface.
+// LlmImpl is the concrete implementation of the LLM interface.
 // It wraps the base LLM implementation and adds provider-specific functionality,
 // logging capabilities, and configuration management.
-type llmImpl struct {
+type LlmImpl struct {
 	llm.LLM
 	provider providers.Provider
-	logger   utils.Logger
-	model    string
+	logger   logging.Logger
 	config   *config.Config
+	model    string
 }
 
 // SetSystemPrompt sets the system prompt for the LLM.
-func (l *llmImpl) SetSystemPrompt(prompt string, cacheType CacheType) {
+func (l *LlmImpl) SetSystemPrompt(prompt string, cacheType CacheType) {
 	newPrompt := NewPrompt(prompt, WithSystemPrompt(prompt, cacheType))
 	l.SetOption("system_prompt", newPrompt)
 }
 
 // GetProvider returns the provider of the LLM.
-func (l *llmImpl) GetProvider() string {
+func (l *LlmImpl) GetProvider() string {
 	return l.provider.Name()
 }
 
 // GetModel returns the model of the LLM.
-func (l *llmImpl) GetModel() string {
+func (l *LlmImpl) GetModel() string {
 	return l.model
 }
 
 // Debug logs a debug message with optional key-value pairs.
-func (l *llmImpl) Debug(msg string, keysAndValues ...any) {
+func (l *LlmImpl) Debug(msg string, keysAndValues ...any) {
 	l.logger.Debug(msg, keysAndValues...)
 }
 
 // GetLogLevel returns the current log level of the LLM.
-func (l *llmImpl) GetLogLevel() LogLevel {
-	return LogLevel(l.config.LogLevel)
+func (l *LlmImpl) GetLogLevel() LogLevel {
+	return l.config.LogLevel
 }
 
 // SetOption sets an option for the LLM with the given key and value.
-func (l *llmImpl) SetOption(key string, value any) {
+func (l *LlmImpl) SetOption(key string, value any) {
 	l.logger.Debug("Setting option", "key", key, "value", value)
 	l.LLM.SetOption(key, value)
 	l.logger.Debug("Option set successfully")
 }
 
-func (l *llmImpl) SetOllamaEndpoint(endpoint string) error {
-	if p, ok := l.provider.(interface{ SetEndpoint(string) }); ok {
+// SetOllamaEndpoint sets the Ollama server endpoint URL
+func (l *LlmImpl) SetOllamaEndpoint(endpoint string) error {
+	if p, ok := l.provider.(interface{ SetEndpoint(endpoint string) }); ok {
 		p.SetEndpoint(endpoint)
 		return nil
 	}
-	return fmt.Errorf("current provider does not support setting custom endpoint")
+	return errors.New("current provider does not support setting custom endpoint")
 }
 
 // GetPromptJSONSchema generates and returns the JSON schema for the Prompt.
-func (l *llmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
+func (l *LlmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
 	p := &Prompt{}
-	return p.GenerateJSONSchema(opts...)
+	schema, err := p.GenerateJSONSchema(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate JSON schema: %w", err)
+	}
+	return schema, nil
 }
 
 // UpdateLogLevel updates the log level for both the gollm package and the internal llm package.
-func (l *llmImpl) UpdateLogLevel(level LogLevel) {
-	l.config.LogLevel = utils.LogLevel(level)
-	l.logger.SetLevel(utils.LogLevel(level))
-	if internalLLM, ok := l.LLM.(interface{ SetLogLevel(utils.LogLevel) }); ok {
-		internalLLM.SetLogLevel(utils.LogLevel(level))
+func (l *LlmImpl) UpdateLogLevel(level LogLevel) {
+	l.config.LogLevel = level
+	l.logger.SetLevel(level)
+	if internalLLM, ok := l.LLM.(interface{ SetLogLevel(level logging.LogLevel) }); ok {
+		internalLLM.SetLogLevel(level)
 	}
 }
 
 // Generate Implement the base Generate method (if not already provided by embedded llm.LLM)
-func (l *llmImpl) Generate(ctx context.Context, prompt *llm.Prompt, opts ...llm.GenerateOption) (*providers.Response, error) {
+func (l *LlmImpl) Generate(
+	ctx context.Context,
+	prompt *llm.Prompt,
+	opts ...llm.GenerateOption,
+) (*providers.Response, error) {
 	l.logger.Debug("Starting Generate method", "prompt_length", len(prompt.String()), "context", ctx)
 
 	// Call the base LLM's Generate method
@@ -133,7 +144,30 @@ func (l *llmImpl) Generate(ctx context.Context, prompt *llm.Prompt, opts ...llm.
 // - Configuration loading fails
 // - Provider initialization fails
 // - Memory setup fails (if memory option is enabled)
-func NewLLM(opts ...ConfigOption) (LLM, error) {
+// ensureOllamaAPIKey ensures Ollama has an API key set
+func ensureOllamaAPIKey(cfg *Config) {
+	if cfg.Provider == "ollama" {
+		if cfg.APIKeys == nil {
+			cfg.APIKeys = make(map[string]string)
+		}
+		if _, exists := cfg.APIKeys[cfg.Provider]; !exists || cfg.APIKeys[cfg.Provider] == "" {
+			cfg.APIKeys[cfg.Provider] = "ollama-local"
+		}
+	}
+}
+
+// setupAnthropicCaching configures Anthropic caching headers
+func setupAnthropicCaching(cfg *Config) {
+	if cfg.Provider == "anthropic" && cfg.EnableCaching {
+		if cfg.ExtraHeaders == nil {
+			cfg.ExtraHeaders = make(map[string]string)
+		}
+		cfg.ExtraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
+	}
+}
+
+// NewLLM creates a new LLM instance with the provided configuration options
+func NewLLM(opts ...ConfigOption) (*LlmImpl, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
@@ -143,29 +177,15 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		opt(cfg)
 	}
 
-	// For Ollama, ensure we have a fake API key if none is provided
-	if cfg.Provider == "ollama" {
-		if cfg.APIKeys == nil {
-			cfg.APIKeys = make(map[string]string)
-		}
-		if _, exists := cfg.APIKeys[cfg.Provider]; !exists || cfg.APIKeys[cfg.Provider] == "" {
-			cfg.APIKeys[cfg.Provider] = "ollama-local"
-		}
-	}
+	ensureOllamaAPIKey(cfg)
 
 	// Validate config
 	if err := llm.Validate(cfg); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	logger := utils.NewLogger(cfg.LogLevel)
-
-	if cfg.Provider == "anthropic" && cfg.EnableCaching {
-		if cfg.ExtraHeaders == nil {
-			cfg.ExtraHeaders = make(map[string]string)
-		}
-		cfg.ExtraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
-	}
+	logger := logging.NewLogger(cfg.LogLevel)
+	setupAnthropicCaching(cfg)
 
 	baseLLM, err := llm.NewLLM(cfg, logger, providers.NewProviderRegistry())
 	if err != nil {
@@ -173,12 +193,13 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		return nil, fmt.Errorf("failed to create internal LLM: %w", err)
 	}
 
-	provider, err := providers.NewProviderRegistry().Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, cfg.ExtraHeaders)
+	provider, err := providers.NewProviderRegistry().
+		Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, cfg.ExtraHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	llmInstance := &llmImpl{
+	llmInstance := &LlmImpl{
 		LLM:      baseLLM,
 		provider: provider,
 		logger:   logger,

@@ -2,6 +2,7 @@ package assess
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestCachingBehavior(t *testing.T) {
 	query := "What is 2+2?"
 
 	// Run the query multiple times to test caching
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		test.AddCase(fmt.Sprintf("cache_test_%d", i), query).
 			WithTimeout(30 * time.Second)
 	}
@@ -107,15 +108,15 @@ func TestPerformanceCharacteristics(t *testing.T) {
 		}
 
 		// Calculate statistics
-		var total, max, min time.Duration
-		min = times[0]
+		var total, maxDur, minDur time.Duration
+		minDur = times[0]
 		for _, duration := range times {
 			total += duration
-			if duration > max {
-				max = duration
+			if duration > maxDur {
+				maxDur = duration
 			}
-			if duration < min {
-				min = duration
+			if duration < minDur {
+				minDur = duration
 			}
 		}
 		avg := total / time.Duration(len(times))
@@ -123,12 +124,12 @@ func TestPerformanceCharacteristics(t *testing.T) {
 		// Log detailed metrics
 		t.Logf("%s Performance Metrics:", providerName)
 		t.Logf("  Average: %v", avg)
-		t.Logf("  Min: %v", min)
-		t.Logf("  Max: %v", max)
-		t.Logf("  Variance: %v", max-min)
+		t.Logf("  Min: %v", minDur)
+		t.Logf("  Max: %v", maxDur)
+		t.Logf("  Variance: %v", maxDur-minDur)
 
 		// Ensure max response time is within reasonable bounds
-		assert.Less(t, max, 2*time.Minute,
+		assert.Less(t, maxDur, 2*time.Minute,
 			"Maximum response time for %s should be under 2 minutes", providerName)
 	}
 }
@@ -153,10 +154,11 @@ func TestErrorHandling(t *testing.T) {
 	test.AddCase("timeout_test", "Generate a very long response").
 		WithTimeout(1 * time.Millisecond).
 		Validate(func(response string) error {
-			if err := context.DeadlineExceeded; err != nil {
-				return nil // Expected timeout
+			// With such a short timeout (1ms), we expect an empty response
+			if response == "" {
+				return nil // Expected timeout resulted in empty response
 			}
-			return fmt.Errorf("expected timeout error")
+			return errors.New("expected timeout to prevent response generation")
 		})
 
 	ctx := context.Background()

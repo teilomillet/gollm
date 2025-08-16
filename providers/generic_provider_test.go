@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 func TestGenericProviderBasics(t *testing.T) {
@@ -31,7 +32,7 @@ func TestGenericProviderBasics(t *testing.T) {
 		config:       testConfig,
 		extraHeaders: map[string]string{"Extra-Header": "value"},
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	t.Run("Name returns correct provider name", func(t *testing.T) {
@@ -59,7 +60,7 @@ func TestGenericProviderBasics(t *testing.T) {
 
 		provider.SetDefaultOptions(cfg)
 
-		assert.Equal(t, 0.7, provider.options["temperature"])
+		assert.InEpsilon(t, 0.7, provider.options["temperature"], 0.001)
 		assert.Equal(t, 500, provider.options["max_tokens"])
 		assert.Equal(t, 42, provider.options["seed"])
 	})
@@ -67,7 +68,7 @@ func TestGenericProviderBasics(t *testing.T) {
 	t.Run("SetOption updates options", func(t *testing.T) {
 		provider.SetOption("presence_penalty", 0.2)
 
-		assert.Equal(t, 0.2, provider.options["presence_penalty"])
+		assert.InEpsilon(t, 0.2, provider.options["presence_penalty"], 0.001)
 	})
 
 	t.Run("SetEndpoint overrides the endpoint", func(t *testing.T) {
@@ -90,7 +91,7 @@ func TestGenericProviderBasics(t *testing.T) {
 			model:   "test-model",
 			config:  noSchemaConfig,
 			options: make(map[string]any),
-			logger:  utils.NewLogger(utils.LogLevelInfo),
+			logger:  logging.NewLogger(logging.LogLevelInfo),
 		}
 
 		assert.False(t, noSchemaProvider.SupportsStructuredResponse())
@@ -107,7 +108,7 @@ func TestGenericProviderBasics(t *testing.T) {
 			model:   "test-model",
 			config:  noStreamConfig,
 			options: make(map[string]any),
-			logger:  utils.NewLogger(utils.LogLevelInfo),
+			logger:  logging.NewLogger(logging.LogLevelInfo),
 		}
 
 		assert.False(t, noStreamProvider.SupportsStreaming())
@@ -121,7 +122,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		model:   "gpt-4",
 		config:  ProviderConfig{Type: TypeOpenAI},
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	// Create an Anthropic-compatible provider
@@ -130,7 +131,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		model:   "claude-3",
 		config:  ProviderConfig{Type: TypeAnthropic},
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	t.Run("OpenAI request format is correct", func(t *testing.T) {
@@ -183,7 +184,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
-		assert.Equal(t, 0.8, request["temperature"])
+		assert.InEpsilon(t, 0.8, request["temperature"], 0.001)
 	})
 
 	t.Run("Options can be overridden in request", func(t *testing.T) {
@@ -200,7 +201,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
-		assert.Equal(t, 0.5, request["temperature"])
+		assert.InEpsilon(t, 0.5, request["temperature"], 0.001)
 	})
 }
 
@@ -211,7 +212,7 @@ func TestGenericProviderResponseParsing(t *testing.T) {
 		model:   "gpt-4",
 		config:  ProviderConfig{Type: TypeOpenAI},
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	// Create an Anthropic-compatible provider
@@ -220,7 +221,7 @@ func TestGenericProviderResponseParsing(t *testing.T) {
 		model:   "claude-3",
 		config:  ProviderConfig{Type: TypeAnthropic},
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	t.Run("Parse OpenAI response correctly", func(t *testing.T) {
@@ -290,7 +291,7 @@ func TestGenericProviderStreamHandling(t *testing.T) {
 		model:   "gpt-4",
 		config:  ProviderConfig{Type: TypeOpenAI, SupportsStreaming: true},
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	t.Run("PrepareStreamRequest adds stream flag", func(t *testing.T) {
@@ -301,7 +302,9 @@ func TestGenericProviderStreamHandling(t *testing.T) {
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
-		assert.True(t, request["stream"].(bool))
+		streamVal, ok := request["stream"].(bool)
+		assert.True(t, ok)
+		assert.True(t, streamVal)
 	})
 
 	t.Run("ParseStreamResponse handles OpenAI chunk", func(t *testing.T) {
@@ -337,11 +340,11 @@ func TestProviderRegistryWithGenericProvider(t *testing.T) {
 		registry.RegisterProviderConfig("test-provider", testConfig)
 
 		// Retrieve the config
-		config, exists := registry.GetProviderConfig("test-provider")
+		cfg, exists := registry.GetProviderConfig("test-provider")
 		require.True(t, exists)
-		assert.Equal(t, "test-provider", config.Name)
-		assert.Equal(t, TypeOpenAI, config.Type)
-		assert.Equal(t, "https://api.test-provider.com/v1/chat/completions", config.Endpoint)
+		assert.Equal(t, "test-provider", cfg.Name)
+		assert.Equal(t, TypeOpenAI, cfg.Type)
+		assert.Equal(t, "https://api.test-provider.com/v1/chat/completions", cfg.Endpoint)
 	})
 
 	t.Run("RegisterGenericProvider registers constructor", func(t *testing.T) {
@@ -405,7 +408,7 @@ func TestAzureOpenAIProvider(t *testing.T) {
 		model:   deploymentName,
 		config:  azureConfig,
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	t.Run("Azure OpenAI provider formats request correctly", func(t *testing.T) {

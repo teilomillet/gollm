@@ -13,25 +13,27 @@ func ExtractFunctionCalls(response string) ([]map[string]any, error) {
 	functionCallRegex := regexp.MustCompile(`<function_call>(.*?)</function_call>`)
 	matches := functionCallRegex.FindAllStringSubmatch(response, -1)
 
-	var functionCalls []map[string]any
+	functionCalls := make([]map[string]any, 0, len(matches))
 	for _, match := range matches {
-		if len(match) > 1 {
-			var functionCall map[string]any
-			if err := json.Unmarshal([]byte(match[1]), &functionCall); err != nil {
-				return nil, fmt.Errorf("error unmarshaling function call: %w", err)
-			}
-
-			// Handle string arguments by attempting to parse them as JSON
-			if args, ok := functionCall["arguments"].(string); ok {
-				var parsedArgs map[string]any
-				if err := json.Unmarshal([]byte(args), &parsedArgs); err != nil {
-					return nil, fmt.Errorf("error parsing string arguments: %w", err)
-				}
-				functionCall["arguments"] = parsedArgs
-			}
-
-			functionCalls = append(functionCalls, functionCall)
+		if len(match) <= 1 {
+			continue
 		}
+
+		var functionCall map[string]any
+		if err := json.Unmarshal([]byte(match[1]), &functionCall); err != nil {
+			return nil, fmt.Errorf("error unmarshaling function call: %w", err)
+		}
+
+		// Handle string arguments by attempting to parse them as JSON
+		if args, ok := functionCall["arguments"].(string); ok {
+			var parsedArgs map[string]any
+			if err := json.Unmarshal([]byte(args), &parsedArgs); err != nil {
+				return nil, fmt.Errorf("error parsing string arguments: %w", err)
+			}
+			functionCall["arguments"] = parsedArgs
+		}
+
+		functionCalls = append(functionCalls, functionCall)
 	}
 	return functionCalls, nil
 }
@@ -40,7 +42,7 @@ func ExtractFunctionCalls(response string) ([]map[string]any, error) {
 // and any function calls. It returns the cleaned text and a slice of function call JSON strings.
 func CleanResponse(rawResponse string) (string, []string, error) {
 	var cleanedResponse strings.Builder
-	var functionCalls []string
+	functionCalls := make([]string, 0, ResponseParserRetryAttempts)
 
 	// Extract function calls
 	functionCallRegex := regexp.MustCompile(`<function_call>(.*?)</function_call>`)

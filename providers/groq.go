@@ -3,21 +3,28 @@ package providers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
+)
+
+const (
+	groqKeyMessages = "messages"
 )
 
 // GroqProvider implements the Provider interface for Groq's API.
 // It supports Groq's optimized language models and provides access to their
 // high-performance inference capabilities.
 type GroqProvider struct {
-	apiKey       string            // API key for authentication
-	model        string            // Model identifier (e.g., "llama2-70b", "mixtral-8x7b")
-	extraHeaders map[string]string // Additional HTTP headers
-	options      map[string]any    // Model-specific options
-	logger       utils.Logger      // Logger instance
+	logger       logging.Logger
+	extraHeaders map[string]string
+	options      map[string]any
+	apiKey       string
+	model        string
 }
 
 // NewGroqProvider creates a new Groq provider instance.
@@ -30,7 +37,7 @@ type GroqProvider struct {
 //
 // Returns:
 //   - A configured Groq Provider instance
-func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) *GroqProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -39,13 +46,13 @@ func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) Provi
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
 // SetLogger configures the logger for the Groq provider.
 // This is used for debugging and monitoring API interactions.
-func (p *GroqProvider) SetLogger(logger utils.Logger) {
+func (p *GroqProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -72,11 +79,11 @@ func (p *GroqProvider) SetOption(key string, value any) {
 
 // SetDefaultOptions configures standard options from the global configuration.
 // This includes temperature, max tokens, and sampling parameters.
-func (p *GroqProvider) SetDefaultOptions(config *config.Config) {
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption("max_tokens", config.MaxTokens)
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+func (p *GroqProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("max_tokens", cfg.MaxTokens)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
 }
 
@@ -114,7 +121,7 @@ func (p *GroqProvider) Headers() map[string]string {
 func (p *GroqProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	requestBody := map[string]any{
 		"model": p.model,
-		"messages": []map[string]string{
+		groqKeyMessages: []map[string]string{
 			{"role": "user", "content": prompt},
 		},
 	}
@@ -129,7 +136,11 @@ func (p *GroqProvider) PrepareRequest(prompt string, options map[string]any) ([]
 		requestBody[k] = v
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareRequestWithSchema creates a request with JSON schema validation.
@@ -138,7 +149,7 @@ func (p *GroqProvider) PrepareRequest(prompt string, options map[string]any) ([]
 func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
 	requestBody := map[string]any{
 		"model": p.model,
-		"messages": []map[string]string{
+		groqKeyMessages: []map[string]string{
 			{"role": "user", "content": prompt},
 		},
 		"response_format": map[string]any{
@@ -154,10 +165,16 @@ func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[strin
 
 	// Add strict option if provided
 	if strict, ok := options["strict"].(bool); ok && strict {
-		requestBody["response_format"].(map[string]any)["strict"] = true
+		if responseFormat, ok := requestBody["response_format"].(map[string]any); ok {
+			responseFormat["strict"] = true
+		}
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // ParseResponse extracts the generated text from the Groq API response.
@@ -171,16 +188,16 @@ func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[strin
 //   - Any error encountered during parsing
 func (p *GroqProvider) ParseResponse(body []byte) (*Response, error) {
 	var response struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
 		Usage *struct {
 			PromptTokens     int64 `json:"prompt_tokens"`
 			CompletionTokens int64 `json:"completion_tokens"`
 			TotalTokens      int64 `json:"total_tokens"`
 		} `json:"usage"`
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
 	}
 
 	err := json.Unmarshal(body, &response)
@@ -189,7 +206,7 @@ func (p *GroqProvider) ParseResponse(body []byte) (*Response, error) {
 	}
 
 	if len(response.Choices) == 0 || response.Choices[0].Message.Content == "" {
-		return nil, fmt.Errorf("empty response from API")
+		return nil, errors.New("empty response from API")
 	}
 
 	resp := &Response{Content: Text{Value: response.Choices[0].Message.Content}}
@@ -212,7 +229,11 @@ func (p *GroqProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 		return nil, nil // No function calls found
 	}
 
-	return json.Marshal(functionCalls)
+	data, err := json.Marshal(functionCalls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
+	}
+	return data, nil
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.
@@ -245,46 +266,57 @@ func (p *GroqProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 		return nil, fmt.Errorf("malformed response: %w", err)
 	}
 	if len(response.Choices) == 0 || response.Choices[0].Delta.Content == "" {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 	return &Response{Content: Text{Value: response.Choices[0].Delta.Content}}, nil
 }
 
 // PrepareRequestWithMessages creates a request body using structured message objects
 // rather than a flattened prompt string.
-func (p *GroqProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *GroqProvider) PrepareRequestWithMessages(
+	messages []models.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	request := map[string]any{
-		"model":    p.model,
-		"messages": []map[string]any{},
+		"model":         p.model,
+		groqKeyMessages: []map[string]any{},
 	}
 
 	// Add system prompt if present
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-			"role":    "system",
-			"content": systemPrompt,
-		})
+		if messages, ok := request[groqKeyMessages].([]map[string]any); ok {
+			request[groqKeyMessages] = append(messages, map[string]any{
+				"role":    "system",
+				"content": systemPrompt,
+			})
+		}
 	}
 
 	// Convert structured messages to Groq format (OpenAI compatible)
 	for _, msg := range messages {
-		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-			"role":    msg.Role,
-			"content": msg.Content,
-		})
+		if messagesArray, ok := request[groqKeyMessages].([]map[string]any); ok {
+			request[groqKeyMessages] = append(messagesArray, map[string]any{
+				"role":    msg.Role,
+				"content": msg.Content,
+			})
+		}
 	}
 
 	// Add other options from provider and request
 	for k, v := range p.options {
-		if k != "messages" {
+		if k != groqKeyMessages {
 			request[k] = v
 		}
 	}
 	for k, v := range options {
-		if k != "messages" && k != "system_prompt" && k != "structured_messages" {
+		if k != groqKeyMessages && k != KeySystemPrompt && k != KeyStructuredMessages {
 			request[k] = v
 		}
 	}
 
-	return json.Marshal(request)
+	data, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }

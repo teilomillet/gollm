@@ -3,10 +3,11 @@ package llm
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/weave-labs/gollm/types"
 	"strings"
 
 	"github.com/invopop/jsonschema"
+
+	"github.com/weave-labs/gollm/internal/models"
 )
 
 // CacheType defines how prompts and responses should be cached in the system.
@@ -22,12 +23,12 @@ const (
 // It can be a system message, user message, or assistant message, and may include
 // tool calls and caching configuration.
 type PromptMessage struct {
-	Role       string     `json:"role"`                   // Role of the message sender (e.g., "system", "user", "assistant")
-	Content    string     `json:"content"`                // The actual message content
-	CacheType  CacheType  `json:"cache_type,omitempty"`   // Optional caching strategy for this message
-	Name       string     `json:"name,omitempty"`         // Optional name identifier for the message
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   // Optional tool calls requested by the LLM
-	ToolCallID string     `json:"tool_call_id,omitempty"` // ID of the tool call this message responds to
+	Role       string     `json:"role"`
+	Content    string     `json:"content"`
+	CacheType  CacheType  `json:"cache_type,omitempty"`
+	Name       string     `json:"name,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
 }
 
 // ToolCall represents a request from the LLM to use a specific tool.
@@ -45,17 +46,17 @@ type ToolCall struct {
 // It includes various components like system messages, user input, context,
 // and optional elements like tools and examples.
 type Prompt struct {
+	ToolChoice      map[string]any  `json:"tool_choice,omitempty" jsonschema:"description=Configuration for tool selection behavior"`
 	Input           string          `json:"input" jsonschema:"required,description=The main input text for the LLM" validate:"required"`
 	Output          string          `json:"output,omitempty" jsonschema:"description=Specification for the expected output format"`
-	Directives      []string        `json:"directives,omitempty" jsonschema:"description=List of directives to guide the LLM"`
 	Context         string          `json:"context,omitempty" jsonschema:"description=Additional context for the LLM"`
-	MaxLength       int             `json:"maxLength,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
-	Examples        []string        `json:"examples,omitempty" jsonschema:"description=List of examples to guide the LLM"`
 	SystemPrompt    string          `json:"systemPrompt,omitempty" jsonschema:"description=System prompt for the LLM"`
 	SystemCacheType CacheType       `json:"systemCacheType,omitempty" jsonschema:"description=Cache type for the system prompt"`
+	Directives      []string        `json:"directives,omitempty" jsonschema:"description=List of directives to guide the LLM"`
+	Examples        []string        `json:"examples,omitempty" jsonschema:"description=List of examples to guide the LLM"`
 	Messages        []PromptMessage `json:"messages,omitempty" jsonschema:"description=List of messages for the conversation"`
-	Tools           []types.Tool    `json:"tools,omitempty" jsonschema:"description=Available tools for the LLM to use"`
-	ToolChoice      map[string]any  `json:"tool_choice,omitempty" jsonschema:"description=Configuration for tool selection behavior"`
+	Tools           []models.Tool   `json:"tools,omitempty" jsonschema:"description=Available tools for the LLM to use"`
+	MaxLength       int             `json:"maxLength,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
 }
 
 // PromptOption is a function type that modifies a Prompt.
@@ -128,7 +129,7 @@ func WithMessage(role, content string, cacheType CacheType) PromptOption {
 //
 // Parameters:
 //   - tools: List of available tools
-func WithTools(tools []types.Tool) PromptOption {
+func WithTools(tools []models.Tool) PromptOption {
 	return func(p *Prompt) {
 		p.Tools = tools
 	}
@@ -316,7 +317,11 @@ func (p *Prompt) GenerateJSONSchema(opts ...SchemaOption) ([]byte, error) {
 		opt(reflector)
 	}
 	schema := reflector.Reflect(p)
-	return schema.MarshalJSON()
+	jsonData, err := schema.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON schema: %w", err)
+	}
+	return jsonData, nil
 }
 
 // SchemaOption is a function type for configuring JSON schema generation.

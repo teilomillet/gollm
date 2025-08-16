@@ -5,6 +5,7 @@ package presets
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -102,16 +103,21 @@ import (
 //   - LLM response generation errors
 //   - JSON parsing errors
 //   - Validation constraint violations
-func ExtractStructuredData[T any](ctx context.Context, l gollm.LLM, text string, opts ...gollm.PromptOption) (*T, error) {
+func ExtractStructuredData[T any](
+	ctx context.Context,
+	l gollm.LLM,
+	text string,
+	opts ...gollm.PromptOption,
+) (*T, error) {
 	// Validate input
 	if ctx == nil {
-		return nil, fmt.Errorf("context cannot be nil")
+		return nil, errors.New("context cannot be nil")
 	}
 	if l == nil {
-		return nil, fmt.Errorf("LLM instance cannot be nil")
+		return nil, errors.New("LLM instance cannot be nil")
 	}
 	if strings.TrimSpace(text) == "" {
-		return nil, fmt.Errorf("text cannot be empty")
+		return nil, errors.New("text cannot be empty")
 	}
 
 	var zero T
@@ -121,7 +127,12 @@ func ExtractStructuredData[T any](ctx context.Context, l gollm.LLM, text string,
 	}
 
 	// First, check if the text contains extractable information
-	validationPrompt := gollm.NewPrompt(fmt.Sprintf("Analyze if the following text contains enough information to extract structured data:\n\n%s\n\nRespond with 'yes' if the text contains extractable information, 'no' if it doesn't.", text))
+	validationPrompt := gollm.NewPrompt(
+		fmt.Sprintf(
+			"Analyze if the following text contains enough information to extract structured data:\n\n%s\n\nRespond with 'yes' if the text contains extractable information, 'no' if it doesn't.",
+			text,
+		),
+	)
 	validationPrompt.Apply(
 		gollm.WithDirectives(
 			"Only respond with 'yes' or 'no'",
@@ -135,11 +146,15 @@ func ExtractStructuredData[T any](ctx context.Context, l gollm.LLM, text string,
 		return nil, fmt.Errorf("failed to validate text content: %w", err)
 	}
 	if strings.TrimSpace(strings.ToLower(validationResponse.AsText())) != "yes" {
-		return nil, fmt.Errorf("text does not contain enough extractable information")
+		return nil, errors.New("text does not contain enough extractable information")
 	}
 
 	// Proceed with extraction
-	promptText := fmt.Sprintf("Extract the following information from the given text:\n\n%s\n\nRespond with a JSON object matching this schema:\n%s", text, string(schema))
+	promptText := fmt.Sprintf(
+		"Extract the following information from the given text:\n\n%s\n\nRespond with a JSON object matching this schema:\n%s",
+		text,
+		string(schema),
+	)
 	prompt := gollm.NewPrompt(promptText)
 	prompt.Apply(append(opts,
 		gollm.WithDirectives(

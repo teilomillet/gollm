@@ -3,23 +3,25 @@ package providers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // MistralProvider implements the Provider interface for Mistral AI's API.
 // It supports Mistral's language models and provides access to their capabilities,
 // including chat completion and structured output.
 type MistralProvider struct {
-	apiKey       string            // API key for authentication
-	model        string            // Model identifier (e.g., "mistral-large", "mistral-medium")
-	extraHeaders map[string]string // Additional HTTP headers
-	options      map[string]any    // Model-specific options
-	logger       utils.Logger      // Logger instance
+	logger       logging.Logger
+	extraHeaders map[string]string
+	options      map[string]any
+	apiKey       string
+	model        string
 }
 
 // NewMistralProvider creates a new Mistral provider instance.
@@ -32,7 +34,7 @@ type MistralProvider struct {
 //
 // Returns:
 //   - A configured Mistral Provider instance
-func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) *MistralProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -41,13 +43,13 @@ func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) Pr
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
 // SetLogger configures the logger for the Mistral provider.
 // This is used for debugging and monitoring API interactions.
-func (p *MistralProvider) SetLogger(logger utils.Logger) {
+func (p *MistralProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -63,11 +65,11 @@ func (p *MistralProvider) SetOption(key string, value any) {
 
 // SetDefaultOptions configures standard options from the global configuration.
 // This includes temperature, max tokens, and sampling parameters.
-func (p *MistralProvider) SetDefaultOptions(config *config.Config) {
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption("max_tokens", config.MaxTokens)
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+func (p *MistralProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("max_tokens", cfg.MaxTokens)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
 }
 
@@ -138,7 +140,11 @@ func (p *MistralProvider) PrepareRequest(prompt string, options map[string]any) 
 		requestBody[k] = v
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareRequestWithSchema creates a request that includes structured output formatting.
@@ -171,10 +177,16 @@ func (p *MistralProvider) PrepareRequestWithSchema(prompt string, options map[st
 
 	// Add strict option if provided
 	if strict, ok := options["strict"].(bool); ok && strict {
-		requestBody["response_format"].(map[string]any)["strict"] = true
+		if responseFormat, ok := requestBody["response_format"].(map[string]any); ok {
+			responseFormat["strict"] = true
+		}
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // ParseResponse extracts the generated text from the Mistral API response.
@@ -206,7 +218,7 @@ func (p *MistralProvider) ParseResponse(body []byte) (*Response, error) {
 	}
 
 	if len(response.Choices) == 0 || response.Choices[0].Message.Content == "" {
-		return nil, fmt.Errorf("empty response from API")
+		return nil, errors.New("empty response from API")
 	}
 
 	// Combine content and tool calls
@@ -247,7 +259,11 @@ func (p *MistralProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 		return nil, nil // No function calls found
 	}
 
-	return json.Marshal(functionCalls)
+	data, err := json.Marshal(functionCalls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
+	}
+	return data, nil
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.
@@ -280,45 +296,56 @@ func (p *MistralProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 		return nil, fmt.Errorf("malformed response: %w", err)
 	}
 	if len(response.Choices) == 0 || response.Choices[0].Delta.Content == "" {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 	return &Response{Content: Text{Value: response.Choices[0].Delta.Content}}, nil
 }
 
 // PrepareRequestWithMessages creates a request using structured message objects.
-func (p *MistralProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *MistralProvider) PrepareRequestWithMessages(
+	messages []models.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	request := map[string]any{
 		"model":    p.model,
 		"messages": []map[string]any{},
 	}
 
 	// Add system prompt if present
-	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-			"role":    "system",
-			"content": systemPrompt,
-		})
+	if systemPrompt, ok := options[KeySystemPrompt].(string); ok && systemPrompt != "" {
+		if messagesArray, ok := request["messages"].([]map[string]any); ok {
+			request["messages"] = append(messagesArray, map[string]any{
+				"role":    "system",
+				"content": systemPrompt,
+			})
+		}
 	}
 
 	// Convert memory messages to Mistral format
 	for _, msg := range messages {
-		request["messages"] = append(request["messages"].([]map[string]any), map[string]any{
-			"role":    msg.Role,
-			"content": msg.Content,
-		})
+		if messagesArray, ok := request["messages"].([]map[string]any); ok {
+			request["messages"] = append(messagesArray, map[string]any{
+				"role":    msg.Role,
+				"content": msg.Content,
+			})
+		}
 	}
 
 	// Add other options
 	for k, v := range p.options {
-		if k != "messages" && k != "system_prompt" {
+		if k != "messages" && k != KeySystemPrompt {
 			request[k] = v
 		}
 	}
 	for k, v := range options {
-		if k != "messages" && k != "system_prompt" && k != "structured_messages" {
+		if k != "messages" && k != KeySystemPrompt && k != KeyStructuredMessages {
 			request[k] = v
 		}
 	}
 
-	return json.Marshal(request)
+	data, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }

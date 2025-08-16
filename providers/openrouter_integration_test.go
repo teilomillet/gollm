@@ -3,15 +3,18 @@ package providers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/stretchr/testify/require"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // TestOpenRouterIntegration performs integration tests against the actual OpenRouter API.
@@ -23,11 +26,11 @@ func TestOpenRouterIntegration(t *testing.T) {
 	}
 
 	// Create a logger to see detailed output
-	logger := utils.NewLogger(utils.LogLevelDebug)
+	logger := logging.NewLogger(logging.LogLevelDebug)
 
 	t.Run("Basic Chat Completion", func(t *testing.T) {
 		// Create provider with Claude model
-		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil).(*OpenRouterProvider)
+		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil)
 		provider.SetLogger(logger)
 
 		// Create a simple prompt
@@ -51,12 +54,12 @@ func TestOpenRouterIntegration(t *testing.T) {
 
 		// Validate the response
 		require.Contains(t, response, "Paris")
-		t.Logf("Response: %s", response)
+		t.Logf("Response: %s", response.AsText())
 	})
 
 	t.Run("Model Fallback", func(t *testing.T) {
 		// Create provider with an intentionally invalid model and fallbacks
-		provider := NewOpenRouterProvider(apiKey, "invalid-model", nil).(*OpenRouterProvider)
+		provider := NewOpenRouterProvider(apiKey, "invalid-model", nil)
 		provider.SetLogger(logger)
 
 		// Prepare the request with fallbacks
@@ -94,7 +97,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 
 	t.Run("JSON Schema Validation", func(t *testing.T) {
 		// Create provider with Claude model (supports JSON schema)
-		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil).(*OpenRouterProvider)
+		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil)
 		provider.SetLogger(logger)
 
 		// Define the schema
@@ -133,7 +136,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 
 		// Validate the response is valid JSON conforming to the schema
 		var personData map[string]any
-		err = json.Unmarshal([]byte(response), &personData)
+		err = json.Unmarshal([]byte(response.AsText()), &personData)
 		require.NoError(t, err, "Response should be valid JSON")
 
 		name, ok := personData["name"].(string)
@@ -142,16 +145,16 @@ func TestOpenRouterIntegration(t *testing.T) {
 
 		age, ok := personData["age"].(float64) // JSON numbers are parsed as float64
 		require.True(t, ok, "Should have an age field of type number")
-		require.Equal(t, float64(25), age)
+		require.InEpsilon(t, 25, age, 0.001)
 	})
 
 	t.Run("Message History with Reasoning", func(t *testing.T) {
 		// Create provider with Claude model
-		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil).(*OpenRouterProvider)
+		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil)
 		provider.SetLogger(logger)
 
 		// Create a conversation history
-		messages := []types.MemoryMessage{
+		messages := []models.MemoryMessage{
 			{Role: "system", Content: "You are a math tutor that explains step by step."},
 			{Role: "user", Content: "What is 17 × 6?"},
 		}
@@ -177,12 +180,12 @@ func TestOpenRouterIntegration(t *testing.T) {
 		require.Contains(t, response, "17")
 		require.Contains(t, response, "6")
 		require.Contains(t, response, "102") // Result of 17 × 6
-		t.Logf("Response with reasoning: %s", response)
+		t.Logf("Response with reasoning: %s", response.AsText())
 	})
 
 	t.Run("Tool Calling", func(t *testing.T) {
 		// Use a model that supports tool calling
-		provider := NewOpenRouterProvider(apiKey, "openai/gpt-4o", nil).(*OpenRouterProvider)
+		provider := NewOpenRouterProvider(apiKey, "openai/gpt-4o", nil)
 		provider.SetLogger(logger)
 
 		// Define the tools
@@ -246,14 +249,17 @@ func TestOpenRouterIntegration(t *testing.T) {
 		require.NotEmpty(t, toolCalls)
 
 		// Verify it's calling the weather function
-		toolCall := toolCalls[0].(map[string]any)
+		toolCall, ok := toolCalls[0].(map[string]any)
+		require.True(t, ok)
 		require.Equal(t, "function", toolCall["type"])
 
-		functionCall := toolCall["function"].(map[string]any)
+		functionCall, ok := toolCall["function"].(map[string]any)
+		require.True(t, ok)
 		require.Equal(t, "get_weather", functionCall["name"])
 
 		// Check the location is Tokyo
-		args := functionCall["arguments"].(string)
+		args, ok := functionCall["arguments"].(string)
+		require.True(t, ok)
 		var argsMap map[string]any
 		err = json.Unmarshal([]byte(args), &argsMap)
 		require.NoError(t, err)
@@ -274,9 +280,9 @@ func makeAPICall(t *testing.T, endpoint string, headers map[string]string, reque
 	}
 
 	// Create the request
-	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(requestBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Add headers
@@ -287,10 +293,16 @@ func makeAPICall(t *testing.T, endpoint string, headers map[string]string, reque
 	// Make the request
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close() // Ignore close error in test
+	}()
 
 	// Read the response body
-	return io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	return body, nil
 }

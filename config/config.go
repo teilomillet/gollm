@@ -4,12 +4,23 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
-	"github.com/weave-labs/gollm/utils"
+
+	"github.com/weave-labs/gollm/internal/logging"
+)
+
+// Default configuration values
+const (
+	defaultTemperature = 0.7
+	defaultMaxTokens   = 300
+	defaultTimeout     = 30
+	defaultMaxRetries  = 3
+	defaultRetryDelay  = 2
 )
 
 // MemoryOption configures conversation memory settings, controlling how much
@@ -51,32 +62,32 @@ type MemoryOption struct {
 //   - LLM_MIROSTAT_TAU: Mirostat target entropy
 //   - LLM_TFS_Z: Tail-free sampling parameter
 type Config struct {
-	Provider              string            `env:"LLM_PROVIDER" envDefault:"anthropic" validate:"required"`
-	Model                 string            `env:"LLM_MODEL" envDefault:"claude-3-5-haiku-latest" validate:"required"`
-	OllamaEndpoint        string            `env:"OLLAMA_ENDPOINT" envDefault:"http://localhost:11434"`
-	Temperature           float64           `env:"LLM_TEMPERATURE" envDefault:"0.7" validate:"gte=0,lte=1"`
-	MaxTokens             int               `env:"LLM_MAX_TOKENS" envDefault:"100"`
-	TopP                  float64           `env:"LLM_TOP_P" envDefault:"0.9" validate:"gte=0,lte=1"`
-	FrequencyPenalty      float64           `env:"LLM_FREQUENCY_PENALTY" envDefault:"0.0"`
-	PresencePenalty       float64           `env:"LLM_PRESENCE_PENALTY" envDefault:"0.0"`
-	Timeout               time.Duration     `env:"LLM_TIMEOUT" envDefault:"30s"`
-	MaxRetries            int               `env:"LLM_MAX_RETRIES" envDefault:"3"`
-	RetryDelay            time.Duration     `env:"LLM_RETRY_DELAY" envDefault:"2s"`
-	APIKeys               map[string]string `validate:"required,apikey"`
-	LogLevel              utils.LogLevel    `env:"LLM_LOG_LEVEL" envDefault:"WARN"`
-	Seed                  *int              `env:"LLM_SEED"`
-	MinP                  *float64          `env:"LLM_MIN_P" envDefault:"0.05"`
-	RepeatPenalty         *float64          `env:"LLM_REPEAT_PENALTY" envDefault:"1.1"`
-	RepeatLastN           *int              `env:"LLM_REPEAT_LAST_N" envDefault:"64"`
-	Mirostat              *int              `env:"LLM_MIROSTAT" envDefault:"0"`
-	MirostatEta           *float64          `env:"LLM_MIROSTAT_ETA" envDefault:"0.1"`
-	MirostatTau           *float64          `env:"LLM_MIROSTAT_TAU" envDefault:"5.0"`
-	TfsZ                  *float64          `env:"LLM_TFS_Z" envDefault:"1"`
-	SystemPrompt          string
-	SystemPromptCacheType string
-	ExtraHeaders          map[string]string
-	EnableCaching         bool `env:"LLM_ENABLE_CACHING" envDefault:"false"`
+	TfsZ                  *float64 `env:"LLM_TFS_Z" envDefault:"1"`
+	MirostatTau           *float64 `env:"LLM_MIROSTAT_TAU" envDefault:"5.0"`
+	RepeatPenalty         *float64 `env:"LLM_REPEAT_PENALTY" envDefault:"1.1"`
 	MemoryOption          *MemoryOption
+	ExtraHeaders          map[string]string
+	MinP                  *float64          `env:"LLM_MIN_P" envDefault:"0.05"`
+	Seed                  *int              `env:"LLM_SEED"`
+	Mirostat              *int              `env:"LLM_MIROSTAT" envDefault:"0"`
+	RepeatLastN           *int              `env:"LLM_REPEAT_LAST_N" envDefault:"64"`
+	APIKeys               map[string]string `validate:"required,apikey"`
+	MirostatEta           *float64          `env:"LLM_MIROSTAT_ETA" envDefault:"0.1"`
+	SystemPrompt          string
+	Provider              string `env:"LLM_PROVIDER" envDefault:"anthropic" validate:"required"`
+	Model                 string `env:"LLM_MODEL" envDefault:"claude-3-5-haiku-latest" validate:"required"`
+	SystemPromptCacheType string
+	OllamaEndpoint        string           `env:"OLLAMA_ENDPOINT" envDefault:"http://localhost:11434"`
+	FrequencyPenalty      float64          `env:"LLM_FREQUENCY_PENALTY" envDefault:"0.0"`
+	LogLevel              logging.LogLevel `env:"LLM_LOG_LEVEL" envDefault:"WARN"`
+	RetryDelay            time.Duration    `env:"LLM_RETRY_DELAY" envDefault:"2s"`
+	MaxRetries            int              `env:"LLM_MAX_RETRIES" envDefault:"3"`
+	Timeout               time.Duration    `env:"LLM_TIMEOUT" envDefault:"30s"`
+	PresencePenalty       float64          `env:"LLM_PRESENCE_PENALTY" envDefault:"0.0"`
+	TopP                  float64          `env:"LLM_TOP_P" envDefault:"0.9" validate:"gte=0,lte=1"`
+	MaxTokens             int              `env:"LLM_MAX_TOKENS" envDefault:"100"`
+	Temperature           float64          `env:"LLM_TEMPERATURE" envDefault:"0.7" validate:"gte=0,lte=1"`
+	EnableCaching         bool             `env:"LLM_ENABLE_CACHING" envDefault:"false"`
 }
 
 // LoadConfig creates a new Config instance, loading values from environment
@@ -98,7 +109,7 @@ func LoadConfig() (*Config, error) {
 		APIKeys: make(map[string]string),
 	}
 	if err := env.Parse(cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse environment variables: %w", err)
 	}
 
 	loadAPIKeys(cfg)
@@ -126,6 +137,8 @@ func loadAPIKeys(cfg *Config) {
 // ConfigOption is a function type that modifies a Config instance.
 // It enables a builder pattern for configuration, allowing for clean
 // and flexible configuration updates.
+//
+//nolint:revive // ConfigOption follows the Option pattern naming convention commonly used in Go
 type ConfigOption func(*Config)
 
 // NewConfig creates a new Config instance with default values suitable
@@ -145,13 +158,13 @@ func NewConfig() *Config {
 	return &Config{
 		Provider:     "openai",
 		Model:        "gpt-4o-mini",
-		Temperature:  0.7,
-		MaxTokens:    300,
-		Timeout:      30 * time.Second,
-		MaxRetries:   3,
-		RetryDelay:   2 * time.Second,
+		Temperature:  defaultTemperature,
+		MaxTokens:    defaultMaxTokens,
+		Timeout:      defaultTimeout * time.Second,
+		MaxRetries:   defaultMaxRetries,
+		RetryDelay:   defaultRetryDelay * time.Second,
 		APIKeys:      make(map[string]string),
-		LogLevel:     utils.LogLevelWarn,
+		LogLevel:     logging.LogLevelWarn,
 		ExtraHeaders: make(map[string]string),
 	}
 }
@@ -239,7 +252,7 @@ func SetRetryDelay(retryDelay time.Duration) ConfigOption {
 }
 
 // SetLogLevel sets the logging verbosity.
-func SetLogLevel(level utils.LogLevel) ConfigOption {
+func SetLogLevel(level logging.LogLevel) ConfigOption {
 	return func(c *Config) {
 		c.LogLevel = level
 	}

@@ -3,10 +3,12 @@ package optimizer
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"github.com/weave-labs/gollm/internal/debug"
 	"github.com/weave-labs/gollm/llm"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // OptimizePrompt performs automated optimization of an LLM prompt and generates a response.
@@ -48,18 +50,22 @@ import (
 // - Configurable rating system
 // - Retry mechanisms for reliability
 // - Quality thresholds for acceptance
-func OptimizePrompt(ctx context.Context, llm llm.LLM, config OptimizationConfig) (*llm.Prompt, *providers.Response, error) {
+func OptimizePrompt(
+	ctx context.Context,
+	llmInstance llm.LLM,
+	config OptimizationConfig,
+) (*llm.Prompt, *providers.Response, error) {
 	// Initialize debug manager for logging optimization process
-	debugManager := utils.NewDebugManager(llm.GetLogger(), utils.DebugOptions{LogPrompts: true, LogResponses: true})
+	debugManager := debug.NewDebugManager(true, "./debug_output")
 
 	// Create initial prompt object
 	initialPrompt := llm.NewPrompt(config.Prompt)
 
 	// Configure and create optimizer instance
-	optimizer := NewPromptOptimizer(llm, debugManager, initialPrompt, config.Description,
+	optimizer := NewPromptOptimizer(llmInstance, debugManager, initialPrompt, config.Description,
 		WithCustomMetrics(config.Metrics...),
 		WithRatingSystem(config.RatingSystem),
-		WithOptimizationGoal(fmt.Sprintf("Optimize the prompt for %s", config.Description)),
+		WithOptimizationGoal("Optimize the prompt for "+config.Description),
 		WithMaxRetries(config.MaxRetries),
 		WithRetryDelay(config.RetryDelay),
 		WithThreshold(config.Threshold),
@@ -73,11 +79,11 @@ func OptimizePrompt(ctx context.Context, llm llm.LLM, config OptimizationConfig)
 
 	// Validate optimization result
 	if optimizedPrompt == nil {
-		return nil, nil, fmt.Errorf("optimized prompt is nil")
+		return nil, nil, errors.New("optimized prompt is nil")
 	}
 
 	// Generate response using optimized prompt
-	response, err := llm.Generate(ctx, optimizedPrompt)
+	response, err := llmInstance.Generate(ctx, optimizedPrompt)
 	if err != nil {
 		return optimizedPrompt, nil, fmt.Errorf("response generation failed: %w", err)
 	}

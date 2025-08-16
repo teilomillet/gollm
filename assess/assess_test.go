@@ -2,7 +2,6 @@ package assess
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -75,7 +74,7 @@ func TestMultiProviderInteraction(t *testing.T) {
 	// Check metrics with more realistic thresholds
 	metrics := test.GetBatchMetrics()
 	for provider, latency := range metrics.BatchTiming.ProviderLatency {
-		t.Run(fmt.Sprintf("%s_metrics", provider), func(t *testing.T) {
+		t.Run(provider+"_metrics", func(t *testing.T) {
 			// Allow up to 10 seconds average response time
 			// This is more realistic for API calls that may have network latency
 			assert.Less(t, latency, 10*time.Second,

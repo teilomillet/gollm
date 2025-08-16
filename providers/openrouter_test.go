@@ -2,18 +2,20 @@ package providers
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
 )
 
 func TestOpenRouterProvider(t *testing.T) {
 	apiKey := "test_api_key"
 	model := "anthropic/claude-3-5-sonnet"
-	provider := NewOpenRouterProvider(apiKey, model, nil).(*OpenRouterProvider)
+	provider := NewOpenRouterProvider(apiKey, model, nil)
 
 	t.Run("Name returns openrouter", func(t *testing.T) {
 		assert.Equal(t, "openrouter", provider.Name())
@@ -61,7 +63,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		provider.SetDefaultOptions(cfg)
 
 		// Check options were set correctly
-		assert.Equal(t, float64(0.8), provider.options["temperature"])
+		assert.InEpsilon(t, 0.8, provider.options["temperature"], 0.001)
 		assert.Equal(t, 500, provider.options["max_tokens"])
 		assert.Equal(t, 42, provider.options["seed"])
 	})
@@ -78,26 +80,27 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequest(prompt, options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Parse the request to verify structure
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify model
 		assert.Equal(t, model, req["model"])
 
 		// Verify options
-		assert.Equal(t, float64(0.7), req["temperature"])
-		assert.Equal(t, float64(100), req["max_tokens"])
+		assert.InEpsilon(t, 0.7, req["temperature"], 0.001)
+		assert.InEpsilon(t, 100, req["max_tokens"], 0.001)
 
 		// Verify messages format
 		messages, ok := req["messages"].([]any)
 		assert.True(t, ok)
-		assert.Equal(t, 1, len(messages))
+		assert.Len(t, messages, 1)
 
-		userMsg := messages[0].(map[string]any)
+		userMsg, ok := messages[0].(map[string]any)
+		assert.True(t, ok)
 		assert.Equal(t, "user", userMsg["role"])
 		assert.Equal(t, "Hello, world!", userMsg["content"])
 	})
@@ -108,19 +111,19 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check fallback models were set correctly
-		models, ok := req["models"].([]any)
+		fallbackModels, ok := req["models"].([]any)
 		assert.True(t, ok)
-		assert.Equal(t, 3, len(models))
-		assert.Equal(t, model, models[0])
-		assert.Equal(t, "openai/gpt-4o", models[1])
-		assert.Equal(t, "mistral/mistral-large", models[2])
+		assert.Len(t, fallbackModels, 3)
+		assert.Equal(t, model, fallbackModels[0])
+		assert.Equal(t, "openai/gpt-4o", fallbackModels[1])
+		assert.Equal(t, "mistral/mistral-large", fallbackModels[2])
 
 		// Check fallback_models was removed
 		_, exists := req["fallback_models"]
@@ -133,11 +136,11 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check model was set to auto router
 		assert.Equal(t, "openrouter/auto", req["model"])
@@ -159,11 +162,11 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check provider preferences were set correctly
 		provider, ok := req["provider"].(map[string]any)
@@ -196,16 +199,16 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check tools were set correctly
 		reqTools, ok := req["tools"].([]any)
 		assert.True(t, ok)
-		assert.Equal(t, 1, len(reqTools))
+		assert.Len(t, reqTools, 1)
 
 		// Check tool_choice was set correctly
 		assert.Equal(t, "auto", req["tool_choice"])
@@ -222,11 +225,11 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequestWithSchema("test prompt", nil, schema)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check response format was set correctly
 		responseFormat, ok := req["response_format"].(map[string]any)
@@ -236,7 +239,7 @@ func TestOpenRouterProvider(t *testing.T) {
 	})
 
 	t.Run("PrepareRequestWithMessages formats messages correctly", func(t *testing.T) {
-		messages := []types.MemoryMessage{
+		messages := []models.MemoryMessage{
 			{Role: "system", Content: "You are a helpful assistant"},
 			{Role: "user", Content: "Hello, world!"},
 			{Role: "assistant", Content: "How can I help you?"},
@@ -244,28 +247,36 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequestWithMessages(messages, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check messages were formatted correctly
 		reqMessages, ok := req["messages"].([]any)
 		assert.True(t, ok)
-		assert.Equal(t, 4, len(reqMessages))
+		assert.Len(t, reqMessages, 4)
 
 		// Check roles are preserved
-		assert.Equal(t, "system", reqMessages[0].(map[string]any)["role"])
-		assert.Equal(t, "user", reqMessages[1].(map[string]any)["role"])
-		assert.Equal(t, "assistant", reqMessages[2].(map[string]any)["role"])
-		assert.Equal(t, "user", reqMessages[3].(map[string]any)["role"])
+		msg0, ok := reqMessages[0].(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, "system", msg0["role"])
+		msg1, ok := reqMessages[1].(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, "user", msg1["role"])
+		msg2, ok := reqMessages[2].(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, "assistant", msg2["role"])
+		msg3, ok := reqMessages[3].(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, "user", msg3["role"])
 
 		// Check content is preserved
-		assert.Equal(t, "You are a helpful assistant", reqMessages[0].(map[string]any)["content"])
-		assert.Equal(t, "Hello, world!", reqMessages[1].(map[string]any)["content"])
-		assert.Equal(t, "How can I help you?", reqMessages[2].(map[string]any)["content"])
-		assert.Equal(t, "Tell me a joke", reqMessages[3].(map[string]any)["content"])
+		assert.Equal(t, "You are a helpful assistant", msg0["content"])
+		assert.Equal(t, "Hello, world!", msg1["content"])
+		assert.Equal(t, "How can I help you?", msg2["content"])
+		assert.Equal(t, "Tell me a joke", msg3["content"])
 	})
 
 	t.Run("PrepareCompletionRequest formats prompt correctly", func(t *testing.T) {
@@ -276,18 +287,18 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareCompletionRequest(prompt, options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check prompt was set correctly
 		assert.Equal(t, prompt, req["prompt"])
 
 		// Check options were set correctly
-		assert.Equal(t, float64(0.8), req["temperature"])
-		assert.Equal(t, float64(200), req["max_tokens"])
+		assert.InEpsilon(t, 0.8, req["temperature"], 0.001)
+		assert.InEpsilon(t, 200, req["max_tokens"], 0.001)
 	})
 
 	t.Run("ParseResponse handles chat completion response", func(t *testing.T) {
@@ -307,7 +318,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		}`
 
 		response, err := provider.ParseResponse([]byte(responseBody))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "This is a test response", response)
 	})
 
@@ -321,7 +332,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		}`
 
 		response, err := provider.ParseResponse([]byte(responseBody))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "This is a test text completion", response)
 	})
 
@@ -341,7 +352,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		}`
 
 		content, err := provider.ParseStreamResponse([]byte(streamChunk))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "Hello", content)
 	})
 
@@ -360,8 +371,8 @@ func TestOpenRouterProvider(t *testing.T) {
 		}`
 
 		content, err := provider.ParseStreamResponse([]byte(streamChunk))
-		assert.NoError(t, err)
-		assert.Equal(t, "", content)
+		require.NoError(t, err)
+		assert.Empty(t, content)
 	})
 
 	t.Run("HandleFunctionCalls identifies and returns function calls", func(t *testing.T) {
@@ -390,12 +401,12 @@ func TestOpenRouterProvider(t *testing.T) {
 		}`
 
 		result, err := provider.HandleFunctionCalls([]byte(responseBody))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, result)
 
 		// Check that the original response was returned
-		assert.True(t, strings.Contains(string(result), "get_weather"))
-		assert.True(t, strings.Contains(string(result), "San Francisco"))
+		assert.Contains(t, string(result), "get_weather")
+		assert.Contains(t, string(result), "San Francisco")
 	})
 
 	t.Run("SetExtraHeaders adds custom headers", func(t *testing.T) {

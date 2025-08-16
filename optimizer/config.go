@@ -7,34 +7,13 @@ import "time"
 // It controls various aspects of the optimization process including evaluation
 // criteria, retry behavior, and quality thresholds.
 type OptimizationConfig struct {
-	// Prompt is the initial prompt text to be optimized
-	Prompt string
-
-	// Description explains the intended use and context of the prompt
-	Description string
-
-	// Metrics defines custom evaluation criteria for prompt assessment
-	// Each metric should have a name and description
-	Metrics []Metric
-
-	// RatingSystem specifies the grading approach:
-	// - "numerical": Uses a 0-20 scale
-	// - "letter": Uses letter grades (F to A+)
+	Prompt       string
+	Description  string
 	RatingSystem string
-
-	// Threshold sets the minimum acceptable quality score (0.0 to 1.0)
-	// For numerical ratings: score must be >= threshold * 20
-	// For letter grades: requires grade equivalent to threshold
-	// Example: 0.8 requires A- or better
-	Threshold float64
-
-	// MaxRetries is the maximum number of retry attempts for failed operations
-	// Each retry includes a delay specified by RetryDelay
-	MaxRetries int
-
-	// RetryDelay is the duration to wait between retry attempts
-	// This helps prevent rate limiting and allows for transient issues to resolve
-	RetryDelay time.Duration
+	Metrics      []Metric
+	Threshold    float64
+	MaxRetries   int
+	RetryDelay   time.Duration
 }
 
 // DefaultOptimizationConfig returns a default configuration for prompt optimization.
@@ -61,9 +40,9 @@ type OptimizationConfig struct {
 func DefaultOptimizationConfig() OptimizationConfig {
 	return OptimizationConfig{
 		RatingSystem: "numerical",
-		Threshold:    0.8, // Requires 16/20 or better
-		MaxRetries:   3,
-		RetryDelay:   time.Second * 2,
+		Threshold:    DefaultThreshold, // Requires 16/20 or better
+		MaxRetries:   DefaultMaxRetries,
+		RetryDelay:   DefaultRetryDelay,
 		Metrics: []Metric{
 			{Name: "Relevance", Description: "How relevant the prompt is to the task"},
 			{Name: "Clarity", Description: "How clear and unambiguous the prompt is"},

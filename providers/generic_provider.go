@@ -4,14 +4,16 @@ package providers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // GenericProvider is a flexible provider implementation that can adapt to
@@ -19,13 +21,13 @@ import (
 // and Anthropic-compatible APIs out of the box, and can be extended for
 // custom implementations.
 type GenericProvider struct {
-	apiKey        string            // API key for authentication
-	model         string            // Model identifier
-	config        ProviderConfig    // Provider configuration
-	extraHeaders  map[string]string // Additional HTTP headers
-	options       map[string]any    // Model-specific options
-	logger        utils.Logger      // Logger instance
-	extraEndpoint string            // Optional override for endpoint
+	logger        logging.Logger
+	extraHeaders  map[string]string
+	options       map[string]any
+	apiKey        string
+	model         string
+	extraEndpoint string
+	config        ProviderConfig
 }
 
 // NewGenericProvider creates a new provider instance based on the provided configuration.
@@ -39,14 +41,14 @@ type GenericProvider struct {
 //
 // Returns:
 //   - A configured Provider instance
-func NewGenericProvider(apiKey, model, providerName string, extraHeaders map[string]string) Provider {
+func NewGenericProvider(apiKey, model, providerName string, extraHeaders map[string]string) *GenericProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
 
 	// Get default registry to access configurations
 	registry := GetDefaultRegistry()
-	config, exists := registry.GetProviderConfig(providerName)
+	cfg, exists := registry.GetProviderConfig(providerName)
 	if !exists {
 		panic(fmt.Sprintf("Provider configuration for '%s' not found", providerName))
 	}
@@ -54,10 +56,10 @@ func NewGenericProvider(apiKey, model, providerName string, extraHeaders map[str
 	return &GenericProvider{
 		apiKey:       apiKey,
 		model:        model,
-		config:       config,
+		config:       cfg,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
@@ -78,7 +80,7 @@ func (p *GenericProvider) Endpoint() string {
 	endpoint := p.config.Endpoint
 
 	// Replace {model} placeholder if present
-	endpoint = strings.Replace(endpoint, "{model}", p.model, -1)
+	endpoint = strings.ReplaceAll(endpoint, "{model}", p.model)
 
 	// Add additional endpoint parameters if specified
 	if len(p.config.EndpointParams) > 0 {
@@ -136,7 +138,7 @@ func (p *GenericProvider) PrepareRequest(prompt string, options map[string]any) 
 		return p.prepareAnthropicRequest(prompt, options)
 	case TypeCustom:
 		// For custom types, we would need a custom implementation
-		return nil, fmt.Errorf("custom API type requires specialized implementation")
+		return nil, errors.New("custom API type requires specialized implementation")
 	default:
 		return nil, fmt.Errorf("unsupported provider type: %s", p.config.Type)
 	}
@@ -196,16 +198,16 @@ func (p *GenericProvider) SupportsStructuredResponse() bool {
 }
 
 // SetDefaultOptions configures provider-specific defaults from the global configuration.
-func (p *GenericProvider) SetDefaultOptions(config *config.Config) {
+func (p *GenericProvider) SetDefaultOptions(cfg *config.Config) {
 	// Common options
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption("max_tokens", config.MaxTokens)
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("max_tokens", cfg.MaxTokens)
 
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
 
-	p.logger.Debug("Default options set", "temperature", config.Temperature, "max_tokens", config.MaxTokens)
+	p.logger.Debug("Default options set", "temperature", cfg.Temperature, "max_tokens", cfg.MaxTokens)
 }
 
 // SetOption sets a specific option for the provider.
@@ -214,7 +216,7 @@ func (p *GenericProvider) SetOption(key string, value any) {
 }
 
 // SetLogger configures the logger for the provider instance.
-func (p *GenericProvider) SetLogger(logger utils.Logger) {
+func (p *GenericProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -299,11 +301,18 @@ func (p *GenericProvider) prepareOpenAIRequest(prompt string, options map[string
 		}
 	}
 
-	return json.Marshal(requestOptions)
+	data, err := json.Marshal(requestOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request options: %w", err)
+	}
+	return data, nil
 }
 
 func (p *GenericProvider) parseOpenAIResponse(body []byte) (*Response, error) {
 	var response struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
 		Choices []struct {
 			Message struct {
 				Content      string `json:"content"`
@@ -313,13 +322,10 @@ func (p *GenericProvider) parseOpenAIResponse(body []byte) (*Response, error) {
 			} `json:"message"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v", err)
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if response.Error.Message != "" {
@@ -327,7 +333,7 @@ func (p *GenericProvider) parseOpenAIResponse(body []byte) (*Response, error) {
 	}
 
 	if len(response.Choices) == 0 {
-		return nil, fmt.Errorf("empty response from API")
+		return nil, errors.New("empty response from API")
 	}
 
 	// Check for function calling response
@@ -347,7 +353,7 @@ func (p *GenericProvider) handleOpenAIFunctionCalls(body []byte) ([]byte, error)
 func (p *GenericProvider) parseOpenAIStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty chunks
 	if len(bytes.TrimSpace(chunk)) == 0 {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 
 	// Remove "data: " prefix
@@ -371,7 +377,7 @@ func (p *GenericProvider) parseOpenAIStreamResponse(chunk []byte) (*Response, er
 	}
 
 	if len(response.Choices) == 0 || response.Choices[0].Delta.Content == "" {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 
 	return &Response{Content: Text{Value: response.Choices[0].Delta.Content}}, nil
@@ -412,10 +418,18 @@ func (p *GenericProvider) prepareAnthropicRequest(prompt string, options map[str
 		requestOptions["max_tokens"] = 1024 // Default
 	}
 
-	return json.Marshal(requestOptions)
+	data, err := json.Marshal(requestOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request options: %w", err)
+	}
+	return data, nil
 }
 
-func (p *GenericProvider) prepareAnthropicStructuredRequest(prompt string, options map[string]any, schema any) ([]byte, error) {
+func (p *GenericProvider) prepareAnthropicStructuredRequest(
+	prompt string,
+	options map[string]any,
+	schema any,
+) ([]byte, error) {
 	requestOptions := make(map[string]any)
 
 	// Copy original options
@@ -426,7 +440,7 @@ func (p *GenericProvider) prepareAnthropicStructuredRequest(prompt string, optio
 	// Add schema to the prompt
 	schemaBytes, err := json.Marshal(schema)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal schema: %v", err)
+		return nil, fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
 	enhancedPrompt := fmt.Sprintf("%s\n\nPlease provide a response in the following JSON format: %s",
@@ -438,16 +452,16 @@ func (p *GenericProvider) prepareAnthropicStructuredRequest(prompt string, optio
 
 func (p *GenericProvider) parseAnthropicResponse(body []byte) (*Response, error) {
 	var response struct {
-		Content []struct {
-			Text string `json:"text"`
-		} `json:"content"`
 		Error struct {
 			Message string `json:"message"`
 		} `json:"error"`
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v", err)
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if response.Error.Message != "" {
@@ -455,7 +469,7 @@ func (p *GenericProvider) parseAnthropicResponse(body []byte) (*Response, error)
 	}
 
 	if len(response.Content) == 0 {
-		return nil, fmt.Errorf("empty response from API")
+		return nil, errors.New("empty response from API")
 	}
 
 	return &Response{Content: Text{Value: response.Content[0].Text}}, nil
@@ -464,7 +478,7 @@ func (p *GenericProvider) parseAnthropicResponse(body []byte) (*Response, error)
 func (p *GenericProvider) parseAnthropicStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty chunks
 	if len(bytes.TrimSpace(chunk)) == 0 {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 
 	// Remove "data: " prefix
@@ -490,7 +504,7 @@ func (p *GenericProvider) parseAnthropicStreamResponse(chunk []byte) (*Response,
 		return &Response{Content: Text{Value: response.Content[0].Text}}, nil
 	}
 
-	return nil, fmt.Errorf("skip resp")
+	return nil, errors.New("skip resp")
 }
 
 // PrepareRequestWithMessages creates a request body using structured message objects
@@ -503,7 +517,10 @@ func (p *GenericProvider) parseAnthropicStreamResponse(chunk []byte) (*Response,
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *GenericProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *GenericProvider) PrepareRequestWithMessages(
+	messages []models.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	switch p.config.Type {
 	case TypeOpenAI:
 		return p.prepareOpenAIRequestWithMessages(messages, options)
@@ -511,14 +528,17 @@ func (p *GenericProvider) PrepareRequestWithMessages(messages []types.MemoryMess
 		return p.prepareAnthropicRequestWithMessages(messages, options)
 	case TypeCustom:
 		// For custom types, we would need a custom implementation
-		return nil, fmt.Errorf("custom API type requires specialized implementation")
+		return nil, errors.New("custom API type requires specialized implementation")
 	default:
 		return nil, fmt.Errorf("unsupported provider type: %s", p.config.Type)
 	}
 }
 
 // prepareOpenAIRequestWithMessages creates a request for OpenAI APIs using structured messages
-func (p *GenericProvider) prepareOpenAIRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *GenericProvider) prepareOpenAIRequestWithMessages(
+	messages []models.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	requestOptions := make(map[string]any)
 
 	// Copy default options
@@ -556,11 +576,18 @@ func (p *GenericProvider) prepareOpenAIRequestWithMessages(messages []types.Memo
 
 	requestOptions["messages"] = openAIMessages
 
-	return json.Marshal(requestOptions)
+	data, err := json.Marshal(requestOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request options: %w", err)
+	}
+	return data, nil
 }
 
 // prepareAnthropicRequestWithMessages creates a request for Anthropic APIs using structured messages
-func (p *GenericProvider) prepareAnthropicRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *GenericProvider) prepareAnthropicRequestWithMessages(
+	messages []models.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	requestOptions := make(map[string]any)
 
 	// Copy default options
@@ -613,5 +640,9 @@ func (p *GenericProvider) prepareAnthropicRequestWithMessages(messages []types.M
 		requestOptions["max_tokens"] = 1024 // Default
 	}
 
-	return json.Marshal(requestOptions)
+	data, err := json.Marshal(requestOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request options: %w", err)
+	}
+	return data, nil
 }

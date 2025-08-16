@@ -4,9 +4,11 @@ package optimizer
 import (
 	"context"
 	"fmt"
-	"golang.org/x/time/rate"
+	"log/slog"
 	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"github.com/weave-labs/gollm/llm"
 )
@@ -15,14 +17,9 @@ import (
 // It provides efficient batch processing capabilities while managing API rate limits
 // and resource utilization.
 type BatchPromptOptimizer struct {
-	// LLM is the language model instance used for optimization
-	LLM llm.LLM
-
-	// Verbose enables detailed logging of optimization progress
-	Verbose bool
-
-	// rateLimiter controls the rate of API calls to prevent overload
+	LLM         llm.LLM
 	rateLimiter *rate.Limiter
+	Verbose     bool
 }
 
 // NewBatchPromptOptimizer creates a new BatchPromptOptimizer with default rate limiting.
@@ -38,10 +35,13 @@ type BatchPromptOptimizer struct {
 // Example:
 //
 //	optimizer := NewBatchPromptOptimizer(llmInstance)
-func NewBatchPromptOptimizer(llm llm.LLM) *BatchPromptOptimizer {
+func NewBatchPromptOptimizer(llmInstance llm.LLM) *BatchPromptOptimizer {
 	return &BatchPromptOptimizer{
-		LLM:         llm,
-		rateLimiter: rate.NewLimiter(rate.Every(3*time.Second), 1), // Default: 1 request per 3 seconds
+		LLM: llmInstance,
+		rateLimiter: rate.NewLimiter(
+			rate.Every(DefaultRateLimitSeconds*time.Second),
+			1,
+		), // Default: 1 request per 3 seconds
 	}
 }
 
@@ -82,20 +82,11 @@ type PromptExample struct {
 // OptimizationResult contains the outcome of a single prompt optimization.
 // It includes both the optimized content and any errors encountered.
 type OptimizationResult struct {
-	// Name identifies which prompt this result corresponds to
-	Name string
-
-	// OriginalPrompt is the input prompt before optimization
-	OriginalPrompt string
-
-	// OptimizedPrompt is the improved prompt after optimization
-	OptimizedPrompt string
-
-	// GeneratedContent is the LLM's response using the optimized prompt
+	Error            error
+	Name             string
+	OriginalPrompt   string
+	OptimizedPrompt  string
 	GeneratedContent string
-
-	// Error contains any error encountered during optimization
-	Error error
 }
 
 // OptimizePrompts performs concurrent optimization of multiple prompts.
@@ -153,7 +144,7 @@ func (bpo *BatchPromptOptimizer) OptimizePrompts(ctx context.Context, examples [
 				Metrics:      example.Metrics,
 				RatingSystem: "numerical",
 				Threshold:    example.Threshold,
-				MaxRetries:   3,
+				MaxRetries:   DefaultMaxRetries,
 				RetryDelay:   DefaultRetryDelay,
 			}
 
@@ -168,7 +159,7 @@ func (bpo *BatchPromptOptimizer) OptimizePrompts(ctx context.Context, examples [
 
 			// Log progress if verbose mode is enabled
 			if bpo.Verbose {
-				fmt.Printf("Optimized prompt for %s: %s\n", example.Name, optimizedPrompt)
+				slog.Info("Optimized prompt", "name", example.Name, "prompt", optimizedPrompt)
 			}
 		}(i, example)
 	}

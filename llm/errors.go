@@ -1,9 +1,10 @@
 package llm
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // ErrorType represents the category of an LLM error.
@@ -42,10 +43,12 @@ const (
 // LLMError represents a structured error in the LLM package.
 // It implements the error interface and provides additional context
 // about the error type and underlying cause.
+//
+//nolint:revive // LLMError is intentionally named to be clear about its domain
 type LLMError struct {
-	Type    ErrorType // The category of the error
-	Message string    // A human-readable error message
-	Err     error     // The underlying error, if any
+	Err     error
+	Message string
+	Type    ErrorType
 }
 
 // LoggableFields returns a slice of any containing error information
@@ -125,12 +128,13 @@ func NewLLMError(errType ErrorType, message string, err error) *LLMError {
 //   - err: The error to handle
 //   - fatal: If true, the program will panic after logging
 //   - logger: The logger to use for error reporting
-func HandleError(err error, fatal bool, logger utils.Logger) {
+func HandleError(err error, fatal bool, logger logging.Logger) {
 	if err == nil {
 		return
 	}
 
-	if llmErr, ok := err.(*LLMError); ok {
+	llmErr := &LLMError{}
+	if errors.As(err, &llmErr) {
 		logger.Error(llmErr.Message, "error_type", llmErr.TypeString(), "error", llmErr.Err)
 	} else {
 		logger.Error("An error occurred", "error", err)

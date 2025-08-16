@@ -2,14 +2,21 @@
 package providers
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
+)
+
+const (
+	openRouterDefaultModel = "openrouter/auto"
 )
 
 // OpenRouterProvider implements the Provider interface for OpenRouter API.
@@ -20,7 +27,7 @@ type OpenRouterProvider struct {
 	model        string            // Model identifier (e.g., "openai/gpt-4", "anthropic/claude-3-opus")
 	extraHeaders map[string]string // Additional HTTP headers
 	options      map[string]any    // Model-specific options
-	logger       utils.Logger      // Logger instance
+	logger       logging.Logger    // Logger instance
 }
 
 // NewOpenRouterProvider creates a new OpenRouter provider instance.
@@ -33,7 +40,7 @@ type OpenRouterProvider struct {
 //
 // Returns:
 //   - A configured OpenRouter Provider instance
-func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string) *OpenRouterProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
@@ -42,12 +49,12 @@ func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string)
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
 // SetLogger configures the logger for the OpenRouter provider.
-func (p *OpenRouterProvider) SetLogger(logger utils.Logger) {
+func (p *OpenRouterProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -70,7 +77,7 @@ func (p *OpenRouterProvider) CompletionsEndpoint() string {
 // GenerationEndpoint returns the OpenRouter API endpoint for retrieving generation details.
 // This can be used to query stats like cost and token usage after a request.
 func (p *OpenRouterProvider) GenerationEndpoint(generationID string) string {
-	return fmt.Sprintf("https://openrouter.ai/api/v1/generation?id=%s", generationID)
+	return "https://openrouter.ai/api/v1/generation?id=" + generationID
 }
 
 // SetOption sets a model-specific option for the OpenRouter provider.
@@ -86,11 +93,11 @@ func (p *OpenRouterProvider) SetOption(key string, value any) {
 }
 
 // SetDefaultOptions configures standard options from the global configuration.
-func (p *OpenRouterProvider) SetDefaultOptions(config *config.Config) {
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption("max_tokens", config.MaxTokens)
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+func (p *OpenRouterProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("max_tokens", cfg.MaxTokens)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
 
 	// OpenRouter-specific defaults
@@ -149,7 +156,7 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]an
 		delete(req, "fallback_models")
 	} else if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
 		// Use OpenRouter's auto-routing capability
-		req["model"] = "openrouter/auto"
+		req["model"] = openRouterDefaultModel
 		delete(req, "auto_route")
 	}
 
@@ -199,7 +206,11 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]an
 		delete(req, "enable_prompt_caching")
 	}
 
-	return json.Marshal(req)
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareCompletionRequest creates a text completion request for the OpenRouter API.
@@ -227,7 +238,7 @@ func (p *OpenRouterProvider) PrepareCompletionRequest(prompt string, options map
 		delete(req, "fallback_models")
 	} else if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
 		// Use OpenRouter's auto-routing capability
-		req["model"] = "openrouter/auto"
+		req["model"] = openRouterDefaultModel
 		delete(req, "auto_route")
 	}
 
@@ -245,11 +256,19 @@ func (p *OpenRouterProvider) PrepareCompletionRequest(prompt string, options map
 		req["stream"] = true
 	}
 
-	return json.Marshal(req)
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareRequestWithSchema creates a request with JSON schema validation.
-func (p *OpenRouterProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
+func (p *OpenRouterProvider) PrepareRequestWithSchema(
+	prompt string,
+	options map[string]any,
+	schema any,
+) ([]byte, error) {
 	// Start with standard request preparation
 	req := map[string]any{}
 	for k, v := range options {
@@ -272,7 +291,7 @@ func (p *OpenRouterProvider) PrepareRequestWithSchema(prompt string, options map
 		delete(req, "fallback_models")
 	} else if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
 		// Use OpenRouter's auto-routing capability
-		req["model"] = "openrouter/auto"
+		req["model"] = openRouterDefaultModel
 		delete(req, "auto_route")
 	}
 
@@ -323,12 +342,27 @@ func (p *OpenRouterProvider) PrepareRequestWithSchema(prompt string, options map
 		delete(req, "enable_prompt_caching")
 	}
 
-	return json.Marshal(req)
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }
 
 // ParseResponse extracts the completion text from the OpenRouter API response.
 func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
-	// First try to parse as chat completion to see if it's a chat/completions response
+	// Try to parse as chat completion first
+	resp, err := p.parseChatCompletion(body)
+	if err == nil {
+		return resp, nil
+	}
+
+	// If chat completion failed, try text completion
+	return p.parseTextCompletion(body, err)
+}
+
+// parseChatCompletion attempts to parse the response as a chat completion
+func (p *OpenRouterProvider) parseChatCompletion(body []byte) (*Response, error) {
 	var chatResp struct {
 		Choices []struct {
 			Message struct {
@@ -351,34 +385,42 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 		} `json:"usage"`
 	}
 
-	// Try to parse as a chat completion
-	chatErr := json.Unmarshal(body, &chatResp)
-
-	// Check if we have valid chat completion choices
-	if chatErr == nil && len(chatResp.Choices) > 0 && chatResp.Choices[0].Message.Content != "" {
-		// This is a chat completion response
-
-		// Check for errors
-		if chatResp.Error.Message != "" {
-			return nil, fmt.Errorf("OpenRouter API error: %s", chatResp.Error.Message)
-		}
-
-		// Store the generation ID and used model in the logger for potential later use
-		if chatResp.ID != "" {
-			p.logger.Debug("Generation ID", "id", chatResp.ID)
-		}
-		if chatResp.Model != "" && chatResp.Model != p.model {
-			p.logger.Info("Model used", "requested", p.model, "actual", chatResp.Model)
-		}
-
-		resp := &Response{Content: Text{Value: chatResp.Choices[0].Message.Content}}
-		if chatResp.Usage != nil {
-			resp.Usage = NewUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CacheCreationInputTokens+chatResp.Usage.CacheReadInputTokens, chatResp.Usage.CompletionTokens, 0)
-		}
-		return resp, nil
+	if err := json.Unmarshal(body, &chatResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal chat response: %w", err)
 	}
 
-	// If it wasn't a valid chat completion, try parsing as a text completion
+	// Check if we have valid chat completion choices
+	if len(chatResp.Choices) == 0 || chatResp.Choices[0].Message.Content == "" {
+		return nil, errors.New("invalid chat completion response")
+	}
+
+	// Check for errors
+	if chatResp.Error.Message != "" {
+		return nil, fmt.Errorf("OpenRouter API error: %s", chatResp.Error.Message)
+	}
+
+	// Log generation info
+	if chatResp.ID != "" {
+		p.logger.Debug("Generation ID", "id", chatResp.ID)
+	}
+	if chatResp.Model != "" && chatResp.Model != p.model {
+		p.logger.Info("Model used", "requested", p.model, "actual", chatResp.Model)
+	}
+
+	resp := &Response{Content: Text{Value: chatResp.Choices[0].Message.Content}}
+	if chatResp.Usage != nil {
+		resp.Usage = NewUsage(
+			chatResp.Usage.PromptTokens,
+			chatResp.Usage.CacheCreationInputTokens+chatResp.Usage.CacheReadInputTokens,
+			chatResp.Usage.CompletionTokens,
+			0,
+		)
+	}
+	return resp, nil
+}
+
+// parseTextCompletion attempts to parse the response as a text completion
+func (p *OpenRouterProvider) parseTextCompletion(body []byte, chatErr error) (*Response, error) {
 	var textResp struct {
 		Choices []struct {
 			Text string `json:"text"`
@@ -398,7 +440,7 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 	}
 
 	if err := json.Unmarshal(body, &textResp); err != nil {
-		// If we can't parse as text completion either, return the original chat parsing error
+		// Return the original chat parsing error if text parsing also fails
 		return nil, fmt.Errorf("error parsing OpenRouter response: %w", chatErr)
 	}
 
@@ -409,10 +451,10 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 
 	// Check if we have at least one choice
 	if len(textResp.Choices) == 0 {
-		return nil, fmt.Errorf("no completion choices in OpenRouter response")
+		return nil, errors.New("no completion choices in OpenRouter response")
 	}
 
-	// Store the generation ID and used model in the logger for potential later use
+	// Log generation info
 	if textResp.ID != "" {
 		p.logger.Debug("Generation ID (text completion)", "id", textResp.ID)
 	}
@@ -424,7 +466,12 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 
 	resp := &Response{Content: Text{Value: textResp.Choices[0].Text}}
 	if textResp.Usage != nil {
-		resp.Usage = NewUsage(textResp.Usage.PromptTokens, textResp.Usage.CacheCreationInputTokens+textResp.Usage.CacheReadInputTokens, textResp.Usage.CompletionTokens, 0)
+		resp.Usage = NewUsage(
+			textResp.Usage.PromptTokens,
+			textResp.Usage.CacheCreationInputTokens+textResp.Usage.CacheReadInputTokens,
+			textResp.Usage.CompletionTokens,
+			0,
+		)
 	}
 	return resp, nil
 }
@@ -457,23 +504,25 @@ func (p *OpenRouterProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	}
 
 	// Check if we have a function call or tool calls
-	if len(resp.Choices) > 0 {
-		message := &resp.Choices[0].Message
-		if message.FunctionCall != nil || len(message.ToolCalls) > 0 {
-			// Store the generation ID and used model in the logger for potential later use
-			if resp.ID != "" {
-				p.logger.Debug("Generation ID with tool calls", "id", resp.ID)
-			}
-			if resp.Model != "" && resp.Model != p.model {
-				p.logger.Info("Model used for tool calls", "requested", p.model, "actual", resp.Model)
-			}
-
-			// Return the original body since it already contains the function call data
-			return body, nil
-		}
+	if len(resp.Choices) == 0 {
+		return nil, nil
 	}
 
-	return nil, nil
+	message := &resp.Choices[0].Message
+	if message.FunctionCall == nil && len(message.ToolCalls) == 0 {
+		return nil, nil
+	}
+
+	// Store the generation ID and used model in the logger for potential later use
+	if resp.ID != "" {
+		p.logger.Debug("Generation ID with tool calls", "id", resp.ID)
+	}
+	if resp.Model != "" && resp.Model != p.model {
+		p.logger.Info("Model used for tool calls", "requested", p.model, "actual", resp.Model)
+	}
+
+	// Return the original body since it already contains the function call data
+	return body, nil
 }
 
 // SetExtraHeaders configures additional HTTP headers for OpenRouter API requests.
@@ -503,11 +552,11 @@ func (p *OpenRouterProvider) PrepareStreamRequest(prompt string, options map[str
 // ParseStreamResponse processes a chunk from a streaming OpenRouter response.
 func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty chunks
-	if len(chunk) == 0 {
-		return nil, fmt.Errorf("skip resp")
+	if len(bytes.TrimSpace(chunk)) == 0 {
+		return nil, errors.New("empty chunk")
 	}
 	// Handle "[DONE]" marker
-	if string(chunk) == "[DONE]" {
+	if bytes.Equal(bytes.TrimSpace(chunk), []byte("[DONE]")) {
 		return nil, io.EOF
 	}
 
@@ -568,7 +617,7 @@ func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error
 
 	// Check if we have at least one choice with content
 	if len(resp.Choices) == 0 || resp.Choices[0].Delta.Content == "" {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip token")
 	}
 
 	// Handle tool calls in streaming mode (log only)
@@ -585,9 +634,37 @@ func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error
 }
 
 // PrepareRequestWithMessages creates a request with structured message objects.
-func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *OpenRouterProvider) PrepareRequestWithMessages(
+	messages []models.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
+	req := p.initializeRequestWithOptions(options)
+
+	// Handle routing configurations
+	p.handleRoutingConfiguration(req)
+
+	// Convert and add messages
+	formattedMessages := p.formatMessagesForRequest(messages, req)
+	req["messages"] = formattedMessages
+
+	// Handle tools and streaming
+	p.addToolsAndStreamingConfig(req)
+
+	// Cleanup temporary flags
+	delete(req, "enable_prompt_caching")
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
+}
+
+// initializeRequestWithOptions creates the base request with merged options
+func (p *OpenRouterProvider) initializeRequestWithOptions(options map[string]any) map[string]any {
+	req := make(map[string]any)
+
 	// Start with the passed options
-	req := map[string]any{}
 	for k, v := range options {
 		req[k] = v
 	}
@@ -602,54 +679,91 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 		}
 	}
 
+	return req
+}
+
+// handleRoutingConfiguration handles fallback models and auto-routing
+func (p *OpenRouterProvider) handleRoutingConfiguration(req map[string]any) {
 	// Handle fallback models if specified
 	if fallbackModels, ok := req["fallback_models"].([]string); ok {
 		req["models"] = append([]string{p.model}, fallbackModels...)
 		delete(req, "fallback_models")
-	} else if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
-		// Use OpenRouter's auto-routing capability
-		req["model"] = "openrouter/auto"
+		return
+	}
+
+	// Handle auto-routing
+	if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
+		req["model"] = openRouterDefaultModel
 		delete(req, "auto_route")
 	}
 
-	// Handle provider routing preferences if provided
+	// Handle provider routing preferences
 	if providerPrefs, ok := req["provider_preferences"].(map[string]any); ok {
 		req["provider"] = providerPrefs
 		delete(req, "provider_preferences")
 	}
+}
 
-	// Convert memory messages to OpenRouter format
+// formatMessagesForRequest converts memory messages to OpenRouter format
+func (p *OpenRouterProvider) formatMessagesForRequest(
+	messages []models.MemoryMessage,
+	req map[string]any,
+) []map[string]any {
 	formattedMessages := make([]map[string]any, 0, len(messages))
+
 	for _, msg := range messages {
-		formattedMsg := map[string]any{
-			"role":    msg.Role,
-			"content": msg.Content,
-		}
-
-		// Handle Anthropic-style prompt caching if enabled
-		if caching, ok := req["enable_prompt_caching"].(bool); ok && caching && msg.Role == "user" {
-			// Check if the message is large enough to benefit from caching
-			if len(msg.Content) > 1000 {
-				// For Anthropic models, we need to use multipart messages with cache_control
-				if strings.HasPrefix(p.model, "anthropic/") {
-					formattedMsg["content"] = []map[string]any{
-						{
-							"type": "text",
-							"text": msg.Content,
-							"cache_control": map[string]string{
-								"type": "ephemeral",
-							},
-						},
-					}
-				}
-			}
-		}
-
+		formattedMsg := p.formatSingleMessage(msg, req)
 		formattedMessages = append(formattedMessages, formattedMsg)
 	}
 
-	req["messages"] = formattedMessages
+	return formattedMessages
+}
 
+// formatSingleMessage formats a single message with caching if needed
+func (p *OpenRouterProvider) formatSingleMessage(msg models.MemoryMessage, req map[string]any) map[string]any {
+	formattedMsg := map[string]any{
+		"role":    msg.Role,
+		"content": msg.Content,
+	}
+
+	// Handle Anthropic-style prompt caching if enabled
+	p.addCachingIfNeeded(formattedMsg, msg, req)
+
+	return formattedMsg
+}
+
+// addCachingIfNeeded adds caching configuration for large messages
+func (p *OpenRouterProvider) addCachingIfNeeded(
+	formattedMsg map[string]any,
+	msg models.MemoryMessage,
+	req map[string]any,
+) {
+	caching, ok := req["enable_prompt_caching"].(bool)
+	if !ok || !caching || msg.Role != "user" {
+		return
+	}
+
+	// Check if the message is large enough to benefit from caching
+	if len(msg.Content) <= OpenRouterCachingThreshold {
+		return
+	}
+
+	// For Anthropic models, use multipart messages with cache_control
+	if strings.HasPrefix(p.model, "anthropic/") {
+		formattedMsg["content"] = []map[string]any{
+			{
+				"type": "text",
+				"text": msg.Content,
+				"cache_control": map[string]string{
+					"type": "ephemeral",
+				},
+			},
+		}
+	}
+}
+
+// addToolsAndStreamingConfig adds tools and streaming configuration
+func (p *OpenRouterProvider) addToolsAndStreamingConfig(req map[string]any) {
 	// Handle tools/function calling if provided
 	if tools, ok := req["tools"].([]any); ok && len(tools) > 0 {
 		req["tools"] = tools
@@ -659,19 +773,8 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 		req["tool_choice"] = toolChoice
 	}
 
-	// Remove prompt caching flag as it's been handled
-	delete(req, "enable_prompt_caching")
-
 	// Add streaming if requested
 	if stream, ok := req["stream"].(bool); ok && stream {
 		req["stream"] = true
 	}
-
-	return json.Marshal(req)
-}
-
-func init() {
-	// Register the OpenRouter provider
-	registry := GetDefaultRegistry()
-	registry.Register("openrouter", NewOpenRouterProvider)
 }

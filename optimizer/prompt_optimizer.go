@@ -4,20 +4,26 @@ package optimizer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 
+	"github.com/weave-labs/gollm/internal/debug"
 	"github.com/weave-labs/gollm/llm"
-	"github.com/weave-labs/gollm/utils"
 )
 
-// init registers custom validation functions for the optimizer package.
-func init() {
-	err := llm.RegisterCustomValidation("validGrade", validGrade)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to register validGrade function: %v", err))
-	}
+var registerValidationOnce sync.Once
+
+// registerValidationFunctions registers custom validation functions for the optimizer package.
+// This function is called when the optimizer is first used.
+func registerValidationFunctions() {
+	registerValidationOnce.Do(func() {
+		err := llm.RegisterCustomValidation("validGrade", validGrade)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to register validGrade function: %v", err))
+		}
+	})
 }
 
 // OptimizationRating defines the interface for different rating systems used in prompt optimization.
@@ -39,7 +45,7 @@ type NumericalRating struct {
 // IsGoalMet checks if the numerical score meets the optimization goal.
 // Returns true if the score is 90% or higher of the maximum possible score.
 func (nr NumericalRating) IsGoalMet() bool {
-	return nr.Score >= nr.Max*0.9 // Consider goal met if score is 90% or higher
+	return nr.Score >= nr.Max*DefaultGoalMetThreshold // Consider goal met if score is 90% or higher
 }
 
 // String formats the numerical rating as a string in the form "score/max".
@@ -143,18 +149,27 @@ func validGrade(fl validator.FieldLevel) bool {
 //
 // Returns:
 //   - Configured PromptOptimizer instance
-func NewPromptOptimizer(llm llm.LLM, debugManager *utils.DebugManager, initialPrompt *llm.Prompt, taskDesc string, opts ...OptimizerOption) *PromptOptimizer {
+func NewPromptOptimizer(
+	llmInstance llm.LLM,
+	debugManager *debug.Manager,
+	initialPrompt *llm.Prompt,
+	taskDesc string,
+	opts ...OptimizerOption,
+) *PromptOptimizer {
+	// Register validation functions on first use
+	registerValidationFunctions()
+
 	optimizer := &PromptOptimizer{
-		llm:           llm,
+		llm:           llmInstance,
 		debugManager:  debugManager,
 		initialPrompt: initialPrompt,
 		taskDesc:      taskDesc,
 		history:       []OptimizationEntry{},
-		threshold:     0.8,
-		maxRetries:    3,
-		retryDelay:    time.Second * 2,
-		memorySize:    2,
-		iterations:    5,
+		threshold:     DefaultThreshold,
+		maxRetries:    DefaultMaxRetries,
+		retryDelay:    DefaultRetryDelay,
+		memorySize:    DefaultMemorySize,
+		iterations:    DefaultIterations,
 	}
 
 	for _, opt := range opts {
@@ -184,26 +199,32 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 	var bestPrompt *llm.Prompt
 	var bestScore float64
 
-	for i := 0; i < po.iterations; i++ {
+	for i := range po.iterations {
 		var entry OptimizationEntry
 		var err error
 
 		// Retry loop for assessment
-		for attempt := 0; attempt < po.maxRetries; attempt++ {
+		for attempt := range po.maxRetries {
 			entry, err = po.assessPrompt(ctx, currentPrompt)
 			if err == nil {
 				break
 			}
 
-			po.debugManager.LogResponse(fmt.Sprintf("Error in iteration %d, attempt %d: %v", i+1, attempt+1, err))
+			po.debugManager.LogResponse("iteration_error",
+				fmt.Sprintf("Error in iteration %d, attempt %d: %v", i+1, attempt+1, err))
 			if attempt < po.maxRetries-1 {
-				po.debugManager.LogResponse(fmt.Sprintf("Retrying in %v...", po.retryDelay))
+				po.debugManager.LogResponse("retry_info", fmt.Sprintf("Retrying in %v...", po.retryDelay))
 				time.Sleep(po.retryDelay)
 			}
 		}
 
 		if err != nil {
-			return bestPrompt, fmt.Errorf("optimization failed at iteration %d after %d attempts: %w", i+1, po.maxRetries, err)
+			return bestPrompt, fmt.Errorf(
+				"optimization failed at iteration %d after %d attempts: %w",
+				i+1,
+				po.maxRetries,
+				err,
+			)
 		}
 
 		po.history = append(po.history, entry)
@@ -220,23 +241,26 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 		}
 
 		// Check if optimization goal is met
-		goalMet, err := po.isOptimizationGoalMet(entry.Assessment)
+		goalMet, err := po.isOptimizationGoalMet(&entry.Assessment)
 		if err != nil {
-			po.debugManager.LogResponse(fmt.Sprintf("Error checking optimization goal: %v", err))
+			po.debugManager.LogResponse("goal_check_error", fmt.Sprintf("Error checking optimization goal: %v", err))
 		} else if goalMet {
-			po.debugManager.LogResponse(fmt.Sprintf("Optimization complete after %d iterations. Goal achieved.", i+1))
+			po.debugManager.LogResponse("optimization_complete",
+				fmt.Sprintf("Optimization complete after %d iterations. Goal achieved.", i+1))
 			return currentPrompt, nil
 		}
 
 		// Generate improved prompt
-		improvedPrompt, err := po.generateImprovedPrompt(ctx, entry)
+		improvedPrompt, err := po.generateImprovedPrompt(ctx, &entry)
 		if err != nil {
-			po.debugManager.LogResponse(fmt.Sprintf("Failed to generate improved prompt at iteration %d: %v", i+1, err))
+			po.debugManager.LogResponse("improvement_failed",
+				fmt.Sprintf("Failed to generate improved prompt at iteration %d: %v", i+1, err))
 			continue
 		}
 
 		currentPrompt = improvedPrompt
-		po.debugManager.LogResponse(fmt.Sprintf("Iteration %d complete. New prompt: %s", i+1, currentPrompt.Input))
+		po.debugManager.LogResponse("iteration_complete",
+			fmt.Sprintf("Iteration %d complete. New prompt: %s", i+1, currentPrompt.Input))
 	}
 
 	return bestPrompt, nil

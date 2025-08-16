@@ -5,30 +5,27 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // OllamaProvider implements the Provider interface for Ollama's API.
 // It enables interaction with locally hosted language models through Ollama,
 // supporting various open-source models like Llama, Mistral, and others.
 type OllamaProvider struct {
-	// endpoint is the base URL for the Ollama API
-	endpoint string // Ollama API endpoint URL
-	// model is the name of the model to use (e.g., "llama2", "mistral")
-	model string // Model identifier (e.g., "llama2", "mistral")
-	// extraHeaders are additional HTTP headers for requests
-	extraHeaders map[string]string // Additional HTTP headers
-	// options are model-specific options for the provider
-	options map[string]any // Model-specific options
-	// logger is the logger instance for this provider
-	logger utils.Logger // Logger instance
+	logger       logging.Logger
+	extraHeaders map[string]string
+	options      map[string]any
+	endpoint     string
+	model        string
 }
 
 // NewOllamaProvider creates a new Ollama provider instance.
@@ -42,7 +39,7 @@ type OllamaProvider struct {
 //
 // Returns:
 //   - A configured Ollama Provider instance
-func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+func NewOllamaProvider(_ string, model string, extraHeaders map[string]string) *OllamaProvider {
 	endpoint := "http://localhost:11434"
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
@@ -52,13 +49,13 @@ func NewOllamaProvider(apiKey, model string, extraHeaders map[string]string) Pro
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
 // SetLogger configures the logger for the Ollama provider.
 // This is used for debugging and monitoring API interactions.
-func (p *OllamaProvider) SetLogger(logger utils.Logger) {
+func (p *OllamaProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -89,23 +86,23 @@ func (p *OllamaProvider) SetOption(key string, value any) {
 
 // SetDefaultOptions configures standard options from the global configuration.
 // This includes temperature and other generation parameters.
-func (p *OllamaProvider) SetDefaultOptions(config *config.Config) {
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption("num_predict", config.MaxTokens)
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+func (p *OllamaProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("num_predict", cfg.MaxTokens)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
-	if config.OllamaEndpoint != "" {
-		p.SetEndpoint(config.OllamaEndpoint)
+	if cfg.OllamaEndpoint != "" {
+		p.SetEndpoint(cfg.OllamaEndpoint)
 	}
-	p.SetOption("top_p", config.TopP)
-	p.SetOption("min_p", config.MinP)
-	p.SetOption("repeat_penalty", config.RepeatPenalty)
-	p.SetOption("repeat_last_n", config.RepeatLastN)
-	p.SetOption("mirostat", config.Mirostat)
-	p.SetOption("mirostat_eta", config.MirostatEta)
-	p.SetOption("mirostat_tau", config.MirostatTau)
-	p.SetOption("tfs_z", config.TfsZ)
+	p.SetOption("top_p", cfg.TopP)
+	p.SetOption("min_p", cfg.MinP)
+	p.SetOption("repeat_penalty", cfg.RepeatPenalty)
+	p.SetOption("repeat_last_n", cfg.RepeatLastN)
+	p.SetOption("mirostat", cfg.Mirostat)
+	p.SetOption("mirostat_eta", cfg.MirostatEta)
+	p.SetOption("mirostat_tau", cfg.MirostatTau)
+	p.SetOption("tfs_z", cfg.TfsZ)
 }
 
 // SupportsJSONSchema indicates whether this provider supports JSON schema validation.
@@ -142,13 +139,17 @@ func (p *OllamaProvider) PrepareRequest(prompt string, options map[string]any) (
 		requestBody[k] = v
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareRequestWithSchema creates a request with JSON schema validation.
 // Since Ollama doesn't support schema validation natively, this falls back to
 // standard request preparation.
-func (p *OllamaProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
+func (p *OllamaProvider) PrepareRequestWithSchema(prompt string, options map[string]any, _ any) ([]byte, error) {
 	// Ollama doesn't support JSON schema validation natively
 	// We'll just use the regular PrepareRequest method
 	return p.PrepareRequest(prompt, options)
@@ -217,7 +218,11 @@ func (p *OllamaProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 		return nil, nil // No function calls found
 	}
 
-	return json.Marshal(functionCalls)
+	data, err := json.Marshal(functionCalls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
+	}
+	return data, nil
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.
@@ -249,9 +254,9 @@ func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response
 		return nil, "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", p.Endpoint(), bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	for k, v := range p.Headers() {
@@ -261,13 +266,17 @@ func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			p.logger.Error("Failed to close response body", "error", err)
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to read response: %w", err)
 	}
 
 	result, err := p.ParseResponse(body)
@@ -280,7 +289,7 @@ func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response
 
 // SetDebugLevel sets the logging level for the provider.
 // This controls the verbosity of debug output.
-func (p *OllamaProvider) SetDebugLevel(level utils.LogLevel) {
+func (p *OllamaProvider) SetDebugLevel(level logging.LogLevel) {
 	if p.logger != nil {
 		p.logger.SetLevel(level)
 	}
@@ -317,7 +326,7 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 		return &Response{Usage: usage}, nil
 	}
 	if strings.TrimSpace(response.Response) == "" {
-		return nil, fmt.Errorf("skip resp")
+		return nil, errors.New("skip resp")
 	}
 	return &Response{Content: Text{Value: response.Response}}, nil
 }
@@ -332,7 +341,10 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *OllamaProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error) {
+func (p *OllamaProvider) PrepareRequestWithMessages(
+	messages []models.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
 	// Ollama doesn't natively support structured messages like Anthropic/OpenAI
 	// Convert to flattened format
 	var flattenedPrompt strings.Builder

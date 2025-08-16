@@ -6,14 +6,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/weave-labs/gollm/utils"
+
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 func TestConcurrentOptionsAccess(t *testing.T) {
-	mockLogger := &utils.MockLogger{}
-	// Configure mock logger to ignore any method calls
-	mockLogger.On("Debug", mock.Anything, mock.Anything).Return()
+	mockLogger := logging.NewMockLogger()
 
 	llm := &LLMImpl{
 		Options: make(map[string]any),
@@ -25,7 +23,7 @@ func TestConcurrentOptionsAccess(t *testing.T) {
 	concurrency := 100
 	wg.Add(concurrency)
 
-	for i := 0; i < concurrency; i++ {
+	for i := range concurrency {
 		go func(i int) {
 			defer wg.Done()
 			key := fmt.Sprintf("key%d", i)
@@ -36,7 +34,7 @@ func TestConcurrentOptionsAccess(t *testing.T) {
 	wg.Wait()
 
 	// Verify all options were set correctly
-	for i := 0; i < concurrency; i++ {
+	for i := range concurrency {
 		key := fmt.Sprintf("key%d", i)
 		llm.optionsMutex.RLock()
 		val, ok := llm.Options[key]
