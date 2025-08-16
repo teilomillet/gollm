@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/assess"
 	"github.com/teilomillet/gollm/presets"
@@ -83,7 +84,7 @@ Please structure your response as a JSON object with the following format:
 		prompt, err := balancedAnalysisTemplate.Execute(map[string]any{
 			"Topic": topic,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		test.AddCase(testName, prompt.String()).
 			WithTimeout(45*time.Second).

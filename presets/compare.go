@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/teilomillet/gollm/config"
@@ -29,9 +30,9 @@ type ComparisonResult[T any] struct {
 
 // debugLog outputs debug information when debug logging is enabled in the config.
 // It helps track the comparison process and troubleshoot issues.
-func debugLog(config *config.Config, format string, args ...any) {
-	if config.LogLevel == utils.LogLevelDebug {
-		fmt.Printf("[DEBUG] "+format+"\n", args...)
+func debugLog(cfg *config.Config, format string, args ...any) {
+	if cfg.LogLevel == utils.LogLevelDebug {
+		log.Printf("[DEBUG] "+format, args...)
 	}
 }
 

@@ -11,6 +11,10 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+const (
+	groqKeyMessages = "messages"
+)
+
 // GroqProvider implements the Provider interface for Groq's API.
 // It supports Groq's optimized language models and provides access to their
 // high-performance inference capabilities.
@@ -116,7 +120,7 @@ func (p *GroqProvider) Headers() map[string]string {
 func (p *GroqProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	requestBody := map[string]any{
 		"model": p.model,
-		"messages": []map[string]string{
+		groqKeyMessages: []map[string]string{
 			{"role": "user", "content": prompt},
 		},
 	}
@@ -131,7 +135,11 @@ func (p *GroqProvider) PrepareRequest(prompt string, options map[string]any) ([]
 		requestBody[k] = v
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareRequestWithSchema creates a request with JSON schema validation.
@@ -140,7 +148,7 @@ func (p *GroqProvider) PrepareRequest(prompt string, options map[string]any) ([]
 func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
 	requestBody := map[string]any{
 		"model": p.model,
-		"messages": []map[string]string{
+		groqKeyMessages: []map[string]string{
 			{"role": "user", "content": prompt},
 		},
 		"response_format": map[string]any{
@@ -161,7 +169,11 @@ func (p *GroqProvider) PrepareRequestWithSchema(prompt string, options map[strin
 		}
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // ParseResponse extracts the generated text from the Groq API response.
@@ -216,7 +228,11 @@ func (p *GroqProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 		return nil, nil // No function calls found
 	}
 
-	return json.Marshal(functionCalls)
+	data, err := json.Marshal(functionCalls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
+	}
+	return data, nil
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.
@@ -261,14 +277,14 @@ func (p *GroqProvider) PrepareRequestWithMessages(
 	options map[string]any,
 ) ([]byte, error) {
 	request := map[string]any{
-		"model":    p.model,
-		"messages": []map[string]any{},
+		"model":         p.model,
+		groqKeyMessages: []map[string]any{},
 	}
 
 	// Add system prompt if present
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		if messages, ok := request["messages"].([]map[string]any); ok {
-			request["messages"] = append(messages, map[string]any{
+		if messages, ok := request[groqKeyMessages].([]map[string]any); ok {
+			request[groqKeyMessages] = append(messages, map[string]any{
 				"role":    "system",
 				"content": systemPrompt,
 			})
@@ -277,8 +293,8 @@ func (p *GroqProvider) PrepareRequestWithMessages(
 
 	// Convert structured messages to Groq format (OpenAI compatible)
 	for _, msg := range messages {
-		if messagesArray, ok := request["messages"].([]map[string]any); ok {
-			request["messages"] = append(messagesArray, map[string]any{
+		if messagesArray, ok := request[groqKeyMessages].([]map[string]any); ok {
+			request[groqKeyMessages] = append(messagesArray, map[string]any{
 				"role":    msg.Role,
 				"content": msg.Content,
 			})
@@ -287,15 +303,19 @@ func (p *GroqProvider) PrepareRequestWithMessages(
 
 	// Add other options from provider and request
 	for k, v := range p.options {
-		if k != "messages" {
+		if k != groqKeyMessages {
 			request[k] = v
 		}
 	}
 	for k, v := range options {
-		if k != "messages" && k != "system_prompt" && k != "structured_messages" {
+		if k != groqKeyMessages && k != "system_prompt" && k != "structured_messages" {
 			request[k] = v
 		}
 	}
 
-	return json.Marshal(request)
+	data, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }

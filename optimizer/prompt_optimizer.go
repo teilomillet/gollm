@@ -144,14 +144,14 @@ func validGrade(fl validator.FieldLevel) bool {
 // Returns:
 //   - Configured PromptOptimizer instance
 func NewPromptOptimizer(
-	llm llm.LLM,
+	llmInstance llm.LLM,
 	debugManager *utils.DebugManager,
 	initialPrompt *llm.Prompt,
 	taskDesc string,
 	opts ...OptimizerOption,
 ) *PromptOptimizer {
 	optimizer := &PromptOptimizer{
-		llm:           llm,
+		llm:           llmInstance,
 		debugManager:  debugManager,
 		initialPrompt: initialPrompt,
 		taskDesc:      taskDesc,

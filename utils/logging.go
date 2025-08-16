@@ -83,8 +83,8 @@ func (l *DefaultLogger) Error(msg string, keysAndValues ...any) {
 	}
 }
 
-func (l LogLevel) String() string {
-	return [...]string{"OFF", "ERROR", "WARN", "INFO", "DEBUG"}[l]
+func (l *LogLevel) String() string {
+	return [...]string{"OFF", "ERROR", "WARN", "INFO", "DEBUG"}[*l]
 }
 
 func (l *LogLevel) UnmarshalText(text []byte) error {

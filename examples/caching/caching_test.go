@@ -125,22 +125,6 @@ This discussion covered various topics related to innovation, user-centered desi
 	}
 }
 
-// Helper function to calculate average duration of first attempts
-func averageFirstAttempts(queryTimes map[string][]time.Duration) time.Duration {
-	var total time.Duration
-	count := 0
-	for _, times := range queryTimes {
-		if len(times) > 0 {
-			total += times[0]
-			count++
-		}
-	}
-	if count == 0 {
-		return 0
-	}
-	return total / time.Duration(count)
-}
-
 // Helper function to calculate average duration of cache hits
 // func averageCacheHits(queryTimes map[string][]time.Duration) time.Duration {
 // 	var total time.Duration

@@ -46,7 +46,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
-	fmt.Printf("Simple JSON response:\n%s\n", response)
+	fmt.Printf("Simple JSON response:\n%s\n", response.AsText())
 
 	// Example 2: Structured JSON with Schema Validation
 	colorSchema := map[string]any{
@@ -72,7 +72,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate with schema: %v", err)
 	}
-	fmt.Printf("Schema-validated response:\n%s\n", response)
+	fmt.Printf("Schema-validated response:\n%s\n", response.AsText())
 
 	// Example 3: Complex Nested JSON Structure
 	fmt.Println("\nExample 3: Complex Nested JSON Structure")
@@ -83,7 +83,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate complex JSON: %v", err)
 	}
-	fmt.Printf("Complex nested JSON response:\n%s\n", response)
+	fmt.Printf("Complex nested JSON response:\n%s\n", response.AsText())
 
 	// Example 4: Mixed Format Response
 	fmt.Println("\nExample 4: Mixed Format Response")
@@ -109,7 +109,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate mixed format: %v", err)
 	}
-	fmt.Printf("Mixed format response:\n%s\n", response)
+	fmt.Printf("Mixed format response:\n%s\n", response.AsText())
 
 	fmt.Println("\nJSON examples completed.")
 }

@@ -69,9 +69,7 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 			return false
 		}
 		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				// Log error if we have a way to log it
-			}
+			_ = resp.Body.Close()
 		}()
 		return resp.StatusCode == http.StatusOK
 	}
@@ -114,7 +112,10 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 //	    log.Fatal(err)
 //	}
 func Validate(s any) error {
-	return validate.Struct(s)
+	if err := validate.Struct(s); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+	return nil
 }
 
 // RegisterCustomValidation registers a custom validation function with the validator.
@@ -135,7 +136,10 @@ func Validate(s any) error {
 //
 //	err := RegisterCustomValidation("model", validateModel)
 func RegisterCustomValidation(tag string, fn validator.Func) error {
-	return validate.RegisterValidation(tag, fn)
+	if err := validate.RegisterValidation(tag, fn); err != nil {
+		return fmt.Errorf("failed to register validation for tag '%s': %w", tag, err)
+	}
+	return nil
 }
 
 // GenerateJSONSchema generates a JSON schema for the given struct.
@@ -168,7 +172,11 @@ func GenerateJSONSchema(v any) ([]byte, error) {
 	if len(required) > 0 {
 		schema["required"] = required
 	}
-	return json.MarshalIndent(schema, "", "  ")
+	data, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal schema: %w", err)
+	}
+	return data, nil
 }
 
 // getStructProperties analyzes a struct type and returns its JSON schema properties.
@@ -196,7 +204,7 @@ func getStructProperties(t reflect.Type) (map[string]any, []string, error) {
 			jsonName = field.Name
 		}
 
-		fieldSchema, err := getFieldSchema(field)
+		fieldSchema, err := getFieldSchema(&field)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -219,7 +227,7 @@ func getStructProperties(t reflect.Type) (map[string]any, []string, error) {
 // Returns:
 //   - map[string]any: Field schema
 //   - error: Any error encountered during generation
-func getFieldSchema(field reflect.StructField) (map[string]any, error) {
+func getFieldSchema(field *reflect.StructField) (map[string]any, error) {
 	schema := make(map[string]any)
 
 	switch field.Type.Kind() {
@@ -234,7 +242,7 @@ func getFieldSchema(field reflect.StructField) (map[string]any, error) {
 		schema["type"] = typeBoolean
 	case reflect.Slice:
 		schema["type"] = typeArray
-		itemSchema, err := getFieldSchema(reflect.StructField{Type: field.Type.Elem()})
+		itemSchema, err := getFieldSchema(&reflect.StructField{Type: field.Type.Elem()})
 		if err != nil {
 			return nil, err
 		}

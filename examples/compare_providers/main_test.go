@@ -13,17 +13,17 @@ import (
 
 func TestCreateLLM(t *testing.T) {
 	// Test successful creation
-	llm, err := createLLM("openai", "gpt-4o-mini", os.Getenv("OPENAI_API_KEY"))
+	llm, err := createLLM("gpt-4o-mini", os.Getenv("OPENAI_API_KEY"))
 	assert.NoError(t, err, "Should create LLM instance")
 	assert.NotNil(t, llm, "LLM instance should not be nil")
 
 	// Test with empty API key
-	_, err = createLLM("openai", "gpt-4o-mini", "")
+	_, err = createLLM("gpt-4o-mini", "")
 	assert.Error(t, err, "Should fail with empty API key")
 	assert.Contains(t, err.Error(), "APIKeys", "Error should mention API key validation")
 
 	// Test with invalid model
-	_, err = createLLM("openai", "invalid-model", os.Getenv("OPENAI_API_KEY"))
+	_, err = createLLM("invalid-model", os.Getenv("OPENAI_API_KEY"))
 	assert.NoError(t, err, "Should create LLM instance even with invalid model")
 }
 
@@ -33,10 +33,10 @@ func TestCompareHelperFunctions(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	llm1, err := createLLM("openai", "gpt-4o-mini", os.Getenv("OPENAI_API_KEY"))
+	llm1, err := createLLM("gpt-4o-mini", os.Getenv("OPENAI_API_KEY"))
 	assert.NoError(t, err, "Should create first LLM instance")
 
-	llm2, err := createLLM("openai", "gpt-4o", os.Getenv("OPENAI_API_KEY"))
+	llm2, err := createLLM("gpt-4o", os.Getenv("OPENAI_API_KEY"))
 	assert.NoError(t, err, "Should create second LLM instance")
 
 	// Test compareBasicPrompt

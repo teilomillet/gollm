@@ -3,6 +3,7 @@ package llm
 
 import (
 	"bytes"
+	"fmt"
 	"text/template"
 )
 
@@ -61,11 +62,11 @@ type PromptTemplateOption func(*PromptTemplate)
 //	    "Answer this question: {{.question}}\nContext: {{.context}}",
 //	    WithPromptOptions(WithMaxLength(200)),
 //	)
-func NewPromptTemplate(name, description, template string, opts ...PromptTemplateOption) *PromptTemplate {
+func NewPromptTemplate(name, description, tmpl string, opts ...PromptTemplateOption) *PromptTemplate {
 	pt := &PromptTemplate{
 		Name:        name,
 		Description: description,
-		Template:    template,
+		Template:    tmpl,
 	}
 	for _, opt := range opts {
 		opt(pt)
@@ -122,12 +123,12 @@ func WithPromptOptions(options ...PromptOption) PromptTemplateOption {
 func (pt *PromptTemplate) Execute(data map[string]any) (*Prompt, error) {
 	tmpl, err := template.New(pt.Name).Parse(pt.Template)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse template: %w", err)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute template: %w", err)
 	}
 
 	prompt := NewPrompt(buf.String())

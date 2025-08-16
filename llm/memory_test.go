@@ -89,13 +89,17 @@ func (l *MockLLM) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 	structuredMsgs, ok := l.provider.options["structured_messages"]
 	if ok {
 		if messages, ok := structuredMsgs.([]types.MemoryMessage); ok {
-			l.provider.PrepareRequestWithMessages(messages, nil)
+			if _, err := l.provider.PrepareRequestWithMessages(messages, nil); err != nil {
+				return "", err
+			}
 			return "mock response", nil
 		}
 	}
 
 	// Use flattened message
-	l.provider.PrepareRequest(prompt.String(), nil)
+	if _, err := l.provider.PrepareRequest(prompt.String(), nil); err != nil {
+		return "", err
+	}
 	return "mock response", nil
 }
 

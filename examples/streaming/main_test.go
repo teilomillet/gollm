@@ -92,22 +92,6 @@ func TestStreaming(t *testing.T) {
 	test.RunBatch(ctx)
 }
 
-// Helper function to collect stream tokens
-func collectStreamTokens(stream gollm.TokenStream, ctx context.Context) ([]string, error) {
-	tokens := make([]string, 0, 100)
-	for {
-		token, err := stream.Next(ctx)
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-		tokens = append(tokens, token.Text)
-	}
-	return tokens, nil
-}
-
 // TestProviderStreaming tests the actual streaming implementation of each provider
 func TestProviderStreaming(t *testing.T) {
 	providers := map[string]string{
@@ -178,7 +162,11 @@ func TestProviderStreaming(t *testing.T) {
 			if stream == nil {
 				t.Fatal("Stream is nil but no error was returned")
 			}
-			defer stream.Close()
+			defer func() {
+				if err := stream.Close(); err != nil {
+					t.Logf("Failed to close stream: %v", err)
+				}
+			}()
 
 			// Read first token to verify stream is working
 			token, err := stream.Next(ctx)

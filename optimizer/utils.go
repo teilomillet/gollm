@@ -2,6 +2,7 @@
 package optimizer
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -185,7 +186,7 @@ func normalizeGrade(grade string, _ float64) (string, error) {
 
 	numericGrade, err := strconv.ParseFloat(grade, 64)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse grade '%s' as float: %w", grade, err)
 	}
 
 	switch {

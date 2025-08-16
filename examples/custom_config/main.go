@@ -76,7 +76,7 @@ func main() {
 			continue
 		}
 
-		fmt.Printf("Topic: %s\nAnalysis:\n%s\n\n", topic, analysis)
+		fmt.Printf("Topic: %s\nAnalysis:\n%s\n\n", topic, analysis.AsText())
 	}
 
 	// Demonstrate dynamic configuration changes

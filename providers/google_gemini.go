@@ -212,7 +212,11 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]any) (
 		requestBody[k] = v
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareRequestWithMessages creates a request body from a sequence of structured messages (conversation history).
@@ -304,7 +308,11 @@ func (p *GeminiProvider) PrepareRequestWithMessages(
 		requestBody["generationConfig"] = genConfig
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareRequestWithSchema builds a request similar to PrepareRequest but enforces a JSON output schema.
@@ -348,7 +356,11 @@ func (p *GeminiProvider) PrepareRequestWithSchema(prompt string, _ map[string]an
 	}
 	requestBody["generationConfig"] = genConfig
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // ParseResponse parses the JSON response from a non-streaming GenerateContent request.
@@ -465,7 +477,11 @@ func (p *GeminiProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 		return nil, nil
 	}
 	p.logger.Debug("Function calls found: %v", calls)
-	return json.Marshal(calls)
+	data, err := json.Marshal(calls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareStreamRequest creates the request body for a streaming content request.

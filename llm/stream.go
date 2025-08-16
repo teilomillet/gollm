@@ -23,7 +23,7 @@ type StreamToken struct {
 type TokenStream interface {
 	// Next returns the next token in the stream.
 	// When the stream is finished, it returns io.EOF.
-	Next(context.Context) (*StreamToken, error)
+	Next(ctx context.Context) (*StreamToken, error)
 
 	// Close releases any resources associated with the stream.
 	io.Closer
@@ -41,7 +41,7 @@ type StreamConfig struct {
 // RetryStrategy defines how to handle stream interruptions.
 type RetryStrategy interface {
 	// ShouldRetry determines if a retry should be attempted.
-	ShouldRetry(error) bool
+	ShouldRetry(err error) bool
 
 	// NextDelay returns the delay before the next retry.
 	NextDelay() time.Duration

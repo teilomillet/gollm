@@ -1,4 +1,4 @@
-package data_extraction
+package main
 
 import (
 	"context"

@@ -112,7 +112,7 @@ func main() {
 }
 
 func createLLM(apiKey string, enableCaching bool) (gollm.LLM, error) {
-	return gollm.NewLLM(
+	llm, err := gollm.NewLLM(
 		gollm.SetProvider("anthropic"),
 		gollm.SetModel("claude-3-5-sonnet-20240620"),
 		gollm.SetAPIKey(apiKey),
@@ -121,4 +121,8 @@ func createLLM(apiKey string, enableCaching bool) (gollm.LLM, error) {
 		gollm.SetEnableCaching(enableCaching),
 		gollm.SetTimeout(30*time.Second),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM: %w", err)
+	}
+	return llm, nil
 }

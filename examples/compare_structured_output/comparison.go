@@ -27,16 +27,16 @@ type ComplexPerson struct {
 	LuckyNumber   int      `json:"luckyNumber" validate:"required,gte=1,lte=100"`
 }
 
-func debugLog(level gollm.LogLevel, format string, args ...any) {
-	if level == gollm.LogLevelDebug {
+var debugLevel = gollm.LogLevelWarn // Set to LogLevelDebug for verbose output
+
+func debugLog(format string, args ...any) {
+	if debugLevel == gollm.LogLevelDebug {
 		fmt.Printf("[DEBUG] "+format+"\n", args...)
 	}
 }
 
 func main() {
 	ctx := context.Background()
-
-	debugLevel := gollm.LogLevelWarn // Set to LogLevelDebug for verbose output
 
 	fmt.Println("Starting structured output comparison...")
 
@@ -76,14 +76,14 @@ func main() {
 		gollm.SetLogLevel(debugLevel)(config)
 
 		configs = append(configs, config)
-		debugLog(debugLevel, "Created configuration for %s %s", m.provider, m.model)
+		debugLog("Created configuration for %s %s", m.provider, m.model)
 	}
 
 	if len(configs) == 0 {
 		log.Fatalf("No valid configurations created. Please check your API keys.")
 	}
 
-	debugLog(debugLevel, "Created %d valid configurations", len(configs))
+	debugLog("Created %d valid configurations", len(configs))
 
 	// Generate JSON schema for ComplexPerson
 	schema, err := gollm.GenerateJSONSchema(ComplexPerson{})
@@ -91,14 +91,14 @@ func main() {
 		log.Fatalf("Failed to generate JSON schema: %v", err)
 	}
 
-	debugLog(debugLevel, "Generated JSON schema for ComplexPerson")
+	debugLog("Generated JSON schema for ComplexPerson")
 
 	// Create prompt for generating ComplexPerson data
 	promptText := "Generate information about a fictional person.\nCreate a fictional person with the following attributes: name, age, occupation, city, country, favorite color, hobbies (1-5), education, pet name, and lucky number (1-100).\nEnsure all fields are filled and adhere to the specified constraints.\nReturn the data as a JSON object that adheres to this schema:\n" + string(
 		schema,
 	)
 
-	debugLog(debugLevel, "Created prompt for generating ComplexPerson data")
+	debugLog("Created prompt for generating ComplexPerson data")
 
 	// Define a validation function for ComplexPerson
 	validateComplexPerson := func(person ComplexPerson) error {
@@ -130,7 +130,7 @@ func main() {
 
 		if result.Error != nil {
 			fmt.Printf("Error: %v\n", result.Error)
-			debugLog(debugLevel, "Raw response:\n%s", result.Response)
+			debugLog("Raw response:\n%s", result.Response)
 			continue
 		}
 
@@ -138,12 +138,12 @@ func main() {
 		prettyJSON, err := json.MarshalIndent(result.Data, "", "  ")
 		if err != nil {
 			fmt.Printf("Error prettifying JSON: %v\n", err)
-			debugLog(debugLevel, "Raw response:\n%s", result.Response)
+			debugLog("Raw response:\n%s", result.Response)
 		} else {
 			fmt.Printf("%s\n", string(prettyJSON))
 		}
 
-		debugLog(debugLevel, "Processed result for %s %s", result.Provider, result.Model)
+		debugLog("Processed result for %s %s", result.Provider, result.Model)
 
 		fmt.Printf("%s\n", strings.Repeat("=", 50))
 	}
@@ -153,5 +153,5 @@ func main() {
 	analysis := presets.AnalyzeComparisonResults(results)
 	fmt.Println(analysis)
 
-	debugLog(debugLevel, "Structured output comparison completed")
+	debugLog("Structured output comparison completed")
 }

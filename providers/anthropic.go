@@ -233,7 +233,11 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any
 		}
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // Helper function to split the system prompt into a maximum of n parts
@@ -309,7 +313,11 @@ func (p *AnthropicProvider) PrepareRequestWithSchema(
 		}
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // ParseResponse extracts the generated text from the Anthropic API response.
@@ -436,7 +444,11 @@ func (p *AnthropicProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	}
 
 	p.logger.Debug("Function calls to handle: %v", functionCalls)
-	return json.Marshal(functionCalls)
+	data, err := json.Marshal(functionCalls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
+	}
+	return data, nil
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.
@@ -453,8 +465,8 @@ func (p *AnthropicProvider) SupportsStreaming() bool {
 // PrepareStreamRequest creates a request body for streaming API calls
 func (p *AnthropicProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
 	requestBody := map[string]any{
-		"model":  p.model,
-		"stream": true,
+		"model":   p.model,
+		keyStream: true,
 		"messages": []map[string]any{
 			{
 				"role":    "user",
@@ -484,12 +496,16 @@ func (p *AnthropicProvider) PrepareStreamRequest(prompt string, options map[stri
 
 	// Add other options
 	for k, v := range options {
-		if k != "stream" { // Don't override stream setting
+		if k != keyStream { // Don't override stream setting
 			requestBody[k] = v
 		}
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // ParseStreamResponse processes a single SSE JSON "data:" payload from Anthropic Messages streaming.
@@ -670,7 +686,11 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 		}
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // anthropicResponse represents the structure of a response from the Anthropic API.

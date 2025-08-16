@@ -46,7 +46,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
-	fmt.Printf("Basic prompt response:\n%s\n", response)
+	fmt.Printf("Basic prompt response:\n%s\n", response.AsText())
 
 	// Example 2: Advanced Prompt with Directives and Output
 	fmt.Println("\nExample 2: Advanced Prompt with Directives and Output")
@@ -65,7 +65,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
-	fmt.Printf("Advanced prompt response:\n%s\n", response)
+	fmt.Printf("Advanced prompt response:\n%s\n", response.AsText())
 
 	// Example 3: Prompt with Context
 	fmt.Println("\nExample 3: Prompt with Context")
@@ -82,7 +82,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
-	fmt.Printf("Context prompt response:\n%s\n", response)
+	fmt.Printf("Context prompt response:\n%s\n", response.AsText())
 
 	// Example 4: JSON Schema Generation and Validation
 	fmt.Println("\nExample 4: JSON Schema Generation and Validation")
@@ -145,7 +145,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate Chain of Thought response: %v", err)
 	}
-	fmt.Printf("Chain of Thought response:\n%s\n", cotResponse)
+	fmt.Printf("Chain of Thought response:\n%s\n", cotResponse.AsText())
 
 	fmt.Println("\nBasic usage example completed.")
 }

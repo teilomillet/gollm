@@ -318,7 +318,11 @@ func (p *Prompt) GenerateJSONSchema(opts ...SchemaOption) ([]byte, error) {
 		opt(reflector)
 	}
 	schema := reflector.Reflect(p)
-	return schema.MarshalJSON()
+	jsonData, err := schema.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON schema: %w", err)
+	}
+	return jsonData, nil
 }
 
 // SchemaOption is a function type for configuring JSON schema generation.

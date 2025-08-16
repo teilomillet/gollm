@@ -55,7 +55,7 @@ func createLLM(
 	mirostatEta, mirostatTau, tfsZ float64,
 	seed int,
 ) (gollm.LLM, error) {
-	return gollm.NewLLM(
+	llm, err := gollm.NewLLM(
 		gollm.SetProvider("ollama"),
 		gollm.SetModel("llama3.1"),
 		gollm.SetOllamaEndpoint("http://localhost:11434"),
@@ -70,6 +70,10 @@ func createLLM(
 		gollm.SetTfsZ(tfsZ),
 		gollm.SetSeed(seed),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM: %w", err)
+	}
+	return llm, nil
 }
 
 func getUserFeedback(llmName string) {

@@ -85,7 +85,7 @@ func (l *LlmImpl) SetOption(key string, value any) {
 }
 
 func (l *LlmImpl) SetOllamaEndpoint(endpoint string) error {
-	if p, ok := l.provider.(interface{ SetEndpoint(string) }); ok {
+	if p, ok := l.provider.(interface{ SetEndpoint(endpoint string) }); ok {
 		p.SetEndpoint(endpoint)
 		return nil
 	}
@@ -95,14 +95,18 @@ func (l *LlmImpl) SetOllamaEndpoint(endpoint string) error {
 // GetPromptJSONSchema generates and returns the JSON schema for the Prompt.
 func (l *LlmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
 	p := &Prompt{}
-	return p.GenerateJSONSchema(opts...)
+	schema, err := p.GenerateJSONSchema(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate JSON schema: %w", err)
+	}
+	return schema, nil
 }
 
 // UpdateLogLevel updates the log level for both the gollm package and the internal llm package.
 func (l *LlmImpl) UpdateLogLevel(level LogLevel) {
 	l.config.LogLevel = level
 	l.logger.SetLevel(level)
-	if internalLLM, ok := l.LLM.(interface{ SetLogLevel(utils.LogLevel) }); ok {
+	if internalLLM, ok := l.LLM.(interface{ SetLogLevel(level utils.LogLevel) }); ok {
 		internalLLM.SetLogLevel(level)
 	}
 }

@@ -1,4 +1,4 @@
-// Package testing provides testing utilities for the Gollm library.
+// Package assess provides testing utilities for the Gollm library.
 package assess
 
 import (
@@ -18,6 +18,17 @@ import (
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/llm"
 	"golang.org/x/time/rate"
+)
+
+// Constants for default values
+const (
+	DefaultTestTimeout   = 30 * time.Second
+	DefaultBatchTimeout  = 10 * time.Minute
+	DefaultMaxParallel   = 5
+	DefaultMaxRetries    = 3
+	DefaultRetryDelay    = 2 * time.Second
+	AverageWeight        = 2
+	PercentageMultiplier = 100
 )
 
 // BatchTestConfig configures batch test execution
@@ -107,6 +118,7 @@ func NewTest(t *testing.T) *TestRunner {
 	}
 }
 
+// WithProvider adds a provider to test against.
 func (tr *TestRunner) WithProvider(name, model string) *TestRunner {
 	tr.providers = append(tr.providers, TestProvider{
 		Name:    name,
@@ -160,7 +172,7 @@ func (tr *TestRunner) AddCase(name, input string) *TestCase {
 	tc := &TestCase{
 		Name:    name,
 		Input:   input,
-		Timeout: 30 * time.Second,
+		Timeout: DefaultTestTimeout,
 		options: make(map[string]any),
 	}
 	tr.cases = append(tr.cases, tc)
@@ -169,10 +181,10 @@ func (tr *TestRunner) AddCase(name, input string) *TestCase {
 
 func (tr *TestRunner) WithBatchConfig(cfg BatchTestConfig) *TestRunner {
 	if cfg.MaxParallel <= 0 {
-		cfg.MaxParallel = 5 // default
+		cfg.MaxParallel = DefaultMaxParallel // default
 	}
 	if cfg.BatchTimeout <= 0 {
-		cfg.BatchTimeout = 10 * time.Minute // default
+		cfg.BatchTimeout = DefaultBatchTimeout // default
 	}
 	tr.batchCfg = &cfg
 	tr.batchMetrics = &BatchMetrics{
@@ -216,8 +228,8 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 	if tr.batchCfg == nil {
 		tr.batchCfg = &BatchTestConfig{
 			EnableBatch:  true,
-			MaxParallel:  5,
-			BatchTimeout: 10 * time.Minute,
+			MaxParallel:  DefaultMaxParallel,
+			BatchTimeout: DefaultBatchTimeout,
 		}
 	}
 
@@ -297,7 +309,7 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 				// Update provider latency metrics
 				tr.mu.Lock()
 				if existing, ok := tr.batchMetrics.BatchTiming.ProviderLatency[p.Name]; ok {
-					tr.batchMetrics.BatchTiming.ProviderLatency[p.Name] = (existing + duration) / 2
+					tr.batchMetrics.BatchTiming.ProviderLatency[p.Name] = (existing + duration) / AverageWeight
 				} else {
 					tr.batchMetrics.BatchTiming.ProviderLatency[p.Name] = duration
 				}
@@ -331,7 +343,12 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 		} else {
 			tr.t.Logf("✓ [%s/%s] Completed in %v", result.provider, result.testCase, result.duration)
 		}
-		tr.t.Logf("Progress: %d/%d tests completed (%d%%)", completedTests, totalTests, (completedTests*100)/totalTests)
+		tr.t.Logf(
+			"Progress: %d/%d tests completed (%d%%)",
+			completedTests,
+			totalTests,
+			(completedTests*PercentageMultiplier)/totalTests,
+		)
 	}
 
 	// Record final metrics
@@ -376,7 +393,7 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 	}
 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to generate response: %w", err)
 	}
 
 	// Run validations
@@ -402,11 +419,11 @@ func (tr *TestRunner) setupClient(provider TestProvider) llm.LLM {
 		gollm.SetProvider(provider.Name),
 		gollm.SetModel(provider.Model),
 		gollm.SetAPIKey(apiKey),
-		gollm.SetMaxRetries(3),
-		gollm.SetRetryDelay(time.Second * 2),
+		gollm.SetMaxRetries(DefaultMaxRetries),
+		gollm.SetRetryDelay(DefaultRetryDelay),
 		gollm.SetLogLevel(gollm.LogLevelInfo),
 		gollm.SetEnableCaching(true),
-		gollm.SetTimeout(30 * time.Second),
+		gollm.SetTimeout(DefaultTestTimeout),
 	}
 
 	// Add provider-specific settings

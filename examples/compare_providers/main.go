@@ -20,12 +20,12 @@ func main() {
 	}
 
 	// Create LLM clients for different models
-	llmGPT3, err := createLLM("openai", "gpt-4o-mini", apiKey)
+	llmGPT3, err := createLLM("gpt-4o-mini", apiKey)
 	if err != nil {
 		log.Fatalf("Failed to create GPT-4o-mini LLM client: %v", err)
 	}
 
-	llmGPT4, err := createLLM("openai", "gpt-4o", apiKey)
+	llmGPT4, err := createLLM("gpt-4o", apiKey)
 	if err != nil {
 		log.Fatalf("Failed to create GPT-4o LLM client: %v", err)
 	}
@@ -85,15 +85,19 @@ func main() {
 	fmt.Println("\nExample completed.")
 }
 
-func createLLM(provider, model, apiKey string) (gollm.LLM, error) {
-	return gollm.NewLLM(
-		gollm.SetProvider(provider),
+func createLLM(model, apiKey string) (gollm.LLM, error) {
+	llm, err := gollm.NewLLM(
+		gollm.SetProvider("openai"),
 		gollm.SetModel(model),
 		gollm.SetAPIKey(apiKey),
 		gollm.SetMaxTokens(300),
 		gollm.SetMaxRetries(3),
 		gollm.SetLogLevel(gollm.LogLevelInfo),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM: %w", err)
+	}
+	return llm, nil
 }
 
 func compareBasicPrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2 gollm.LLM) {
@@ -107,8 +111,8 @@ func compareBasicPrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2 go
 		log.Printf("Failed to generate response from %s %s: %v", llm2.GetProvider(), llm2.GetModel(), err)
 	}
 
-	fmt.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1)
-	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2)
+	fmt.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1.AsText())
+	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2.AsText())
 }
 
 func compareDirectivePrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2 gollm.LLM) {
@@ -122,8 +126,8 @@ func compareDirectivePrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm
 		log.Printf("Failed to generate response from %s %s: %v", llm2.GetProvider(), llm2.GetModel(), err)
 	}
 
-	fmt.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1)
-	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2)
+	fmt.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1.AsText())
+	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2.AsText())
 }
 
 func compareTemplatePrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2 gollm.LLM) {
@@ -137,6 +141,6 @@ func compareTemplatePrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2
 		log.Printf("Failed to generate response from %s %s: %v", llm2.GetProvider(), llm2.GetModel(), err)
 	}
 
-	fmt.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1)
-	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2)
+	fmt.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1.AsText())
+	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2.AsText())
 }

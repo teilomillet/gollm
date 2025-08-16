@@ -11,6 +11,12 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+const (
+	cohereKeyText               = "text"
+	cohereKeyUser               = "user"
+	cohereKeyStructuredMessages = "structured_messages"
+)
+
 // CohereProvider implements the Provider interface for Cohere's API.
 // It supports Cohere's language models and provides access to their capabilities,
 // including chat completion and structured output
@@ -129,7 +135,7 @@ func (p *CohereProvider) PrepareRequest(prompt string, options map[string]any) (
 	requestBody := map[string]any{
 		"model": p.model,
 		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
+			{"role": cohereKeyUser, "content": prompt},
 		},
 	}
 
@@ -143,7 +149,11 @@ func (p *CohereProvider) PrepareRequest(prompt string, options map[string]any) (
 		requestBody[k] = v
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareRequestWithSchema creates a request that includes structured output formatting.
@@ -161,7 +171,7 @@ func (p *CohereProvider) PrepareRequestWithSchema(prompt string, options map[str
 	requestBody := map[string]any{
 		"model": p.model,
 		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
+			{"role": cohereKeyUser, "content": prompt},
 		},
 		"response_format": map[string]any{
 			"type":        "json_object",
@@ -179,7 +189,11 @@ func (p *CohereProvider) PrepareRequestWithSchema(prompt string, options map[str
 		requestBody[k] = v
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // ParseResponse extracts the generated text from the Cohere API response.
@@ -222,7 +236,7 @@ func (p *CohereProvider) ParseResponse(body []byte) (*Response, error) {
 
 	for _, content := range response.Message.Content {
 		switch content.Type {
-		case "text":
+		case cohereKeyText:
 			finalResponse.WriteString(content.Text)
 			p.logger.Debug("Text content: %s", content.Text)
 		}
@@ -262,7 +276,11 @@ func (p *CohereProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 		return nil, nil // No function calls found
 	}
 
-	return json.Marshal(functionCalls)
+	data, err := json.Marshal(functionCalls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
+	}
+	return data, nil
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.
@@ -308,7 +326,7 @@ func (p *CohereProvider) PrepareRequestWithMessages(
 
 	// Process messages and build chat history
 	for i, msg := range messages {
-		if i == len(messages)-1 && msg.Role == "user" {
+		if i == len(messages)-1 && msg.Role == cohereKeyUser {
 			// Last user message goes in the message field
 			userMessage = msg.Content
 		} else {
@@ -334,7 +352,7 @@ func (p *CohereProvider) PrepareRequestWithMessages(
 		}
 	}
 	for k, v := range options {
-		if k != "message" && k != "chat_history" && k != "system_prompt" && k != "structured_messages" {
+		if k != "message" && k != "chat_history" && k != "system_prompt" && k != cohereKeyStructuredMessages {
 			request[k] = v
 		}
 	}
@@ -344,5 +362,9 @@ func (p *CohereProvider) PrepareRequestWithMessages(
 		request["preamble"] = systemPrompt
 	}
 
-	return json.Marshal(request)
+	data, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }

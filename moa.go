@@ -155,7 +155,7 @@ func (moa *MOA) Generate(ctx context.Context, input string) (string, error) {
 //   - Combines outputs from all models in the layer
 func (moa *MOA) processLayer(ctx context.Context, layer MOALayer, input string) (string, error) {
 	results := make([]string, len(layer.Models))
-	errors := make([]error, len(layer.Models))
+	errs := make([]error, len(layer.Models))
 
 	// Create a worker pool if parallel processing is enabled
 	var wg sync.WaitGroup
@@ -183,7 +183,7 @@ func (moa *MOA) processLayer(ctx context.Context, layer MOALayer, input string) 
 
 			output, err := llmInstance.Generate(ctxToUse, llm.NewPrompt(input))
 			if err != nil {
-				errors[index] = err
+				errs[index] = err
 				return
 			}
 			results[index] = output.AsText()
@@ -193,7 +193,7 @@ func (moa *MOA) processLayer(ctx context.Context, layer MOALayer, input string) 
 	wg.Wait()
 
 	// Check for errors
-	for _, err := range errors {
+	for _, err := range errs {
 		if err != nil {
 			return "", fmt.Errorf("error in layer processing: %w", err)
 		}

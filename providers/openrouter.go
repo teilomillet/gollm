@@ -13,6 +13,10 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+const (
+	openRouterDefaultModel = "openrouter/auto"
+)
+
 // OpenRouterProvider implements the Provider interface for OpenRouter API.
 // It provides access to multiple LLMs through a single API, with features like
 // model routing, fallbacks, prompt caching.
@@ -150,7 +154,7 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]an
 		delete(req, "fallback_models")
 	} else if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
 		// Use OpenRouter's auto-routing capability
-		req["model"] = "openrouter/auto"
+		req["model"] = openRouterDefaultModel
 		delete(req, "auto_route")
 	}
 
@@ -200,7 +204,11 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]an
 		delete(req, "enable_prompt_caching")
 	}
 
-	return json.Marshal(req)
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareCompletionRequest creates a text completion request for the OpenRouter API.
@@ -228,7 +236,7 @@ func (p *OpenRouterProvider) PrepareCompletionRequest(prompt string, options map
 		delete(req, "fallback_models")
 	} else if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
 		// Use OpenRouter's auto-routing capability
-		req["model"] = "openrouter/auto"
+		req["model"] = openRouterDefaultModel
 		delete(req, "auto_route")
 	}
 
@@ -246,7 +254,11 @@ func (p *OpenRouterProvider) PrepareCompletionRequest(prompt string, options map
 		req["stream"] = true
 	}
 
-	return json.Marshal(req)
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareRequestWithSchema creates a request with JSON schema validation.
@@ -277,7 +289,7 @@ func (p *OpenRouterProvider) PrepareRequestWithSchema(
 		delete(req, "fallback_models")
 	} else if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
 		// Use OpenRouter's auto-routing capability
-		req["model"] = "openrouter/auto"
+		req["model"] = openRouterDefaultModel
 		delete(req, "auto_route")
 	}
 
@@ -328,7 +340,11 @@ func (p *OpenRouterProvider) PrepareRequestWithSchema(
 		delete(req, "enable_prompt_caching")
 	}
 
-	return json.Marshal(req)
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }
 
 // ParseResponse extracts the completion text from the OpenRouter API response.
@@ -626,7 +642,7 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(
 		delete(req, "fallback_models")
 	} else if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
 		// Use OpenRouter's auto-routing capability
-		req["model"] = "openrouter/auto"
+		req["model"] = openRouterDefaultModel
 		delete(req, "auto_route")
 	}
 
@@ -685,7 +701,11 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(
 		req["stream"] = true
 	}
 
-	return json.Marshal(req)
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
 }
 
 func init() {

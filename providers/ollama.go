@@ -138,7 +138,11 @@ func (p *OllamaProvider) PrepareRequest(prompt string, options map[string]any) (
 		requestBody[k] = v
 	}
 
-	return json.Marshal(requestBody)
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // PrepareRequestWithSchema creates a request with JSON schema validation.
@@ -213,7 +217,11 @@ func (p *OllamaProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 		return nil, nil // No function calls found
 	}
 
-	return json.Marshal(functionCalls)
+	data, err := json.Marshal(functionCalls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
+	}
+	return data, nil
 }
 
 // SetExtraHeaders configures additional HTTP headers for API requests.
@@ -247,7 +255,7 @@ func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.Endpoint(), bytes.NewReader(reqBody))
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	for k, v := range p.Headers() {
@@ -257,7 +265,7 @@ func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to send request: %w", err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -267,7 +275,7 @@ func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to read response: %w", err)
 	}
 
 	result, err := p.ParseResponse(body)

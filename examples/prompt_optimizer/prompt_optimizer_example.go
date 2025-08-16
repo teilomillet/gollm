@@ -68,5 +68,5 @@ func main() {
 		log.Fatalf("Failed to generate response: %v", err)
 	}
 
-	fmt.Printf("\nGenerated Content:\n%s\n", response)
+	fmt.Printf("\nGenerated Content:\n%s\n", response.AsText())
 }

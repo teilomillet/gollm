@@ -110,9 +110,8 @@ func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.Provide
 	}
 
 	provider, err := registry.Get(cfg.Provider, apiKey, cfg.Model, extraHeaders)
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get provider %s: %w", cfg.Provider, err)
 	}
 
 	provider.SetDefaultOptions(cfg)
@@ -253,7 +252,7 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 func (l *LLMImpl) wait(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return fmt.Errorf("context cancelled during retry wait: %w", ctx.Err())
 	case <-time.After(l.RetryDelay):
 		return nil
 	}
@@ -576,7 +575,7 @@ func (s *providerStream) Next(ctx context.Context) (*StreamToken, error) {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("context canceled: %w", ctx.Err())
 		default:
 			if !s.decoder.Next() {
 				if err := s.decoder.Err(); err != nil {

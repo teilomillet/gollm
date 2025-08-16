@@ -4,6 +4,7 @@ package optimizer
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -34,9 +35,9 @@ type BatchPromptOptimizer struct {
 // Example:
 //
 //	optimizer := NewBatchPromptOptimizer(llmInstance)
-func NewBatchPromptOptimizer(llm llm.LLM) *BatchPromptOptimizer {
+func NewBatchPromptOptimizer(llmInstance llm.LLM) *BatchPromptOptimizer {
 	return &BatchPromptOptimizer{
-		LLM:         llm,
+		LLM:         llmInstance,
 		rateLimiter: rate.NewLimiter(rate.Every(3*time.Second), 1), // Default: 1 request per 3 seconds
 	}
 }
@@ -155,7 +156,7 @@ func (bpo *BatchPromptOptimizer) OptimizePrompts(ctx context.Context, examples [
 
 			// Log progress if verbose mode is enabled
 			if bpo.Verbose {
-				fmt.Printf("Optimized prompt for %s: %s\n", example.Name, optimizedPrompt)
+				log.Printf("Optimized prompt for %s: %s", example.Name, optimizedPrompt)
 			}
 		}(i, example)
 	}

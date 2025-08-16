@@ -52,17 +52,20 @@ import (
 // - Quality thresholds for acceptance
 func OptimizePrompt(
 	ctx context.Context,
-	llm llm.LLM,
+	llmInstance llm.LLM,
 	config OptimizationConfig,
 ) (*llm.Prompt, *providers.Response, error) {
 	// Initialize debug manager for logging optimization process
-	debugManager := utils.NewDebugManager(llm.GetLogger(), utils.DebugOptions{LogPrompts: true, LogResponses: true})
+	debugManager := utils.NewDebugManager(
+		llmInstance.GetLogger(),
+		utils.DebugOptions{LogPrompts: true, LogResponses: true},
+	)
 
 	// Create initial prompt object
 	initialPrompt := llm.NewPrompt(config.Prompt)
 
 	// Configure and create optimizer instance
-	optimizer := NewPromptOptimizer(llm, debugManager, initialPrompt, config.Description,
+	optimizer := NewPromptOptimizer(llmInstance, debugManager, initialPrompt, config.Description,
 		WithCustomMetrics(config.Metrics...),
 		WithRatingSystem(config.RatingSystem),
 		WithOptimizationGoal("Optimize the prompt for "+config.Description),
@@ -83,7 +86,7 @@ func OptimizePrompt(
 	}
 
 	// Generate response using optimized prompt
-	response, err := llm.Generate(ctx, optimizedPrompt)
+	response, err := llmInstance.Generate(ctx, optimizedPrompt)
 	if err != nil {
 		return optimizedPrompt, nil, fmt.Errorf("response generation failed: %w", err)
 	}

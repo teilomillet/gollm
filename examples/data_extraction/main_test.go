@@ -1,4 +1,4 @@
-package data_extraction
+package main
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"github.com/teilomillet/gollm/presets"
 )
 
-func containsIgnoreCase(slice []string, str string) bool {
+func containsSciFi(slice []string) bool {
 	for _, s := range slice {
-		if strings.EqualFold(s, str) {
+		if strings.EqualFold(s, "Science Fiction") {
 			return true
 		}
 	}
@@ -158,7 +158,7 @@ func TestExtractReview(t *testing.T) {
 		assert.Equal(t, "Christopher Nolan", extracted.Director, "Should extract correct director")
 		assert.Equal(t, 2010, extracted.Year, "Should extract correct year")
 		assert.Equal(t, 9.5, extracted.Rating, "Should extract correct rating")
-		assert.True(t, containsIgnoreCase(extracted.Genres, "Science Fiction"), "Should extract genres")
+		assert.True(t, containsSciFi(extracted.Genres), "Should extract genres")
 		assert.NotEmpty(t, extracted.Summary, "Should extract summary")
 	})
 
@@ -184,7 +184,7 @@ func TestExtractReview(t *testing.T) {
 		assert.Equal(t, "Christopher Nolan", extracted.Director, "Should extract correct director")
 		assert.Equal(t, 2010, extracted.Year, "Should extract correct year")
 		assert.Equal(t, 9.5, extracted.Rating, "Should extract correct rating")
-		assert.True(t, containsIgnoreCase(extracted.Genres, "Science Fiction"), "Should extract genres")
+		assert.True(t, containsSciFi(extracted.Genres), "Should extract genres")
 		assert.NotEmpty(t, extracted.Summary, "Should extract summary")
 
 		// Validate the extracted review
@@ -262,7 +262,7 @@ func TestExtractReview(t *testing.T) {
 		assert.Equal(t, 9.5, review1.Rating, "Should extract correct rating in concurrent test")
 		assert.True(
 			t,
-			containsIgnoreCase(review1.Genres, "Science Fiction"),
+			containsSciFi(review1.Genres),
 			"Should extract genres in concurrent test",
 		)
 		assert.NotEmpty(t, review1.Summary, "Should extract summary in concurrent test")
@@ -273,7 +273,7 @@ func TestExtractReview(t *testing.T) {
 		assert.Equal(t, 9.5, review2.Rating, "Should extract correct rating in concurrent test")
 		assert.True(
 			t,
-			containsIgnoreCase(review2.Genres, "Science Fiction"),
+			containsSciFi(review2.Genres),
 			"Should extract genres in concurrent test",
 		)
 		assert.NotEmpty(t, review2.Summary, "Should extract summary in concurrent test")

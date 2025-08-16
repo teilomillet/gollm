@@ -300,7 +300,11 @@ func (p *GenericProvider) prepareOpenAIRequest(prompt string, options map[string
 		}
 	}
 
-	return json.Marshal(requestOptions)
+	data, err := json.Marshal(requestOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request options: %w", err)
+	}
+	return data, nil
 }
 
 func (p *GenericProvider) parseOpenAIResponse(body []byte) (*Response, error) {
@@ -413,7 +417,11 @@ func (p *GenericProvider) prepareAnthropicRequest(prompt string, options map[str
 		requestOptions["max_tokens"] = 1024 // Default
 	}
 
-	return json.Marshal(requestOptions)
+	data, err := json.Marshal(requestOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request options: %w", err)
+	}
+	return data, nil
 }
 
 func (p *GenericProvider) prepareAnthropicStructuredRequest(
@@ -567,7 +575,11 @@ func (p *GenericProvider) prepareOpenAIRequestWithMessages(
 
 	requestOptions["messages"] = openAIMessages
 
-	return json.Marshal(requestOptions)
+	data, err := json.Marshal(requestOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request options: %w", err)
+	}
+	return data, nil
 }
 
 // prepareAnthropicRequestWithMessages creates a request for Anthropic APIs using structured messages
@@ -627,5 +639,9 @@ func (p *GenericProvider) prepareAnthropicRequestWithMessages(
 		requestOptions["max_tokens"] = 1024 // Default
 	}
 
-	return json.Marshal(requestOptions)
+	data, err := json.Marshal(requestOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request options: %w", err)
+	}
+	return data, nil
 }

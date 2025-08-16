@@ -56,7 +56,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response)
+		fmt.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 2: Model Fallbacks
@@ -67,7 +67,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response)
+		fmt.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 3: Auto-Routing
@@ -89,7 +89,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response)
+		fmt.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 4: Prompt Caching
@@ -121,7 +121,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response)
+		fmt.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 5: JSON Schema Validation
@@ -150,7 +150,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response)
+		fmt.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 6: Reasoning Tokens
@@ -175,7 +175,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response with reasoning: %s\n\n", response)
+		fmt.Printf("Response with reasoning: %s\n\n", response.AsText())
 	}
 
 	// Example 7: Provider Routing Preferences
@@ -205,7 +205,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response)
+		fmt.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 8: Tool Calling
@@ -257,7 +257,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Tool call response: %s\n\n", response)
+		fmt.Printf("Tool call response: %s\n\n", response.AsText())
 	}
 }
 

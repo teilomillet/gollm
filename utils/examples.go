@@ -23,9 +23,7 @@ func ReadExamplesFromFile(filePath string) ([]string, error) {
 		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			// Log error if needed
-		}
+		_ = file.Close()
 	}()
 
 	var examples []string
