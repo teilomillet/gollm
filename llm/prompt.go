@@ -6,7 +6,8 @@ import (
 	"strings"
 
 	"github.com/invopop/jsonschema"
-	"github.com/weave-labs/gollm/utils"
+
+	"github.com/weave-labs/gollm/internal/models"
 )
 
 // CacheType defines how prompts and responses should be cached in the system.
