@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -100,7 +99,7 @@ Please structure your response as a JSON object with the following format:
 
 	// Analyze each topic
 	for _, topic := range topics {
-		fmt.Printf("Analyzing topic: %s\n", topic)
+		log.Printf("Analyzing topic: %s\n", topic)
 
 		// Execute the prompt template
 		prompt, err := balancedAnalysisTemplate.Execute(map[string]any{
@@ -126,14 +125,14 @@ Please structure your response as a JSON object with the following format:
 		}
 
 		// Print the structured analysis
-		fmt.Printf("Analysis for topic: %s\n", topic)
+		log.Printf("Analysis for topic: %s\n", topic)
 		for _, perspective := range result.Perspectives {
-			fmt.Printf("  Perspective: %s\n", perspective.Name)
+			log.Printf("  Perspective: %s\n", perspective.Name)
 			for _, implication := range perspective.Implications {
-				fmt.Printf("    - %s\n", implication)
+				log.Printf("    - %s\n", implication)
 			}
 		}
-		fmt.Printf("  Summary: %s\n\n", result.Summary)
+		log.Printf("  Summary: %s\n\n", result.Summary)
 
 		// Demonstrate additional gollm package features
 		summary, err := presets.Summarize(ctx, llmClient, analysisResp.AsText(), gollm.WithMaxLength(50))
@@ -141,11 +140,11 @@ Please structure your response as a JSON object with the following format:
 			log.Fatalf("Failed to generate summary: %v", err)
 		}
 
-		fmt.Printf("Brief summary (50 words): %s\n", summary)
+		log.Printf("Brief summary (50 words): %s\n", summary)
 	}
 
 	// Demonstrate error handling and retries
-	fmt.Println("\nDemonstrating error handling and retries:")
+	log.Println("\nDemonstrating error handling and retries:")
 
 	// Create a client with short timeout to demonstrate retries
 	retryClient, err := gollm.NewLLM(
@@ -171,9 +170,9 @@ Please structure your response as a JSON object with the following format:
 	)
 
 	if err != nil {
-		fmt.Printf("Got expected error after retries: %v\n", err)
-		fmt.Println("This demonstrates how the retry mechanism handles timeouts and errors gracefully.")
+		log.Printf("Got expected error after retries: %v\n", err)
+		log.Println("This demonstrates how the retry mechanism handles timeouts and errors gracefully.")
 	} else {
-		fmt.Println("Request succeeded (unexpected with short timeout)")
+		log.Println("Request succeeded (unexpected with short timeout)")
 	}
 }

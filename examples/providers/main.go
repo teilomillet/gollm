@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/teilomillet/gollm"
@@ -30,7 +29,7 @@ func main() {
 		log.Fatalf("Failed to generate response: %v", err)
 	}
 
-	fmt.Printf("Response with initial endpoint: %s\n", response.AsText())
+	log.Printf("Response with initial endpoint: %s\n", response.AsText())
 
 	// Change the Ollama endpoint
 	err = llm.SetOllamaEndpoint("http://localhost:11435") // Change to a different port for demonstration
@@ -42,7 +41,7 @@ func main() {
 		if err != nil {
 			log.Printf("Failed to generate response with new endpoint: %v", err)
 		} else {
-			fmt.Printf("Response with new endpoint: %s\n", response.AsText())
+			log.Printf("Response with new endpoint: %s\n", response.AsText())
 		}
 	}
 }

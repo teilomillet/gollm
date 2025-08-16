@@ -23,7 +23,7 @@ func main() {
 	if *apiKey == "" {
 		*apiKey = os.Getenv("OPENROUTER_API_KEY")
 		if *apiKey == "" {
-			fmt.Println("Please set the OPENROUTER_API_KEY environment variable or use -key flag")
+			log.Println("Please set the OPENROUTER_API_KEY environment variable or use -key flag")
 			os.Exit(1)
 		}
 	}
@@ -38,7 +38,7 @@ func main() {
 	ctx := context.Background()
 
 	// Example 1: Basic Usage with Chat Completions
-	fmt.Println("\n=== Example 1: Basic Usage with Chat Completions ===")
+	log.Println("\n=== Example 1: Basic Usage with Chat Completions ===")
 	llm, err := gollm.NewLLM(
 		gollm.SetProvider("openrouter"),
 		gollm.SetAPIKey(*apiKey),
@@ -47,31 +47,31 @@ func main() {
 		gollm.SetMaxTokens(1000),
 	)
 	if err != nil {
-		fmt.Printf("Error creating LLM: %v\n", err)
+		log.Printf("Error creating LLM: %v\n", err)
 		os.Exit(1)
 	}
 
 	prompt := gollm.NewPrompt("What are the main features of OpenRouter?")
 	response, err := llm.Generate(ctx, prompt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response.AsText())
+		log.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 2: Model Fallbacks
-	fmt.Println("\n=== Example 2: Model Fallbacks ===")
+	log.Println("\n=== Example 2: Model Fallbacks ===")
 	llm.SetOption("fallback_models", []string{"openai/gpt-4o", "gryphe/mythomax-l2-13b"})
 	prompt = gollm.NewPrompt("Explain how model fallback works in OpenRouter")
 	response, err = llm.Generate(ctx, prompt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response.AsText())
+		log.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 3: Auto-Routing
-	fmt.Println("\n=== Example 3: Auto-Routing ===")
+	log.Println("\n=== Example 3: Auto-Routing ===")
 	llm, err = gollm.NewLLM(
 		gollm.SetProvider("openrouter"),
 		gollm.SetAPIKey(*apiKey),
@@ -80,20 +80,20 @@ func main() {
 		gollm.SetMaxTokens(1000),
 	)
 	if err != nil {
-		fmt.Printf("Error creating LLM: %v\n", err)
+		log.Printf("Error creating LLM: %v\n", err)
 		os.Exit(1)
 	}
 
 	prompt = gollm.NewPrompt("What is the best model for creative writing?")
 	response, err = llm.Generate(ctx, prompt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response.AsText())
+		log.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 4: Prompt Caching
-	fmt.Println("\n=== Example 4: Prompt Caching ===")
+	log.Println("\n=== Example 4: Prompt Caching ===")
 	llm, err = gollm.NewLLM(
 		gollm.SetProvider("openrouter"),
 		gollm.SetAPIKey(*apiKey),
@@ -102,7 +102,7 @@ func main() {
 		gollm.SetMaxTokens(1000),
 	)
 	if err != nil {
-		fmt.Printf("Error creating LLM: %v\n", err)
+		log.Printf("Error creating LLM: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -119,13 +119,13 @@ func main() {
 	prompt = gollm.NewPrompt(largePromptText)
 	response, err = llm.Generate(ctx, prompt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response.AsText())
+		log.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 5: JSON Schema Validation
-	fmt.Println("\n=== Example 5: JSON Schema Validation ===")
+	log.Println("\n=== Example 5: JSON Schema Validation ===")
 	schema := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
@@ -148,13 +148,13 @@ func main() {
 	prompt = gollm.NewPrompt("Create a profile for a fictional person who loves technology")
 	response, err = llm.Generate(ctx, prompt, llmopts.WithStructuredResponse(schema))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response.AsText())
+		log.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 6: Reasoning Tokens
-	fmt.Println("\n=== Example 6: Reasoning Tokens ===")
+	log.Println("\n=== Example 6: Reasoning Tokens ===")
 	llm, err = gollm.NewLLM(
 		gollm.SetProvider("openrouter"),
 		gollm.SetAPIKey(*apiKey),
@@ -163,7 +163,7 @@ func main() {
 		gollm.SetMaxTokens(1000),
 	)
 	if err != nil {
-		fmt.Printf("Error creating LLM: %v\n", err)
+		log.Printf("Error creating LLM: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -173,13 +173,13 @@ func main() {
 	prompt = gollm.NewPrompt("What is the square root of 144 and why?")
 	response, err = llm.Generate(ctx, prompt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response with reasoning: %s\n\n", response.AsText())
+		log.Printf("Response with reasoning: %s\n\n", response.AsText())
 	}
 
 	// Example 7: Provider Routing Preferences
-	fmt.Println("\n=== Example 7: Provider Routing Preferences ===")
+	log.Println("\n=== Example 7: Provider Routing Preferences ===")
 	llm, err = gollm.NewLLM(
 		gollm.SetProvider("openrouter"),
 		gollm.SetAPIKey(*apiKey),
@@ -188,7 +188,7 @@ func main() {
 		gollm.SetMaxTokens(1000),
 	)
 	if err != nil {
-		fmt.Printf("Error creating LLM: %v\n", err)
+		log.Printf("Error creating LLM: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -203,13 +203,13 @@ func main() {
 	prompt = gollm.NewPrompt("Explain how provider routing works in OpenRouter")
 	response, err = llm.Generate(ctx, prompt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Response: %s\n\n", response.AsText())
+		log.Printf("Response: %s\n\n", response.AsText())
 	}
 
 	// Example 8: Tool Calling
-	fmt.Println("\n=== Example 8: Tool Calling ===")
+	log.Println("\n=== Example 8: Tool Calling ===")
 	llm, err = gollm.NewLLM(
 		gollm.SetProvider("openrouter"),
 		gollm.SetAPIKey(*apiKey),
@@ -218,7 +218,7 @@ func main() {
 		gollm.SetMaxTokens(1000),
 	)
 	if err != nil {
-		fmt.Printf("Error creating LLM: %v\n", err)
+		log.Printf("Error creating LLM: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -255,17 +255,17 @@ func main() {
 	prompt = gollm.NewPrompt("What's the weather in San Francisco?")
 	response, err = llm.Generate(ctx, prompt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 	} else {
-		fmt.Printf("Tool call response: %s\n\n", response.AsText())
+		log.Printf("Tool call response: %s\n\n", response.AsText())
 	}
 }
 
 // runIntegrationTests executes the OpenRouter integration tests with the provided API key.
 func runIntegrationTests(apiKey string) {
-	fmt.Println("Running OpenRouter integration tests with the provided API key...")
-	fmt.Println("This will make actual API calls to OpenRouter and consume credits.")
-	fmt.Println()
+	log.Println("Running OpenRouter integration tests with the provided API key...")
+	log.Println("This will make actual API calls to OpenRouter and consume credits.")
+	log.Println()
 
 	// Set the API key in the environment for the tests
 	if err := os.Setenv("OPENROUTER_API_KEY", apiKey); err != nil {
@@ -287,7 +287,7 @@ func runIntegrationTests(apiKey string) {
 
 	// Start the command with a timeout
 	if err := cmd.Start(); err != nil {
-		fmt.Printf("Error starting tests: %v\n", err)
+		log.Printf("Error starting tests: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -301,18 +301,18 @@ func runIntegrationTests(apiKey string) {
 	select {
 	case err := <-done:
 		if err != nil {
-			fmt.Printf("Test execution failed: %v\n", err)
+			log.Printf("Test execution failed: %v\n", err)
 			os.Exit(1)
 		}
 	case <-time.After(5 * time.Minute): // 5 minute timeout
 		// Kill the process if it takes too long
 		if err := cmd.Process.Kill(); err != nil {
-			fmt.Printf("Failed to kill test process: %v\n", err)
+			log.Printf("Failed to kill test process: %v\n", err)
 		}
-		fmt.Println("Tests timed out after 5 minutes")
+		log.Println("Tests timed out after 5 minutes")
 		os.Exit(1)
 	}
 
-	fmt.Println()
-	fmt.Println("Tests completed successfully!")
+	log.Println()
+	log.Println("Tests completed successfully!")
 }

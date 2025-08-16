@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/teilomillet/gollm"
@@ -35,5 +34,5 @@ func main() {
 		log.Fatalf("Summarize failed: %v", err)
 	}
 
-	fmt.Printf("Summary:\n%s\n", summary)
+	log.Printf("Summary:\n%s\n", summary)
 }

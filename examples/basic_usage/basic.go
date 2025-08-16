@@ -3,7 +3,6 @@ package basic_usage
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -13,7 +12,7 @@ import (
 
 // main is the entry point for the basic usage example.
 func main() {
-	fmt.Println("Starting the LLM basic usage example...")
+	log.Println("Starting the LLM basic usage example...")
 
 	// Load API key from environment variable
 	apiKey := os.Getenv("OPENAI_API_KEY")
@@ -34,23 +33,23 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}
-	fmt.Println("LLM created successfully with retry mechanism and custom configuration.")
+	log.Println("LLM created successfully with retry mechanism and custom configuration.")
 
 	ctx := context.Background()
 
 	// Example 1: Basic Prompt
-	fmt.Println("\nExample 1: Basic Prompt")
+	log.Println("\nExample 1: Basic Prompt")
 	basicPrompt := gollm.NewPrompt("Explain the concept of 'recursion' in programming.")
-	fmt.Printf("Basic prompt created: %+v\n", basicPrompt)
+	log.Printf("Basic prompt created: %+v\n", basicPrompt)
 
 	response, err := llm.Generate(ctx, basicPrompt)
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
-	fmt.Printf("Basic prompt response:\n%s\n", response.AsText())
+	log.Printf("Basic prompt response:\n%s\n", response.AsText())
 
 	// Example 2: Advanced Prompt with Directives and Output
-	fmt.Println("\nExample 2: Advanced Prompt with Directives and Output")
+	log.Println("\nExample 2: Advanced Prompt with Directives and Output")
 	advancedPrompt := gollm.NewPrompt("Compare and contrast functional and object-oriented programming paradigms",
 		gollm.WithDirectives(
 			"Provide at least three key differences",
@@ -60,16 +59,16 @@ func main() {
 		gollm.WithOutput("Comparison of Programming Paradigms:"),
 		gollm.WithMaxLength(300),
 	)
-	fmt.Printf("Advanced prompt created: %+v\n", advancedPrompt)
+	log.Printf("Advanced prompt created: %+v\n", advancedPrompt)
 
 	response, err = llm.Generate(ctx, advancedPrompt)
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
-	fmt.Printf("Advanced prompt response:\n%s\n", response.AsText())
+	log.Printf("Advanced prompt response:\n%s\n", response.AsText())
 
 	// Example 3: Prompt with Context
-	fmt.Println("\nExample 3: Prompt with Context")
+	log.Println("\nExample 3: Prompt with Context")
 	contextPrompt := gollm.NewPrompt(
 		"Summarize the main points",
 		gollm.WithContext(
@@ -77,30 +76,30 @@ func main() {
 		),
 		gollm.WithMaxLength(100),
 	)
-	fmt.Printf("Context prompt created: %+v\n", contextPrompt)
+	log.Printf("Context prompt created: %+v\n", contextPrompt)
 
 	response, err = llm.Generate(ctx, contextPrompt)
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
-	fmt.Printf("Context prompt response:\n%s\n", response.AsText())
+	log.Printf("Context prompt response:\n%s\n", response.AsText())
 
 	// Example 4: JSON Schema Generation and Validation
-	fmt.Println("\nExample 4: JSON Schema Generation and Validation")
-	fmt.Println("This example demonstrates how gollm validates prompts using JSON Schema.")
-	fmt.Println("A valid prompt must have input text and can optionally have other properties.")
+	log.Println("\nExample 4: JSON Schema Generation and Validation")
+	log.Println("This example demonstrates how gollm validates prompts using JSON Schema.")
+	log.Println("A valid prompt must have input text and can optionally have other properties.")
 
 	// First, let's look at the JSON Schema that defines a valid prompt
 	schemaBytes, err := llm.GetPromptJSONSchema()
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema: %v", err)
 	}
-	fmt.Println("\nPrompt JSON Schema (defines what makes a valid prompt):")
-	fmt.Printf("%s\n", string(schemaBytes))
+	log.Println("\nPrompt JSON Schema (defines what makes a valid prompt):")
+	log.Printf("%s\n", string(schemaBytes))
 
 	// Now let's test a valid prompt
-	fmt.Println("\n1. Testing a Valid Prompt:")
-	fmt.Println("Creating a prompt with input text: 'Provide an overview of Go language'")
+	log.Println("\n1. Testing a Valid Prompt:")
+	log.Println("Creating a prompt with input text: 'Provide an overview of Go language'")
 	validPrompt := gollm.NewPrompt("Provide an overview of Go language.")
 
 	// Print the prompt contents so we can see what we're validating
@@ -108,19 +107,19 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: Failed to format valid prompt JSON: %v", err)
 	}
-	fmt.Printf("\nPrompt contents:\n%s\n", string(validPromptJSON))
+	log.Printf("\nPrompt contents:\n%s\n", string(validPromptJSON))
 
 	// Validate the prompt
 	err = validPrompt.Validate()
 	if err != nil {
-		fmt.Printf("\n❌ Unexpected validation error: %v\n", err)
+		log.Printf("\n❌ Unexpected validation error: %v\n", err)
 	} else {
-		fmt.Println("\n✓ Validation passed: Prompt is valid because it has the required input text")
+		log.Println("\n✓ Validation passed: Prompt is valid because it has the required input text")
 	}
 
 	// Now let's test an invalid prompt
-	fmt.Println("\n2. Testing an Invalid Prompt:")
-	fmt.Println("Creating a prompt with NO input text (empty string)")
+	log.Println("\n2. Testing an Invalid Prompt:")
+	log.Println("Creating a prompt with NO input text (empty string)")
 	invalidPrompt := gollm.NewPrompt("")
 
 	// Print the prompt contents so we can see what we're validating
@@ -128,25 +127,25 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: Failed to format invalid prompt JSON: %v", err)
 	}
-	fmt.Printf("\nPrompt contents:\n%s\n", string(invalidPromptJSON))
+	log.Printf("\nPrompt contents:\n%s\n", string(invalidPromptJSON))
 
 	// Validate the prompt
 	err = invalidPrompt.Validate()
 	if err != nil {
-		fmt.Printf("\n✓ Validation failed as expected: %v\n", err)
-		fmt.Println("   This is correct because a prompt must have input text")
+		log.Printf("\n✓ Validation failed as expected: %v\n", err)
+		log.Println("   This is correct because a prompt must have input text")
 	} else {
-		fmt.Println("\n❌ Error: Invalid prompt unexpectedly passed validation!")
+		log.Println("\n❌ Error: Invalid prompt unexpectedly passed validation!")
 	}
 
 	// Example 5: Using Chain of Thought
-	fmt.Println("\nExample 5: Using Chain of Thought")
+	log.Println("\nExample 5: Using Chain of Thought")
 	cotPrompt := "Explain the process of photosynthesis step by step."
 	cotResponse, err := llm.Generate(ctx, gollm.NewPrompt(cotPrompt))
 	if err != nil {
 		log.Fatalf("Failed to generate Chain of Thought response: %v", err)
 	}
-	fmt.Printf("Chain of Thought response:\n%s\n", cotResponse.AsText())
+	log.Printf("Chain of Thought response:\n%s\n", cotResponse.AsText())
 
-	fmt.Println("\nBasic usage example completed.")
+	log.Println("\nBasic usage example completed.")
 }

@@ -62,7 +62,7 @@ This discussion covered various topics related to innovation, user-centered desi
 
 // main is the entry point for the caching example.
 func main() {
-	fmt.Println("Starting the Caching Example...")
+	log.Println("Starting the Caching Example...")
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
 		log.Fatalf("ANTHROPIC_API_KEY environment variable is not set")
@@ -73,7 +73,7 @@ func main() {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}
 	systemPrompt := createSystemPrompt()
-	fmt.Printf("System prompt length: %d words\n", len(strings.Fields(systemPrompt)))
+	log.Printf("System prompt length: %d words\n", len(strings.Fields(systemPrompt)))
 
 	userQueries := []string{
 		"What are the key differences between open-source and closed ecosystems as discussed by Linus Torvalds and Steve Jobs?",
@@ -83,7 +83,7 @@ func main() {
 	}
 
 	for i, query := range userQueries {
-		fmt.Printf("\nQuery %d: %s\n", i+1, query)
+		log.Printf("\nQuery %d: %s\n", i+1, query)
 		prompt := gollm.NewPrompt(query,
 			gollm.WithSystemPrompt(systemPrompt, gollm.CacheTypeEphemeral),
 			gollm.WithMessage("user", query, gollm.CacheTypeEphemeral),
@@ -103,14 +103,14 @@ func main() {
 				cacheStatus = "Cache Hit"
 			}
 
-			fmt.Printf("Attempt %d - %s - Time: %v\n", attempt+1, cacheStatus, duration)
-			fmt.Printf("Response: %s\n\n", strings.TrimSpace(response.AsText()))
+			log.Printf("Attempt %d - %s - Time: %v\n", attempt+1, cacheStatus, duration)
+			log.Printf("Response: %s\n\n", strings.TrimSpace(response.AsText()))
 		}
 
 		time.Sleep(2 * time.Second) // Short pause between queries
 	}
 
-	fmt.Println("Caching example completed.")
+	log.Println("Caching example completed.")
 }
 
 // createLLM creates an LLM instance with caching configuration.

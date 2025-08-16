@@ -5,7 +5,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -32,17 +31,17 @@ func main() {
 		log.Fatalf("Failed to create LLM: %v", err)
 	}
 
-	fmt.Println("Welcome to the Memory-Enabled Chatbot!")
-	fmt.Println("Type 'exit' to quit, or 'clear memory' to reset the conversation.")
+	log.Println("Welcome to the Memory-Enabled Chatbot!")
+	log.Println("Type 'exit' to quit, or 'clear memory' to reset the conversation.")
 
 	reader := bufio.NewReader(os.Stdin)
 	ctx := context.Background()
 
 	for {
-		fmt.Print("You: ")
+		log.Print("You: ")
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Printf("Error reading input: %v\n", err)
+			log.Printf("Error reading input: %v\n", err)
 			continue
 		}
 		input = strings.TrimSpace(input)
@@ -58,8 +57,8 @@ func main() {
 			continue
 		}
 
-		fmt.Printf("Chatbot: %s\n", response.AsText())
+		log.Printf("Chatbot: %s\n", response.AsText())
 	}
 
-	fmt.Println("Thank you for chatting!")
+	log.Println("Thank you for chatting!")
 }

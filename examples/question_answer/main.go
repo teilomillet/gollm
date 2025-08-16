@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/teilomillet/gollm"
@@ -39,7 +38,7 @@ func main() {
 		log.Fatalf("QuestionAnswer failed: %v", err)
 	}
 
-	fmt.Printf("Question: %s\n\n", question)
-	fmt.Printf("Context: %s\n\n", contextInfo)
-	fmt.Printf("Answer: %s\n", response)
+	log.Printf("Question: %s\n\n", question)
+	log.Printf("Context: %s\n\n", contextInfo)
+	log.Printf("Answer: %s\n", response)
 }

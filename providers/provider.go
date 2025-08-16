@@ -217,6 +217,9 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"google-openai": func(apiKey, model string, extraHeaders map[string]string) Provider {
 			return NewGeminiProvider(apiKey, model, extraHeaders)
 		},
+		"openrouter": func(apiKey, model string, extraHeaders map[string]string) Provider {
+			return NewOpenRouterProvider(apiKey, model, extraHeaders)
+		},
 		// Add other providers here as they are implemented
 	}
 

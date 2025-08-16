@@ -42,7 +42,7 @@ func extractReview[T any](ctx context.Context, llm gollm.LLM, text string, withV
 		validationMsg = "without"
 	}
 
-	fmt.Printf("Extracting movie review %s validation...\n", validationMsg)
+	log.Printf("Extracting movie review %s validation...\n", validationMsg)
 	review, err := presets.ExtractStructuredData[T](ctx, llm, text)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract movie review %s validation: %w", validationMsg, err)
@@ -51,7 +51,7 @@ func extractReview[T any](ctx context.Context, llm gollm.LLM, text string, withV
 }
 
 func main() {
-	fmt.Println("Starting application...")
+	log.Println("Starting application...")
 
 	apiKey := os.Getenv("GROQ_API_KEY")
 	if apiKey == "" {
@@ -122,25 +122,25 @@ func main() {
 			if !ok {
 				reviewChan = nil
 			} else {
-				fmt.Printf("\n%s\n", strings.Repeat("=", 50))
-				fmt.Println("\nExtracted Movie Review (without validation):")
+				log.Printf("\n%s\n", strings.Repeat("=", 50))
+				log.Println("\nExtracted Movie Review (without validation):")
 				printReview(review)
-				fmt.Printf("\n%s\n", strings.Repeat("=", 50))
+				log.Printf("\n%s\n", strings.Repeat("=", 50))
 			}
 		case reviewValidated, ok := <-reviewValidatedChan:
 			if !ok {
 				reviewValidatedChan = nil
 			} else {
-				fmt.Printf("\n%s\n", strings.Repeat("=", 50))
-				fmt.Println("\nExtracted Movie Review (with validation):")
+				log.Printf("\n%s\n", strings.Repeat("=", 50))
+				log.Println("\nExtracted Movie Review (with validation):")
 				printReview(reviewValidated)
-				fmt.Printf("\n%s\n", strings.Repeat("=", 50))
+				log.Printf("\n%s\n", strings.Repeat("=", 50))
 			}
 		case err, ok := <-errorChan:
 			if !ok {
 				errorChan = nil
 			} else {
-				fmt.Printf("Error occurred: %v\n", err)
+				log.Printf("Error occurred: %v\n", err)
 			}
 		}
 
@@ -149,7 +149,7 @@ func main() {
 		}
 	}
 
-	fmt.Println("Application completed.")
+	log.Println("Application completed.")
 }
 
 // printReview is a helper function to print the review in a more readable format
@@ -161,19 +161,19 @@ func printReview(review any) {
 		field := t.Field(i)
 		value := v.Field(i)
 
-		fmt.Printf("%-10s: ", field.Name)
+		log.Printf("%-10s: ", field.Name)
 
 		switch value.Kind() {
 		case reflect.String:
-			fmt.Printf("%s\n", value.String())
+			log.Printf("%s\n", value.String())
 		case reflect.Int:
-			fmt.Printf("%d\n", value.Int())
+			log.Printf("%d\n", value.Int())
 		case reflect.Float64:
-			fmt.Printf("%.1f\n", value.Float())
+			log.Printf("%.1f\n", value.Float())
 		case reflect.Slice:
-			fmt.Printf("%v\n", value.Interface())
+			log.Printf("%v\n", value.Interface())
 		default:
-			fmt.Printf("%v\n", value.Interface())
+			log.Printf("%v\n", value.Interface())
 		}
 	}
 }

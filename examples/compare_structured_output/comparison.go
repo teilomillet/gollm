@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -31,14 +30,14 @@ var debugLevel = gollm.LogLevelWarn // Set to LogLevelDebug for verbose output
 
 func debugLog(format string, args ...any) {
 	if debugLevel == gollm.LogLevelDebug {
-		fmt.Printf("[DEBUG] "+format+"\n", args...)
+		log.Printf("[DEBUG] "+format+"\n", args...)
 	}
 }
 
 func main() {
 	ctx := context.Background()
 
-	fmt.Println("Starting structured output comparison...")
+	log.Println("Starting structured output comparison...")
 
 	// Define models to compare
 	models := []struct {
@@ -57,7 +56,7 @@ func main() {
 		apiKeyEnv := strings.ToUpper(m.provider) + "_API_KEY"
 		apiKey := os.Getenv(apiKeyEnv)
 		if apiKey == "" {
-			fmt.Printf(
+			log.Printf(
 				"Skipping %s %s: API key not set. Please set %s environment variable.\n",
 				m.provider,
 				m.model,
@@ -116,7 +115,7 @@ func main() {
 	}
 
 	// Compare model outputs
-	fmt.Println("Starting model comparison...")
+	log.Println("Starting model comparison...")
 	results, err := presets.CompareModels(ctx, promptText, validateComplexPerson, configs...)
 	if err != nil {
 		log.Fatalf("Error comparing models: %v", err)
@@ -124,34 +123,34 @@ func main() {
 
 	// Print results as they come in
 	for _, result := range results {
-		fmt.Printf("\n%s\n", strings.Repeat("=", 50))
-		fmt.Printf("Results for %s %s\n", result.Provider, result.Model)
-		fmt.Printf("Attempts: %d\n", result.Attempts)
+		log.Printf("\n%s\n", strings.Repeat("=", 50))
+		log.Printf("Results for %s %s\n", result.Provider, result.Model)
+		log.Printf("Attempts: %d\n", result.Attempts)
 
 		if result.Error != nil {
-			fmt.Printf("Error: %v\n", result.Error)
+			log.Printf("Error: %v\n", result.Error)
 			debugLog("Raw response:\n%s", result.Response)
 			continue
 		}
 
-		fmt.Println("Valid output generated:")
+		log.Println("Valid output generated:")
 		prettyJSON, err := json.MarshalIndent(result.Data, "", "  ")
 		if err != nil {
-			fmt.Printf("Error prettifying JSON: %v\n", err)
+			log.Printf("Error prettifying JSON: %v\n", err)
 			debugLog("Raw response:\n%s", result.Response)
 		} else {
-			fmt.Printf("%s\n", string(prettyJSON))
+			log.Printf("%s\n", string(prettyJSON))
 		}
 
 		debugLog("Processed result for %s %s", result.Provider, result.Model)
 
-		fmt.Printf("%s\n", strings.Repeat("=", 50))
+		log.Printf("%s\n", strings.Repeat("=", 50))
 	}
 
 	// Print the final analysis
-	fmt.Println("\nFinal Analysis of Results:")
+	log.Println("\nFinal Analysis of Results:")
 	analysis := presets.AnalyzeComparisonResults(results)
-	fmt.Println(analysis)
+	log.Println(analysis)
 
 	debugLog("Structured output comparison completed")
 }

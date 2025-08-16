@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -76,11 +75,11 @@ func main() {
 	}
 
 	// Test 1: Compare traditional approach to structured messages
-	fmt.Println("\n=== Test 1: Traditional vs Structured Messages ===")
+	log.Println("\n=== Test 1: Traditional vs Structured Messages ===")
 	TestTraditionalVsStructured(memoryLLM)
 
 	// Test 2: Measure the performance improvement with caching
-	fmt.Println("\n=== Test 2: Caching Performance ===")
+	log.Println("\n=== Test 2: Caching Performance ===")
 	TestCachingPerformance(memoryLLM)
 }
 
@@ -90,7 +89,7 @@ func TestTraditionalVsStructured(memoryLLM *llm.LLMWithMemory) {
 	systemPrompt := "You are a friendly assistant."
 
 	// Test with traditional flattened approach
-	fmt.Println("\n--- Using traditional flattened messages ---")
+	log.Println("\n--- Using traditional flattened messages ---")
 	memoryLLM.ClearMemory()
 	memoryLLM.SetUseStructuredMessages(false)
 
@@ -108,7 +107,7 @@ func TestTraditionalVsStructured(memoryLLM *llm.LLMWithMemory) {
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
-	fmt.Printf("Response 1 (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
+	log.Printf("Response 1 (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
 
 	prompt2 := memoryLLM.NewPrompt("Can you tell me a short joke?")
 	startTime = time.Now()
@@ -122,10 +121,10 @@ func TestTraditionalVsStructured(memoryLLM *llm.LLMWithMemory) {
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
-	fmt.Printf("Response 2 (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
+	log.Printf("Response 2 (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
 
 	// Test with structured messages
-	fmt.Println("\n--- Using structured messages ---")
+	log.Println("\n--- Using structured messages ---")
 	memoryLLM.ClearMemory()
 	memoryLLM.SetUseStructuredMessages(true)
 
@@ -143,7 +142,7 @@ func TestTraditionalVsStructured(memoryLLM *llm.LLMWithMemory) {
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
-	fmt.Printf("Response 1 (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
+	log.Printf("Response 1 (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
 
 	prompt2 = memoryLLM.NewPrompt("Can you tell me a short joke?")
 	startTime = time.Now()
@@ -157,7 +156,7 @@ func TestTraditionalVsStructured(memoryLLM *llm.LLMWithMemory) {
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
-	fmt.Printf("Response 2 (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
+	log.Printf("Response 2 (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
 }
 
 // TestCachingPerformance tests the caching performance improvement
@@ -166,7 +165,7 @@ func TestCachingPerformance(memoryLLM *llm.LLMWithMemory) {
 	systemPrompt := "You are a helpful assistant that provides concise responses."
 
 	// Test with structured messages and caching
-	fmt.Println("\n--- First run (no cache) ---")
+	log.Println("\n--- First run (no cache) ---")
 	memoryLLM.ClearMemory()
 	memoryLLM.SetUseStructuredMessages(true)
 
@@ -187,10 +186,10 @@ func TestCachingPerformance(memoryLLM *llm.LLMWithMemory) {
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
-	fmt.Printf("First call (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
+	log.Printf("First call (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
 
 	// Now run the exact same request again - should be faster due to caching
-	fmt.Println("\n--- Second run (should use cache) ---")
+	log.Println("\n--- Second run (should use cache) ---")
 	memoryLLM.ClearMemory()
 
 	// Add the same message back to memory with cache control
@@ -207,5 +206,5 @@ func TestCachingPerformance(memoryLLM *llm.LLMWithMemory) {
 	if len(displayResp) > 100 {
 		displayResp = displayResp[:100] + "..."
 	}
-	fmt.Printf("Second call (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
+	log.Printf("Second call (%.2fs): %s\n", time.Since(startTime).Seconds(), displayResp)
 }

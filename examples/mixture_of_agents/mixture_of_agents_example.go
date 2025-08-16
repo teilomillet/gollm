@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -51,6 +50,6 @@ func main() {
 		log.Fatalf("Failed to generate response: %v", err)
 	}
 
-	fmt.Printf("Input: %s\n\n", input)
-	fmt.Printf("MOA Response:\n%s\n", output)
+	log.Printf("Input: %s\n\n", input)
+	log.Printf("MOA Response:\n%s\n", output)
 }

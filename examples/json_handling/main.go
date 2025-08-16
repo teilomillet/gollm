@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -11,7 +10,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Starting JSON handling examples...")
+	log.Println("Starting JSON handling examples...")
 
 	// Setup LLM client
 	apiKey := os.Getenv("OPENAI_API_KEY")
@@ -35,8 +34,8 @@ func main() {
 	ctx := context.Background()
 
 	// Example 1: Simple JSON Output
-	fmt.Println("\nExample 1: Simple JSON Output")
-	fmt.Println("This example requests JSON output without enforcing a specific structure")
+	log.Println("\nExample 1: Simple JSON Output")
+	log.Println("This example requests JSON output without enforcing a specific structure")
 
 	simplePrompt := gollm.NewPrompt("List three colors",
 		gollm.WithOutput("JSON array of colors"),
@@ -46,7 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
-	fmt.Printf("Simple JSON response:\n%s\n", response.AsText())
+	log.Printf("Simple JSON response:\n%s\n", response.AsText())
 
 	// Example 2: Structured JSON with Schema Validation
 	colorSchema := map[string]any{
@@ -72,22 +71,22 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate with schema: %v", err)
 	}
-	fmt.Printf("Schema-validated response:\n%s\n", response.AsText())
+	log.Printf("Schema-validated response:\n%s\n", response.AsText())
 
 	// Example 3: Complex Nested JSON Structure
-	fmt.Println("\nExample 3: Complex Nested JSON Structure")
-	fmt.Println("This example shows handling of nested JSON objects with strict validation")
+	log.Println("\nExample 3: Complex Nested JSON Structure")
+	log.Println("This example shows handling of nested JSON objects with strict validation")
 
 	userPrompt := gollm.NewPrompt("Generate a user profile with preferences")
 	response, err = llm.Generate(ctx, userPrompt, gollm.WithStructuredResponseSchema[UserEnvelope]())
 	if err != nil {
 		log.Fatalf("Failed to generate complex JSON: %v", err)
 	}
-	fmt.Printf("Complex nested JSON response:\n%s\n", response.AsText())
+	log.Printf("Complex nested JSON response:\n%s\n", response.AsText())
 
 	// Example 4: Mixed Format Response
-	fmt.Println("\nExample 4: Mixed Format Response")
-	fmt.Println("This example shows how to request specific sections in JSON format")
+	log.Println("\nExample 4: Mixed Format Response")
+	log.Println("This example shows how to request specific sections in JSON format")
 
 	mixedPrompt := gollm.NewPrompt("Analyze the color red",
 		gollm.WithDirectives(
@@ -109,9 +108,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate mixed format: %v", err)
 	}
-	fmt.Printf("Mixed format response:\n%s\n", response.AsText())
+	log.Printf("Mixed format response:\n%s\n", response.AsText())
 
-	fmt.Println("\nJSON examples completed.")
+	log.Println("\nJSON examples completed.")
 }
 
 // UserEnvelope is the top-level object with a required "user" field.

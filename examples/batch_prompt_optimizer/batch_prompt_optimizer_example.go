@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -73,14 +72,14 @@ func main() {
 
 	// Process and display results
 	for _, result := range results {
-		fmt.Printf("\nResults for: %s\n", result.Name)
-		fmt.Printf("Original Prompt: %s\n", result.OriginalPrompt)
+		log.Printf("\nResults for: %s\n", result.Name)
+		log.Printf("Original Prompt: %s\n", result.OriginalPrompt)
 		if result.Error != nil {
-			fmt.Printf("Error: %v\n", result.Error)
+			log.Printf("Error: %v\n", result.Error)
 		} else {
-			fmt.Printf("Optimized Prompt: %s\n", result.OptimizedPrompt)
-			fmt.Printf("Generated Content:\n%s\n", result.GeneratedContent)
+			log.Printf("Optimized Prompt: %s\n", result.OptimizedPrompt)
+			log.Printf("Generated Content:\n%s\n", result.GeneratedContent)
 		}
-		fmt.Println(strings.Repeat("=", 100))
+		log.Println(strings.Repeat("=", 100))
 	}
 }

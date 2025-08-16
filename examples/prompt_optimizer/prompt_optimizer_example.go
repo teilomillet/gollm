@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -38,8 +37,8 @@ func main() {
 		},
 	}
 
-	fmt.Printf("Optimizing prompt for: %s\n", example.Name)
-	fmt.Printf("Initial Prompt: %s\n", example.Prompt)
+	log.Printf("Optimizing prompt for: %s\n", example.Name)
+	log.Printf("Initial Prompt: %s\n", example.Prompt)
 
 	debugManager := utils.NewDebugManager(llm.GetLogger(), utils.DebugOptions{LogPrompts: true, LogResponses: true})
 	initialPrompt := llm.NewPrompt(example.Prompt)
@@ -61,12 +60,12 @@ func main() {
 		log.Fatalf("Optimization error: %v", err)
 	}
 
-	fmt.Printf("\nOptimized Prompt: %s\n", optimizedPrompt.Input)
+	log.Printf("\nOptimized Prompt: %s\n", optimizedPrompt.Input)
 
 	response, err := llm.Generate(ctx, optimizedPrompt)
 	if err != nil {
 		log.Fatalf("Failed to generate response: %v", err)
 	}
 
-	fmt.Printf("\nGenerated Content:\n%s\n", response.AsText())
+	log.Printf("\nGenerated Content:\n%s\n", response.AsText())
 }

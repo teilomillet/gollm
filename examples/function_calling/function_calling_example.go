@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Starting the function calling example...")
+	log.Println("Starting the function calling example...")
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
 		log.Fatalf("ANTHROPIC_API_KEY environment variable is not set")
@@ -65,7 +65,7 @@ func main() {
 
 	// Parse the response
 	if strings.Contains(response.AsText(), "<function_call>") {
-		fmt.Println("Function call detected:")
+		log.Println("Function call detected:")
 		respText := response.AsText()
 		start := strings.Index(respText, "<function_call>") + len("<function_call>")
 		end := strings.Index(respText, "</function_call>")
@@ -76,11 +76,11 @@ func main() {
 			Arguments json.RawMessage `json:"arguments"`
 		}
 		if err := json.Unmarshal([]byte(functionCallJSON), &functionCall); err != nil {
-			fmt.Printf("Warning: Failed to unmarshal function call: %v\n", err)
+			log.Printf("Warning: Failed to unmarshal function call: %v\n", err)
 		}
 
-		fmt.Printf("Function: %s\n", functionCall.Name)
-		fmt.Printf("Arguments: %s\n", string(functionCall.Arguments))
+		log.Printf("Function: %s\n", functionCall.Name)
+		log.Printf("Arguments: %s\n", string(functionCall.Arguments))
 
 		// Simulate function execution
 		weatherData := map[string]any{
@@ -90,7 +90,7 @@ func main() {
 		}
 		weatherResponse, err := json.Marshal(weatherData)
 		if err != nil {
-			fmt.Printf("Warning: Failed to marshal weather data: %v\n", err)
+			log.Printf("Warning: Failed to marshal weather data: %v\n", err)
 			weatherResponse = []byte("{}")
 		}
 
@@ -104,8 +104,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to generate final response: %v", err)
 		}
-		fmt.Printf("Final response: %s\n", finalResponse.AsText())
+		log.Printf("Final response: %s\n", finalResponse.AsText())
 	} else {
-		fmt.Printf("Regular response: %s\n", response.AsText())
+		log.Printf("Regular response: %s\n", response.AsText())
 	}
 }

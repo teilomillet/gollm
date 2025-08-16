@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 
@@ -32,7 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Research failed: %v", err)
 	}
-	fmt.Printf("Research:\n%s\n\n", research.AsText())
+	log.Printf("Research:\n%s\n\n", research.AsText())
 
 	// Step 2: Ideation phase
 	// Generate article ideas based on the research
@@ -44,7 +43,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Ideation failed: %v", err)
 	}
-	fmt.Printf("Article Ideas:\n%s\n\n", ideas.AsText())
+	log.Printf("Article Ideas:\n%s\n\n", ideas.AsText())
 
 	// Step 3: Writing refinement
 	// Improve a paragraph using specific directives
@@ -61,5 +60,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("Refinement failed: %v", err)
 	}
-	fmt.Printf("Refined Paragraph:\n%s\n", refinedParagraph.AsText())
+	log.Printf("Refined Paragraph:\n%s\n", refinedParagraph.AsText())
 }

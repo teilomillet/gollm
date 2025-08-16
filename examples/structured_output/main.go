@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -53,7 +52,7 @@ func main() {
 		log.Fatalf("Failed to generate text: %v", err)
 	}
 
-	fmt.Printf("Generated PersonInfo:\n%s\n", response.AsText())
+	log.Printf("Generated PersonInfo:\n%s\n", response.AsText())
 
 	var person PersonInfo
 	err = json.Unmarshal([]byte(response.AsText()), &person)
@@ -65,9 +64,9 @@ func main() {
 		log.Fatalf("Generated data does not match schema: %v", err)
 	}
 
-	fmt.Println("\nValidated PersonInfo:")
-	fmt.Printf("Name: %s\n", person.Name)
-	fmt.Printf("Age: %d\n", person.Age)
-	fmt.Printf("Occupation: %s\n", person.Occupation)
-	fmt.Printf("Hobbies: %v\n", person.Hobbies)
+	log.Println("\nValidated PersonInfo:")
+	log.Printf("Name: %s\n", person.Name)
+	log.Printf("Age: %d\n", person.Age)
+	log.Printf("Occupation: %s\n", person.Occupation)
+	log.Printf("Hobbies: %v\n", person.Hobbies)
 }

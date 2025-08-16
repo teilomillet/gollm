@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -184,11 +184,11 @@ func TestChainedPrompts(t *testing.T) {
 	require.NotEmpty(t, analysisResponse)
 
 	// Print response for debugging
-	fmt.Printf("Raw analysis response: %s\n", analysisResponse.AsText())
+	log.Printf("Raw analysis response: %s\n", analysisResponse.AsText())
 
 	cleanedResponse := cleanResponse(analysisResponse.AsText())
 
-	fmt.Printf("Cleaned analysis response: %s\n", cleanedResponse)
+	log.Printf("Cleaned analysis response: %s\n", cleanedResponse)
 
 	var result map[string]any
 	err = json.Unmarshal([]byte(cleanedResponse), &result)
@@ -196,7 +196,7 @@ func TestChainedPrompts(t *testing.T) {
 
 	// Print the unmarshalled result
 	resultBytes, _ := json.MarshalIndent(result, "", "  ")
-	fmt.Printf("Unmarshalled result:\n%s\n", string(resultBytes))
+	log.Printf("Unmarshalled result:\n%s\n", string(resultBytes))
 
 	// The response is a JSON schema with the actual fields inside the "properties" object
 	properties, ok := result["properties"].(map[string]any)

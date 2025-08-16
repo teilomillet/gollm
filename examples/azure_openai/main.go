@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/teilomillet/gollm"
@@ -14,19 +15,19 @@ func main() {
 	// Get API key and other credentials from environment
 	apiKey := os.Getenv("AZURE_OPENAI_API_KEY")
 	if apiKey == "" {
-		fmt.Println("Error: AZURE_OPENAI_API_KEY environment variable not set")
+		log.Println("Error: AZURE_OPENAI_API_KEY environment variable not set")
 		os.Exit(1)
 	}
 
 	resourceName := os.Getenv("AZURE_OPENAI_RESOURCE_NAME")
 	if resourceName == "" {
-		fmt.Println("Error: AZURE_OPENAI_RESOURCE_NAME environment variable not set")
+		log.Println("Error: AZURE_OPENAI_RESOURCE_NAME environment variable not set")
 		os.Exit(1)
 	}
 
 	deploymentName := os.Getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 	if deploymentName == "" {
-		fmt.Println("Error: AZURE_OPENAI_DEPLOYMENT_NAME environment variable not set")
+		log.Println("Error: AZURE_OPENAI_DEPLOYMENT_NAME environment variable not set")
 		os.Exit(1)
 	}
 
@@ -34,7 +35,7 @@ func main() {
 	if apiVersion == "" {
 		// Default to a recent version
 		apiVersion = "2023-05-15"
-		fmt.Println("Using default API version:", apiVersion)
+		log.Println("Using default API version:", apiVersion)
 	}
 
 	// Method 1: Using the generic provider directly (more control)
@@ -65,7 +66,7 @@ func main() {
 		config.SetModel(deploymentName), // Azure uses deployment name as the model
 	)
 	if err != nil {
-		fmt.Printf("Error creating LLM: %v\n", err)
+		log.Printf("Error creating LLM: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -76,12 +77,12 @@ func main() {
 	// Generate a response
 	response, err := llm.Generate(ctx, prompt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("Response from Azure OpenAI:")
-	fmt.Println(response)
+	log.Println("Response from Azure OpenAI:")
+	log.Println(response)
 
 	// Method 2: Using the built-in azure-openai configuration with ExtraHeaders
 	// -----------------------------------------------------------------------
@@ -103,7 +104,7 @@ func main() {
 		config.SetExtraHeaders(extraHeaders),
 	)
 	if err != nil {
-		fmt.Printf("Error creating LLM: %v\n", err)
+		log.Printf("Error creating LLM: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -113,10 +114,10 @@ func main() {
 	// Generate a response
 	response2, err := llm2.Generate(ctx, prompt2)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("\nResponse from Azure OpenAI (method 2):")
-	fmt.Println(response2)
+	log.Println("\nResponse from Azure OpenAI (method 2):")
+	log.Println(response2)
 }

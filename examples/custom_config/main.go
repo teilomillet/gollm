@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -76,7 +75,7 @@ func main() {
 			continue
 		}
 
-		fmt.Printf("Topic: %s\nAnalysis:\n%s\n\n", topic, analysis.AsText())
+		log.Printf("Topic: %s\nAnalysis:\n%s\n\n", topic, analysis.AsText())
 	}
 
 	// Demonstrate dynamic configuration changes
@@ -84,6 +83,6 @@ func main() {
 	llm.SetOption("max_tokens", 200)
 
 	// Get and print the current provider and model
-	fmt.Printf("Current Provider: %s\n", llm.GetProvider())
-	fmt.Printf("Current Model: %s\n", llm.GetModel())
+	log.Printf("Current Provider: %s\n", llm.GetProvider())
+	log.Printf("Current Model: %s\n", llm.GetModel())
 }

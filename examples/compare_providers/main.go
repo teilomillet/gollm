@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Starting the enhanced GOLLM library example...")
+	log.Println("Starting the enhanced GOLLM library example...")
 
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
@@ -33,12 +33,12 @@ func main() {
 	ctx := context.Background()
 
 	// Example 1: Basic Prompt with Comparison
-	fmt.Println("\nExample 1: Basic Prompt with Comparison")
+	log.Println("\nExample 1: Basic Prompt with Comparison")
 	basicPrompt := gollm.NewPrompt("Explain the concept of machine learning in simple terms.")
 	compareBasicPrompt(ctx, basicPrompt, llmGPT3, llmGPT4)
 
 	// Example 2: Prompt with Directives and Output
-	fmt.Println("\nExample 2: Prompt with Directives and Output")
+	log.Println("\nExample 2: Prompt with Directives and Output")
 	directivePrompt := gollm.NewPrompt("Explain the concept of blockchain technology",
 		gollm.WithDirectives(
 			"Use a simple analogy to illustrate",
@@ -50,7 +50,7 @@ func main() {
 	compareDirectivePrompt(ctx, directivePrompt, llmGPT3, llmGPT4)
 
 	// Example 3: Prompt Template and JSON Schema
-	fmt.Println("\nExample 3: Prompt Template and JSON Schema")
+	log.Println("\nExample 3: Prompt Template and JSON Schema")
 	templatePrompt := gollm.NewPromptTemplate(
 		"CustomAnalysis",
 		"Analyze a given topic",
@@ -70,7 +70,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate JSON schema: %v", err)
 	}
-	fmt.Printf("JSON Schema for Prompts:\n%s\n", string(schemaBytes))
+	log.Printf("JSON Schema for Prompts:\n%s\n", string(schemaBytes))
 
 	// Execute the template and generate responses
 	prompt, err := templatePrompt.Execute(map[string]any{
@@ -82,7 +82,7 @@ func main() {
 
 	compareTemplatePrompt(ctx, prompt, llmGPT3, llmGPT4)
 
-	fmt.Println("\nExample completed.")
+	log.Println("\nExample completed.")
 }
 
 func createLLM(model, apiKey string) (gollm.LLM, error) {
@@ -111,8 +111,8 @@ func compareBasicPrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2 go
 		log.Printf("Failed to generate response from %s %s: %v", llm2.GetProvider(), llm2.GetModel(), err)
 	}
 
-	fmt.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1.AsText())
-	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2.AsText())
+	log.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1.AsText())
+	log.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2.AsText())
 }
 
 func compareDirectivePrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2 gollm.LLM) {
@@ -126,8 +126,8 @@ func compareDirectivePrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm
 		log.Printf("Failed to generate response from %s %s: %v", llm2.GetProvider(), llm2.GetModel(), err)
 	}
 
-	fmt.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1.AsText())
-	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2.AsText())
+	log.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1.AsText())
+	log.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2.AsText())
 }
 
 func compareTemplatePrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2 gollm.LLM) {
@@ -141,6 +141,6 @@ func compareTemplatePrompt(ctx context.Context, prompt *gollm.Prompt, llm1, llm2
 		log.Printf("Failed to generate response from %s %s: %v", llm2.GetProvider(), llm2.GetModel(), err)
 	}
 
-	fmt.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1.AsText())
-	fmt.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2.AsText())
+	log.Printf("%s %s Response:\n%s\n\n", llm1.GetProvider(), llm1.GetModel(), response1.AsText())
+	log.Printf("%s %s Response:\n%s\n", llm2.GetProvider(), llm2.GetModel(), response2.AsText())
 }

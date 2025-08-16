@@ -707,11 +707,3 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(
 	}
 	return data, nil
 }
-
-func init() {
-	// Register the OpenRouter provider
-	registry := GetDefaultRegistry()
-	registry.Register("openrouter", func(apiKey, model string, extraHeaders map[string]string) Provider {
-		return NewOpenRouterProvider(apiKey, model, extraHeaders)
-	})
-}

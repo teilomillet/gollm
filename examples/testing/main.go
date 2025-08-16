@@ -28,22 +28,22 @@ func main() {
 	prompt := gollm.NewPrompt("Explain the concept of quantum entanglement and its potential applications.")
 
 	// Process LLM1
-	fmt.Println("Generating response from LLM1 (more conservative settings):")
+	log.Println("Generating response from LLM1 (more conservative settings):")
 	response1, err := llm1.Generate(ctx, prompt)
 	if err != nil {
 		log.Fatalf("Failed to generate response from LLM1: %v", err)
 	}
-	fmt.Println(response1)
+	log.Println(response1)
 
 	getUserFeedback("LLM1")
 
 	// Process LLM2
-	fmt.Println("\nGenerating response from LLM2 (more creative settings):")
+	log.Println("\nGenerating response from LLM2 (more creative settings):")
 	response2, err := llm2.Generate(ctx, prompt)
 	if err != nil {
 		log.Fatalf("Failed to generate response from LLM2: %v", err)
 	}
-	fmt.Println(response2)
+	log.Println(response2)
 
 	getUserFeedback("LLM2")
 }
@@ -78,21 +78,21 @@ func createLLM(
 
 func getUserFeedback(llmName string) {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("\nPlease rate the response from %s (1-5): ", llmName)
+	log.Printf("\nPlease rate the response from %s (1-5): ", llmName)
 	rating, err := reader.ReadString('\n')
 	if err != nil {
-		fmt.Printf("Error reading rating: %v\n", err)
+		log.Printf("Error reading rating: %v\n", err)
 		rating = "0"
 	}
 	rating = strings.TrimSpace(rating)
 
-	fmt.Print("Any additional comments? ")
+	log.Print("Any additional comments? ")
 	comments, err := reader.ReadString('\n')
 	if err != nil {
-		fmt.Printf("Error reading comments: %v\n", err)
+		log.Printf("Error reading comments: %v\n", err)
 		comments = ""
 	}
 	comments = strings.TrimSpace(comments)
 
-	fmt.Printf("Feedback for %s - Rating: %s, Comments: %s\n\n", llmName, rating, comments)
+	log.Printf("Feedback for %s - Rating: %s, Comments: %s\n\n", llmName, rating, comments)
 }

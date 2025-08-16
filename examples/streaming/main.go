@@ -29,8 +29,8 @@ func runStream(llm gollm.LLM, prompt *gollm.Prompt) error {
 		}
 	}()
 
-	fmt.Println("\nStreaming response:")
-	fmt.Println("-------------------")
+	log.Println("\nStreaming response:")
+	log.Println("-------------------")
 
 	var fullResponse strings.Builder
 	tokenCount := 0
@@ -45,23 +45,23 @@ func runStream(llm gollm.LLM, prompt *gollm.Prompt) error {
 			return fmt.Errorf("error reading stream: %w", err)
 		}
 
-		fmt.Print(token.Text)
+		log.Print(token.Text)
 		fullResponse.WriteString(token.Text)
 		tokenCount++
 	}
 
-	fmt.Println("\n-------------------")
-	fmt.Printf("\nReceived %d tokens\n", tokenCount)
-	fmt.Printf("Total response length: %d characters\n", len(fullResponse.String()))
+	log.Println("\n-------------------")
+	log.Printf("\nReceived %d tokens\n", tokenCount)
+	log.Printf("Total response length: %d characters\n", len(fullResponse.String()))
 	return nil
 }
 
 func main() {
-	fmt.Println("Streaming Example with OpenAI and Anthropic")
-	fmt.Println("=========================================")
+	log.Println("Streaming Example with OpenAI and Anthropic")
+	log.Println("=========================================")
 
 	// Test OpenAI streaming
-	fmt.Println("\nTesting OpenAI Streaming:")
+	log.Println("\nTesting OpenAI Streaming:")
 	openaiKey := os.Getenv("OPENAI_API_KEY")
 	if openaiKey != "" {
 		llm, err := gollm.NewLLM(
@@ -85,11 +85,11 @@ func main() {
 			}
 		}
 	} else {
-		fmt.Println("Skipping OpenAI (OPENAI_API_KEY not set)")
+		log.Println("Skipping OpenAI (OPENAI_API_KEY not set)")
 	}
 
 	// Test Anthropic streaming
-	fmt.Println("\nTesting Anthropic Streaming:")
+	log.Println("\nTesting Anthropic Streaming:")
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 	if anthropicKey != "" {
 		llm, err := gollm.NewLLM(
@@ -113,6 +113,6 @@ func main() {
 			}
 		}
 	} else {
-		fmt.Println("Skipping Anthropic (ANTHROPIC_API_KEY not set)")
+		log.Println("Skipping Anthropic (ANTHROPIC_API_KEY not set)")
 	}
 }
