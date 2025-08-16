@@ -1,6 +1,6 @@
 // File: utils/examples.go
 
-package utils
+package llm
 
 import (
 	"bufio"

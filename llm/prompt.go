@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/invopop/jsonschema"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // CacheType defines how prompts and responses should be cached in the system.
@@ -205,7 +204,7 @@ func WithMaxLength(length int) PromptOption {
 func WithExamples(examples ...string) PromptOption {
 	return func(p *Prompt) {
 		if len(examples) == 1 && strings.HasSuffix(examples[0], ".txt") || strings.HasSuffix(examples[0], ".jsonl") {
-			fileExamples, err := utils.ReadExamplesFromFile(examples[0])
+			fileExamples, err := ReadExamplesFromFile(examples[0])
 			if err != nil {
 				panic(fmt.Sprintf("Failed to read examples from file: %v", err))
 			}
