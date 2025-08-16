@@ -43,6 +43,8 @@ const (
 // LLMError represents a structured error in the LLM package.
 // It implements the error interface and provides additional context
 // about the error type and underlying cause.
+//
+//nolint:revive // LLMError is intentionally named to be clear about its domain
 type LLMError struct {
 	Err     error
 	Message string

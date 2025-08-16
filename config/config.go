@@ -136,6 +136,8 @@ func loadAPIKeys(cfg *Config) {
 // ConfigOption is a function type that modifies a Config instance.
 // It enables a builder pattern for configuration, allowing for clean
 // and flexible configuration updates.
+//
+//nolint:revive // ConfigOption follows the Option pattern naming convention commonly used in Go
 type ConfigOption func(*Config)
 
 // NewConfig creates a new Config instance with default values suitable

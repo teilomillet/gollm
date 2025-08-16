@@ -69,6 +69,8 @@ type OptimizationEntry struct {
 
 // OptimizerOption is a function type for configuring the PromptOptimizer.
 // It follows the functional options pattern for flexible configuration.
+//
+//nolint:revive // OptimizerOption follows the Option pattern naming convention commonly used in Go
 type OptimizerOption func(*PromptOptimizer)
 
 // IterationCallback is a function type for monitoring optimization progress.

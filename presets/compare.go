@@ -179,27 +179,31 @@ func processConfig[T any](
 func generateResponse(
 	ctx context.Context,
 	prompt string,
-	config *config.Config,
+	cfg *config.Config,
 	logger utils.Logger,
 ) (*providers.Response, error) {
 	registry := providers.NewProviderRegistry()
-	llmInstance, err := llm.NewLLM(config, logger, registry)
+	llmInstance, err := llm.NewLLM(cfg, logger, registry)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create LLM for %s: %w", config.Provider, err)
+		return nil, fmt.Errorf("failed to create LLM for %s: %w", cfg.Provider, err)
 	}
-	return llmInstance.Generate(ctx, llm.NewPrompt(prompt))
+	resp, err := llmInstance.Generate(ctx, llm.NewPrompt(prompt))
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate response: %w", err)
+	}
+	return resp, nil
 }
 
 // handleGenerationError handles errors from response generation
-func handleGenerationError(err error, config *config.Config, attempt int) (bool, error) {
-	debugLog(config, "Error generating response: %v", err)
+func handleGenerationError(err error, cfg *config.Config, attempt int) (bool, error) {
+	debugLog(cfg, "Error generating response: %v", err)
 
 	// Immediately propagate API errors (like invalid keys)
 	if strings.Contains(err.Error(), "API error") {
 		return false, fmt.Errorf(
 			"API error for %s %s: %w",
-			config.Provider,
-			config.Model,
+			cfg.Provider,
+			cfg.Model,
 			err,
 		)
 	}
@@ -214,12 +218,12 @@ func handleGenerationError(err error, config *config.Config, attempt int) (bool,
 // updateResult updates the comparison result with response data
 func updateResult[T any](
 	result *ComparisonResult[T],
-	config *config.Config,
+	cfg *config.Config,
 	response *providers.Response,
 	attempt int,
 ) {
-	result.Provider = config.Provider
-	result.Model = config.Model
+	result.Provider = cfg.Provider
+	result.Model = cfg.Model
 	result.Response = response
 	result.Attempts = attempt
 }
@@ -229,20 +233,20 @@ func processAndValidateResponse[T any](
 	result *ComparisonResult[T],
 	response *providers.Response,
 	validateFunc ValidateFunc[T],
-	config *config.Config,
+	cfg *config.Config,
 	attempt int,
 ) (bool, error) {
-	debugLog(config, "Raw response received: %v", response)
+	debugLog(cfg, "Raw response received: %v", response)
 
 	cleanedResponse := cleanResponse(response.AsText())
-	debugLog(config, "Cleaned response: %s", cleanedResponse)
+	debugLog(cfg, "Cleaned response: %s", cleanedResponse)
 
 	result.Response.Content = providers.Text{Value: cleanedResponse}
 
 	// Parse JSON
 	var data T
 	if err := json.Unmarshal([]byte(cleanedResponse), &data); err != nil {
-		debugLog(config, "Invalid JSON: %v", err)
+		debugLog(cfg, "Invalid JSON: %v", err)
 		result.Error = fmt.Errorf("invalid JSON: %w", err)
 		if attempt == MaxRetryAttempts {
 			return false, fmt.Errorf("failed to parse JSON after all attempts: %w", err)
@@ -252,7 +256,7 @@ func processAndValidateResponse[T any](
 
 	// Validate data
 	if err := validateFunc(data); err != nil {
-		debugLog(config, "Validation failed: %v", err)
+		debugLog(cfg, "Validation failed: %v", err)
 		result.Error = fmt.Errorf("validation failed: %w", err)
 		if attempt == MaxRetryAttempts {
 			return false, fmt.Errorf("validation failed after all attempts: %w", err)

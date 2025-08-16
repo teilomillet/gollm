@@ -637,8 +637,33 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(
 	messages []types.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
+	req := p.initializeRequestWithOptions(options)
+
+	// Handle routing configurations
+	p.handleRoutingConfiguration(req)
+
+	// Convert and add messages
+	formattedMessages := p.formatMessagesForRequest(messages, req)
+	req["messages"] = formattedMessages
+
+	// Handle tools and streaming
+	p.addToolsAndStreamingConfig(req)
+
+	// Cleanup temporary flags
+	delete(req, "enable_prompt_caching")
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	return data, nil
+}
+
+// initializeRequestWithOptions creates the base request with merged options
+func (p *OpenRouterProvider) initializeRequestWithOptions(options map[string]any) map[string]any {
+	req := make(map[string]any)
+
 	// Start with the passed options
-	req := map[string]any{}
 	for k, v := range options {
 		req[k] = v
 	}
@@ -653,54 +678,91 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(
 		}
 	}
 
+	return req
+}
+
+// handleRoutingConfiguration handles fallback models and auto-routing
+func (p *OpenRouterProvider) handleRoutingConfiguration(req map[string]any) {
 	// Handle fallback models if specified
 	if fallbackModels, ok := req["fallback_models"].([]string); ok {
 		req["models"] = append([]string{p.model}, fallbackModels...)
 		delete(req, "fallback_models")
-	} else if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
-		// Use OpenRouter's auto-routing capability
+		return
+	}
+
+	// Handle auto-routing
+	if autoRoute, ok := req["auto_route"].(bool); ok && autoRoute {
 		req["model"] = openRouterDefaultModel
 		delete(req, "auto_route")
 	}
 
-	// Handle provider routing preferences if provided
+	// Handle provider routing preferences
 	if providerPrefs, ok := req["provider_preferences"].(map[string]any); ok {
 		req["provider"] = providerPrefs
 		delete(req, "provider_preferences")
 	}
+}
 
-	// Convert memory messages to OpenRouter format
+// formatMessagesForRequest converts memory messages to OpenRouter format
+func (p *OpenRouterProvider) formatMessagesForRequest(
+	messages []types.MemoryMessage,
+	req map[string]any,
+) []map[string]any {
 	formattedMessages := make([]map[string]any, 0, len(messages))
+
 	for _, msg := range messages {
-		formattedMsg := map[string]any{
-			"role":    msg.Role,
-			"content": msg.Content,
-		}
-
-		// Handle Anthropic-style prompt caching if enabled
-		if caching, ok := req["enable_prompt_caching"].(bool); ok && caching && msg.Role == "user" {
-			// Check if the message is large enough to benefit from caching
-			if len(msg.Content) > OpenRouterCachingThreshold {
-				// For Anthropic models, we need to use multipart messages with cache_control
-				if strings.HasPrefix(p.model, "anthropic/") {
-					formattedMsg["content"] = []map[string]any{
-						{
-							"type": "text",
-							"text": msg.Content,
-							"cache_control": map[string]string{
-								"type": "ephemeral",
-							},
-						},
-					}
-				}
-			}
-		}
-
+		formattedMsg := p.formatSingleMessage(msg, req)
 		formattedMessages = append(formattedMessages, formattedMsg)
 	}
 
-	req["messages"] = formattedMessages
+	return formattedMessages
+}
 
+// formatSingleMessage formats a single message with caching if needed
+func (p *OpenRouterProvider) formatSingleMessage(msg types.MemoryMessage, req map[string]any) map[string]any {
+	formattedMsg := map[string]any{
+		"role":    msg.Role,
+		"content": msg.Content,
+	}
+
+	// Handle Anthropic-style prompt caching if enabled
+	p.addCachingIfNeeded(formattedMsg, msg, req)
+
+	return formattedMsg
+}
+
+// addCachingIfNeeded adds caching configuration for large messages
+func (p *OpenRouterProvider) addCachingIfNeeded(
+	formattedMsg map[string]any,
+	msg types.MemoryMessage,
+	req map[string]any,
+) {
+	caching, ok := req["enable_prompt_caching"].(bool)
+	if !ok || !caching || msg.Role != "user" {
+		return
+	}
+
+	// Check if the message is large enough to benefit from caching
+	if len(msg.Content) <= OpenRouterCachingThreshold {
+		return
+	}
+
+	// For Anthropic models, use multipart messages with cache_control
+	if strings.HasPrefix(p.model, "anthropic/") {
+		formattedMsg["content"] = []map[string]any{
+			{
+				"type": "text",
+				"text": msg.Content,
+				"cache_control": map[string]string{
+					"type": "ephemeral",
+				},
+			},
+		}
+	}
+}
+
+// addToolsAndStreamingConfig adds tools and streaming configuration
+func (p *OpenRouterProvider) addToolsAndStreamingConfig(req map[string]any) {
 	// Handle tools/function calling if provided
 	if tools, ok := req["tools"].([]any); ok && len(tools) > 0 {
 		req["tools"] = tools
@@ -710,17 +772,8 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(
 		req["tool_choice"] = toolChoice
 	}
 
-	// Remove prompt caching flag as it's been handled
-	delete(req, "enable_prompt_caching")
-
 	// Add streaming if requested
 	if stream, ok := req["stream"].(bool); ok && stream {
 		req["stream"] = true
 	}
-
-	data, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-	return data, nil
 }

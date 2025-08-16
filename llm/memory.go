@@ -179,6 +179,8 @@ func (m *Memory) Clear() {
 // LLMWithMemory wraps an LLM instance with conversation memory capabilities.
 // It maintains a conversation history, automatically adding user prompts and
 // assistant responses to create context for future interactions.
+//
+//nolint:revive // LLMWithMemory clearly describes its purpose as an LLM with memory capabilities
 type LLMWithMemory struct {
 	LLM                   LLM     // The base LLM instance to use for generation
 	memory                *Memory // Conversation memory manager

@@ -148,42 +148,81 @@ func (p *AnthropicProvider) Headers() map[string]string {
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
 func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
-	requestBody := map[string]any{
+	requestBody := p.initializeRequestBody()
+
+	// Process system prompt and tools
+	systemPrompt := p.extractSystemPrompt(options)
+	systemPrompt = p.handleToolsForRequest(requestBody, systemPrompt, options)
+	p.addSystemPromptToRequestBody(requestBody, systemPrompt)
+
+	// Handle user message
+	userMessage := p.createUserMessage(prompt, options)
+	p.addMessageToRequestBody(requestBody, userMessage)
+
+	// Add other options
+	p.addRemainingOptions(requestBody, options)
+
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
+}
+
+// initializeRequestBody creates the base request structure
+func (p *AnthropicProvider) initializeRequestBody() map[string]any {
+	return map[string]any{
 		"model":      p.model,
 		keyMaxTokens: p.options[keyMaxTokens],
 		"system":     []map[string]any{},
 		"messages":   []map[string]any{},
 	}
+}
 
-	// Handle system prompt
-	systemPrompt := ""
+// extractSystemPrompt gets the system prompt from options
+func (p *AnthropicProvider) extractSystemPrompt(options map[string]any) string {
 	if sp, ok := options["system_prompt"].(string); ok && sp != "" {
-		systemPrompt = sp
+		return sp
+	}
+	return ""
+}
+
+// handleToolsForRequest processes tools and updates system prompt if needed
+func (p *AnthropicProvider) handleToolsForRequest(
+	requestBody map[string]any,
+	systemPrompt string,
+	options map[string]any,
+) string {
+	tools, ok := options[anthropicKeyTools].([]types.Tool)
+	if !ok || len(tools) == 0 {
+		return systemPrompt
+	}
+	return p.processTools(tools, requestBody, systemPrompt, options)
+}
+
+// addSystemPromptToRequestBody adds the system prompt to the request
+func (p *AnthropicProvider) addSystemPromptToRequestBody(requestBody map[string]any, systemPrompt string) {
+	if systemPrompt == "" {
+		return
 	}
 
-	// If we have tools, add tool usage instructions to the system prompt
-	if tools, ok := options[anthropicKeyTools].([]types.Tool); ok && len(tools) > 0 {
-		systemPrompt = p.processTools(tools, requestBody, systemPrompt, options)
-	}
-
-	// Add system prompt if we have one
-	if systemPrompt != "" {
-		parts := splitSystemPrompt(systemPrompt, AnthropicSystemPromptMaxParts)
-		for i, part := range parts {
-			systemMessage := map[string]any{
-				"type": "text",
-				"text": part,
-			}
-			if i > 0 {
-				systemMessage["cache_control"] = map[string]string{"type": "ephemeral"}
-			}
-			if systemArray, ok := requestBody["system"].([]map[string]any); ok {
-				requestBody["system"] = append(systemArray, systemMessage)
-			}
+	parts := splitSystemPrompt(systemPrompt, AnthropicSystemPromptMaxParts)
+	for i, part := range parts {
+		systemMessage := map[string]any{
+			"type": "text",
+			"text": part,
+		}
+		if i > 0 {
+			systemMessage["cache_control"] = map[string]string{"type": "ephemeral"}
+		}
+		if systemArray, ok := requestBody["system"].([]map[string]any); ok {
+			requestBody["system"] = append(systemArray, systemMessage)
 		}
 	}
+}
 
-	// Handle user message with potential caching
+// createUserMessage creates a user message with optional caching
+func (p *AnthropicProvider) createUserMessage(prompt string, options map[string]any) map[string]any {
 	userMessage := map[string]any{
 		"role": "user",
 		"content": []map[string]any{
@@ -201,24 +240,33 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any
 		}
 	}
 
+	return userMessage
+}
+
+// addMessageToRequestBody adds a message to the request body
+func (p *AnthropicProvider) addMessageToRequestBody(requestBody map[string]any, message map[string]any) {
 	if messagesArray, ok := requestBody["messages"].([]map[string]any); ok {
-		requestBody["messages"] = append(messagesArray, userMessage)
+		requestBody["messages"] = append(messagesArray, message)
 	}
+}
 
-	// Add other options
+// addRemainingOptions adds non-handled options to the request
+func (p *AnthropicProvider) addRemainingOptions(requestBody map[string]any, options map[string]any) {
 	for k, v := range options {
-		if k != anthropicKeySystemPrompt && k != keyMaxTokens && k != anthropicKeyTools &&
-			k != anthropicKeyToolChoice &&
-			k != anthropicKeyEnableCaching {
-			requestBody[k] = v
+		if p.isHandledAnthropicOption(k) {
+			continue
 		}
+		requestBody[k] = v
 	}
+}
 
-	data, err := json.Marshal(requestBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body: %w", err)
-	}
-	return data, nil
+// isHandledAnthropicOption checks if an option is already handled
+func (p *AnthropicProvider) isHandledAnthropicOption(key string) bool {
+	return key == anthropicKeySystemPrompt ||
+		key == keyMaxTokens ||
+		key == anthropicKeyTools ||
+		key == anthropicKeyToolChoice ||
+		key == anthropicKeyEnableCaching
 }
 
 // processTools handles tool configuration and updates system prompt
@@ -406,7 +454,7 @@ func (p *AnthropicProvider) processAnthropicContent(contents []anthropicContent)
 			p.transferPendingText(&finalResponse, &pendingText)
 
 			// Process function call
-			functionCall, err := p.processFunctionCall(content)
+			functionCall, err := p.processFunctionCall(&content)
 			if err != nil {
 				return "", err
 			}
@@ -456,7 +504,7 @@ func (p *AnthropicProvider) transferPendingText(finalResponse, pendingText *stri
 }
 
 // processFunctionCall processes a function call content block
-func (p *AnthropicProvider) processFunctionCall(content anthropicContent) (string, error) {
+func (p *AnthropicProvider) processFunctionCall(content *anthropicContent) (string, error) {
 	// Parse input as raw JSON to preserve the exact format
 	var args any
 	if err := json.Unmarshal(content.Input, &args); err != nil {
@@ -678,83 +726,103 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 	messages []types.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
-	requestBody := map[string]any{
-		"model":      p.model,
-		keyMaxTokens: p.options[keyMaxTokens],
-		"system":     []map[string]any{},
-		"messages":   []map[string]any{},
-	}
-
-	// Extract system prompt if present in options
-	systemPrompt := ""
-	if sp, ok := options["system_prompt"].(string); ok && sp != "" {
-		systemPrompt = sp
-	}
+	requestBody := p.initializeRequestBody()
 
 	// Handle system prompt
-	if systemPrompt != "" {
-		parts := splitSystemPrompt(systemPrompt, AnthropicSystemPromptMaxParts)
-		for i, part := range parts {
-			systemMessage := map[string]any{
-				"type": "text",
-				"text": part,
-			}
-			if i > 0 {
-				systemMessage["cache_control"] = map[string]string{"type": "ephemeral"}
-			}
-			if systemArray, ok := requestBody["system"].([]map[string]any); ok {
-				requestBody["system"] = append(systemArray, systemMessage)
-			}
-		}
-	}
+	systemPrompt := p.extractSystemPrompt(options)
+	p.addSystemPromptToRequestBody(requestBody, systemPrompt)
 
 	// Process tools if present
-	if tools, ok := options[anthropicKeyTools].([]types.Tool); ok && len(tools) > 0 {
-		p.processToolsForMessages(tools, requestBody, options)
-	}
+	p.handleToolsForMessagesRequest(requestBody, options)
 
-	// Convert MemoryMessage objects to Anthropic messages
-	for _, msg := range messages {
-		content := []map[string]any{
-			{
-				"type": "text",
-				"text": msg.Content,
-			},
-		}
-
-		// Add cache_control if specified
-		if msg.CacheControl != "" {
-			content[0]["cache_control"] = map[string]string{"type": msg.CacheControl}
-		} else if caching, ok := options["enable_caching"].(bool); ok && caching {
-			// Add default caching if enabled globally
-			content[0]["cache_control"] = map[string]string{"type": "ephemeral"}
-		}
-
-		message := map[string]any{
-			"role":    msg.Role,
-			"content": content,
-		}
-
-		if messagesArray, ok := requestBody["messages"].([]map[string]any); ok {
-			requestBody["messages"] = append(messagesArray, message)
-		}
-	}
+	// Convert and add messages
+	p.addMemoryMessagesToRequestBody(requestBody, messages, options)
 
 	// Add other options
-	for k, v := range options {
-		if k != anthropicKeySystemPrompt && k != keyMaxTokens && k != anthropicKeyTools &&
-			k != anthropicKeyToolChoice &&
-			k != anthropicKeyEnableCaching &&
-			k != anthropicKeyStructuredMessages {
-			requestBody[k] = v
-		}
-	}
+	p.addRemainingMessagesOptions(requestBody, options)
 
 	data, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 	return data, nil
+}
+
+// handleToolsForMessagesRequest processes tools for message-based requests
+func (p *AnthropicProvider) handleToolsForMessagesRequest(requestBody map[string]any, options map[string]any) {
+	tools, ok := options[anthropicKeyTools].([]types.Tool)
+	if !ok || len(tools) == 0 {
+		return
+	}
+	p.processToolsForMessages(tools, requestBody, options)
+}
+
+// addMemoryMessagesToRequestBody converts and adds memory messages to the request
+func (p *AnthropicProvider) addMemoryMessagesToRequestBody(
+	requestBody map[string]any,
+	messages []types.MemoryMessage,
+	options map[string]any,
+) {
+	for _, msg := range messages {
+		message := p.convertMemoryMessage(msg, options)
+		p.addMessageToRequestBody(requestBody, message)
+	}
+}
+
+// convertMemoryMessage converts a MemoryMessage to Anthropic format
+func (p *AnthropicProvider) convertMemoryMessage(msg types.MemoryMessage, options map[string]any) map[string]any {
+	content := []map[string]any{
+		{
+			"type": "text",
+			"text": msg.Content,
+		},
+	}
+
+	// Add cache_control if specified
+	p.addCacheControlToContent(content, msg.CacheControl, options)
+
+	return map[string]any{
+		"role":    msg.Role,
+		"content": content,
+	}
+}
+
+// addCacheControlToContent adds cache control to message content
+func (p *AnthropicProvider) addCacheControlToContent(
+	content []map[string]any,
+	cacheControl string,
+	options map[string]any,
+) {
+	if len(content) == 0 {
+		return
+	}
+
+	if cacheControl != "" {
+		content[0]["cache_control"] = map[string]string{"type": cacheControl}
+	} else if caching, ok := options["enable_caching"].(bool); ok && caching {
+		// Add default caching if enabled globally
+		content[0]["cache_control"] = map[string]string{"type": "ephemeral"}
+	}
+}
+
+// addRemainingMessagesOptions adds non-handled options for message requests
+func (p *AnthropicProvider) addRemainingMessagesOptions(requestBody map[string]any, options map[string]any) {
+	for k, v := range options {
+		if p.isHandledMessagesOption(k) {
+			continue
+		}
+		requestBody[k] = v
+	}
+}
+
+// isHandledMessagesOption checks if an option is already handled for messages
+func (p *AnthropicProvider) isHandledMessagesOption(key string) bool {
+	return key == anthropicKeySystemPrompt ||
+		key == keyMaxTokens ||
+		key == anthropicKeyTools ||
+		key == anthropicKeyToolChoice ||
+		key == anthropicKeyEnableCaching ||
+		key == anthropicKeyStructuredMessages
 }
 
 // anthropicResponse represents the structure of a response from the Anthropic API.

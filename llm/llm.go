@@ -57,6 +57,8 @@ type LLM interface {
 
 // LLMImpl implements the LLM interface and manages interactions with specific providers.
 // It handles provider communication, error management, and logging.
+//
+//nolint:revive // LLMImpl clearly indicates this is the implementation of the LLM interface
 type LLMImpl struct {
 	Provider     providers.Provider
 	logger       utils.Logger

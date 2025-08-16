@@ -504,29 +504,48 @@ func validateObject(data any, schema map[string]any) error {
 	}
 
 	for key, propSchema := range properties {
-		propData, exists := dataMap[key]
-		if !exists {
-			if required, ok := schema["required"].([]any); ok {
-				for _, req := range required {
-					reqStr, ok := req.(string)
-					if ok && reqStr == key {
-						return fmt.Errorf("missing required field: %s", key)
-					}
-				}
-			}
-			continue
-		}
-
-		propSchemaMap, ok := propSchema.(map[string]any)
-		if !ok {
-			continue
-		}
-		if err := validateJSONAgainstSchema(propData, propSchemaMap); err != nil {
-			return fmt.Errorf("invalid field '%s': %w", key, err)
+		if err := validateObjectProperty(key, propSchema, dataMap, schema); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+// validateObjectProperty validates a single property of an object
+func validateObjectProperty(key string, propSchema any, dataMap map[string]any, schema map[string]any) error {
+	propData, exists := dataMap[key]
+	if !exists {
+		return checkRequiredField(key, schema)
+	}
+
+	propSchemaMap, ok := propSchema.(map[string]any)
+	if !ok {
+		return nil // Skip if not a valid schema map
+	}
+
+	if err := validateJSONAgainstSchema(propData, propSchemaMap); err != nil {
+		return fmt.Errorf("invalid field '%s': %w", key, err)
+	}
+
+	return nil
+}
+
+// checkRequiredField checks if a field is required and missing
+func checkRequiredField(key string, schema map[string]any) error {
+	required, ok := schema["required"].([]any)
+	if !ok {
+		return nil // No required fields specified
+	}
+
+	for _, req := range required {
+		reqStr, ok := req.(string)
+		if ok && reqStr == key {
+			return fmt.Errorf("missing required field: %s", key)
+		}
+	}
+
+	return nil // Field is not required
 }
 
 // validateArray validates an array against its schema.
