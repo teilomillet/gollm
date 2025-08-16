@@ -88,7 +88,7 @@ func (p *GroqProvider) SetDefaultOptions(cfg *config.Config) {
 
 // SupportsJSONSchema indicates whether this provider supports JSON schema validation.
 // Currently, Groq does not natively support JSON schema validation.
-func (p *GroqProvider) SupportsJSONSchema() bool {
+func (p *GroqProvider) SupportsStructuredResponse() bool {
 	return false
 }
 

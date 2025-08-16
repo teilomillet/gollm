@@ -4,8 +4,8 @@
 package gollm
 
 import (
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // Re-export core configuration types for easier access

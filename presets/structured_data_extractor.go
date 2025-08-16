@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/teilomillet/gollm"
+	"github.com/weave-labs/gollm"
 )
 
 // ExtractStructuredData extracts structured data from unstructured text by mapping it

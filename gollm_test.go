@@ -87,7 +87,7 @@ func TestStructuredOutput(t *testing.T) {
 	// Create and configure mock provider
 	mockProvider := new(MockProvider)
 	mockProvider.On("Name").Return("mock")
-	mockProvider.On("SupportsJSONSchema").Return(true)
+	mockProvider.On("SupportsStructuredResponse").Return(true)
 	mockProvider.On("SetOption", mock.Anything, mock.Anything).Return()
 	mockProvider.On("SetDefaultOptions", mock.Anything).Return()
 	mockProvider.On("SetLogger", mock.Anything).Return()
@@ -131,7 +131,7 @@ func TestJSONSchemaValidation(t *testing.T) {
 	// Create and configure mock provider
 	mockProvider := new(MockProvider)
 	mockProvider.On("Name").Return("mock")
-	mockProvider.On("SupportsJSONSchema").Return(true)
+	mockProvider.On("SupportsStructuredResponse").Return(true)
 	mockProvider.On("SetOption", mock.Anything, mock.Anything).Return()
 	mockProvider.On("SetDefaultOptions", mock.Anything).Return()
 	mockProvider.On("SetLogger", mock.Anything).Return()

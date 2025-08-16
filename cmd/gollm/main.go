@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/optimizer"
-	"github.com/teilomillet/gollm/presets"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm"
+	"github.com/weave-labs/gollm/optimizer"
+	"github.com/weave-labs/gollm/presets"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // Default configuration values

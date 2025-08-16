@@ -10,10 +10,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/llm"
+	"github.com/weave-labs/gollm/providers"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // ComparisonResult represents the outcome of a model comparison for a specific provider.

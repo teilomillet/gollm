@@ -4,9 +4,9 @@
 package gollm
 
 import (
-	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/types"
+	"github.com/weave-labs/gollm/llm"
+	"github.com/weave-labs/gollm/providers"
+	"github.com/weave-labs/gollm/types"
 )
 
 // The following types are re-exported from the llm package to provide a cleaner API surface.

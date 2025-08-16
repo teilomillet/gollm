@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // OllamaProvider implements the Provider interface for Ollama's API.
@@ -106,7 +106,7 @@ func (p *OllamaProvider) SetDefaultOptions(cfg *config.Config) {
 
 // SupportsJSONSchema indicates whether this provider supports JSON schema validation.
 // Currently, Ollama does not natively support JSON schema validation.
-func (p *OllamaProvider) SupportsJSONSchema() bool {
+func (p *OllamaProvider) SupportsStructuredResponse() bool {
 	return false
 }
 

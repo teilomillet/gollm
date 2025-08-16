@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/teilomillet/gollm/types"
+	"github.com/weave-labs/gollm/types"
 )
 
 // TestAllProvidersImplementStructuredMessages verifies that all providers

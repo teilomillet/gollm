@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // BaseProvider defines the core interface that all LLM providers must implement.
@@ -68,8 +68,18 @@ type RequestProvider interface {
 	PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error)
 }
 
-// StreamingProvider defines the interface for providers that support streaming responses.
-type StreamingProvider interface {
+	// SupportsStructuredResponse indicates whether the provider supports native JSON schema validation.
+	SupportsStructuredResponse() bool
+
+	// SetDefaultOptions configures provider-specific defaults from the global configuration.
+	SetDefaultOptions(config *config.Config)
+
+	// SetOption sets a specific option for the provider (e.g., temperature, max_tokens).
+	SetOption(key string, value any)
+
+	// SetLogger configures the logger for the provider instance.
+	SetLogger(logger utils.Logger)
+
 	// SupportsStreaming indicates whether the provider supports streaming responses.
 	SupportsStreaming() bool
 
@@ -333,6 +343,12 @@ func getStandardConfigs() map[string]ProviderConfig {
 			SupportsSchema:    true,
 			SupportsStreaming: true,
 		},
+		// Add other provider configurations
+	}
+
+	// Store standard configs
+	for name, config := range standardConfigs {
+		registry.configs[name] = config
 	}
 }
 

@@ -2,7 +2,7 @@
 package providers
 
 import (
-	"github.com/teilomillet/gollm/config"
+	"github.com/weave-labs/gollm/config"
 )
 
 // GoogleProvider implements the Provider interface for Google's Gemini API through the

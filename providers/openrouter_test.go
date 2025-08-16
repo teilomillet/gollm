@@ -38,8 +38,8 @@ func TestOpenRouterProvider(t *testing.T) {
 		assert.Equal(t, "GoLLM Integration", headers["X-Title"])
 	})
 
-	t.Run("SupportsJSONSchema returns true", func(t *testing.T) {
-		assert.True(t, provider.SupportsJSONSchema())
+	t.Run("SupportsStructuredResponse returns true", func(t *testing.T) {
+		assert.True(t, provider.SupportsStructuredResponse())
 	})
 
 	t.Run("SupportsStreaming returns true", func(t *testing.T) {

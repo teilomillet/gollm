@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/teilomillet/gollm"
+	"github.com/weave-labs/gollm"
 )
 
 // summarizeTemplate defines a structured prompt template for text summarization.

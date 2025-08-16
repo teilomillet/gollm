@@ -4,6 +4,8 @@ package assess
 import (
 	"context"
 	"fmt"
+	"github.com/invopop/jsonschema"
+	"github.com/weave-labs/gollm/providers"
 	"os"
 	"regexp"
 	"strings"
@@ -11,12 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/invopop/jsonschema"
-	"github.com/teilomillet/gollm/providers"
-
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/llm"
+	"github.com/weave-labs/gollm"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/llm"
 	"golang.org/x/time/rate"
 )
 

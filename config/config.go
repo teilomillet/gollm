@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v11"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // Default configuration values

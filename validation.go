@@ -4,8 +4,6 @@
 package gollm
 
 import (
-	"fmt"
-
 	"github.com/teilomillet/gollm/llm"
 )
 

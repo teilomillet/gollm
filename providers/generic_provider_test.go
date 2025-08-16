@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/utils"
 )
 
 func TestGenericProviderBasics(t *testing.T) {
@@ -79,8 +79,8 @@ func TestGenericProviderBasics(t *testing.T) {
 		provider.extraEndpoint = ""
 	})
 
-	t.Run("SupportsJSONSchema returns config value", func(t *testing.T) {
-		assert.True(t, provider.SupportsJSONSchema())
+	t.Run("SupportsStructuredResponse returns config value", func(t *testing.T) {
+		assert.True(t, provider.SupportsStructuredResponse())
 
 		// Test with a provider that doesn't support schemas
 		noSchemaConfig := testConfig
@@ -93,7 +93,7 @@ func TestGenericProviderBasics(t *testing.T) {
 			logger:  utils.NewLogger(utils.LogLevelInfo),
 		}
 
-		assert.False(t, noSchemaProvider.SupportsJSONSchema())
+		assert.False(t, noSchemaProvider.SupportsStructuredResponse())
 	})
 
 	t.Run("SupportsStreaming returns config value", func(t *testing.T) {
