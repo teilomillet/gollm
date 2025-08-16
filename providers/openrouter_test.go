@@ -96,7 +96,8 @@ func TestOpenRouterProvider(t *testing.T) {
 		assert.True(t, ok)
 		assert.Len(t, messages, 1)
 
-		userMsg := messages[0].(map[string]any)
+		userMsg, ok := messages[0].(map[string]any)
+		assert.True(t, ok)
 		assert.Equal(t, "user", userMsg["role"])
 		assert.Equal(t, "Hello, world!", userMsg["content"])
 	})
@@ -255,16 +256,24 @@ func TestOpenRouterProvider(t *testing.T) {
 		assert.Len(t, reqMessages, 4)
 
 		// Check roles are preserved
-		assert.Equal(t, "system", reqMessages[0].(map[string]any)["role"])
-		assert.Equal(t, "user", reqMessages[1].(map[string]any)["role"])
-		assert.Equal(t, "assistant", reqMessages[2].(map[string]any)["role"])
-		assert.Equal(t, "user", reqMessages[3].(map[string]any)["role"])
+		msg0, ok := reqMessages[0].(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, "system", msg0["role"])
+		msg1, ok := reqMessages[1].(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, "user", msg1["role"])
+		msg2, ok := reqMessages[2].(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, "assistant", msg2["role"])
+		msg3, ok := reqMessages[3].(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, "user", msg3["role"])
 
 		// Check content is preserved
-		assert.Equal(t, "You are a helpful assistant", reqMessages[0].(map[string]any)["content"])
-		assert.Equal(t, "Hello, world!", reqMessages[1].(map[string]any)["content"])
-		assert.Equal(t, "How can I help you?", reqMessages[2].(map[string]any)["content"])
-		assert.Equal(t, "Tell me a joke", reqMessages[3].(map[string]any)["content"])
+		assert.Equal(t, "You are a helpful assistant", msg0["content"])
+		assert.Equal(t, "Hello, world!", msg1["content"])
+		assert.Equal(t, "How can I help you?", msg2["content"])
+		assert.Equal(t, "Tell me a joke", msg3["content"])
 	})
 
 	t.Run("PrepareCompletionRequest formats prompt correctly", func(t *testing.T) {

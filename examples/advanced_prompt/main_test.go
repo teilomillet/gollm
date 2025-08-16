@@ -126,16 +126,6 @@ Please structure your response as a JSON object with the following format:
 					return errors.New("empty summary response")
 				}
 
-				// Test chain of thought
-				// keyPoints, err := presets.ChainOfThought(context.Background(), llm,
-				// 	fmt.Sprintf("Extract 3 key points from this analysis:\n%s", cleanedJSON))
-				// if err != nil {
-				// 	return fmt.Errorf("chain of thought failed: %v", err)
-				// }
-				// if keyPoints == "" {
-				// 	return fmt.Errorf("empty key points response")
-				// }
-
 				return nil
 			})
 	}
@@ -178,6 +168,7 @@ func TestCleanJSONResponse(t *testing.T) {
 
 // initLLMClient creates a new LLM client with the given configuration
 func initLLMClient(t *testing.T, config *gollm.Config) gollm.LLM {
+	t.Helper()
 	llm, err := gollm.NewLLM(
 		gollm.SetProvider("openai"),
 		gollm.SetModel("gpt-4o-mini"),

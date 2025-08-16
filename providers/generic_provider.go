@@ -47,7 +47,7 @@ func NewGenericProvider(apiKey, model, providerName string, extraHeaders map[str
 
 	// Get default registry to access configurations
 	registry := GetDefaultRegistry()
-	config, exists := registry.GetProviderConfig(providerName)
+	cfg, exists := registry.GetProviderConfig(providerName)
 	if !exists {
 		panic(fmt.Sprintf("Provider configuration for '%s' not found", providerName))
 	}
@@ -55,7 +55,7 @@ func NewGenericProvider(apiKey, model, providerName string, extraHeaders map[str
 	return &GenericProvider{
 		apiKey:       apiKey,
 		model:        model,
-		config:       config,
+		config:       cfg,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
 		logger:       utils.NewLogger(utils.LogLevelInfo),
@@ -197,16 +197,16 @@ func (p *GenericProvider) SupportsJSONSchema() bool {
 }
 
 // SetDefaultOptions configures provider-specific defaults from the global configuration.
-func (p *GenericProvider) SetDefaultOptions(config *config.Config) {
+func (p *GenericProvider) SetDefaultOptions(cfg *config.Config) {
 	// Common options
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption("max_tokens", config.MaxTokens)
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("max_tokens", cfg.MaxTokens)
 
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
 
-	p.logger.Debug("Default options set", "temperature", config.Temperature, "max_tokens", config.MaxTokens)
+	p.logger.Debug("Default options set", "temperature", cfg.Temperature, "max_tokens", cfg.MaxTokens)
 }
 
 // SetOption sets a specific option for the provider.

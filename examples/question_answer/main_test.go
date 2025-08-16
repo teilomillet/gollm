@@ -13,6 +13,7 @@ import (
 )
 
 func setupLLM(t *testing.T) gollm.LLM {
+	t.Helper()
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		t.Skip("OPENAI_API_KEY environment variable is not set")

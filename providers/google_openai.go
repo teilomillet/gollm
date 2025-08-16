@@ -46,11 +46,11 @@ func (p *GoogleProvider) Endpoint() string {
 }
 
 // SetDefaultOptions configures standard options from the global configuration.
-func (p *GoogleProvider) SetDefaultOptions(config *config.Config) {
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption("max_tokens", config.MaxTokens)
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+func (p *GoogleProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("max_tokens", cfg.MaxTokens)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
-	p.logger.Debug("Default options set", "temperature", config.Temperature, "max_tokens", config.MaxTokens)
+	p.logger.Debug("Default options set", "temperature", cfg.Temperature, "max_tokens", cfg.MaxTokens)
 }

@@ -247,14 +247,17 @@ func TestOpenRouterIntegration(t *testing.T) {
 		require.NotEmpty(t, toolCalls)
 
 		// Verify it's calling the weather function
-		toolCall := toolCalls[0].(map[string]any)
+		toolCall, ok := toolCalls[0].(map[string]any)
+		require.True(t, ok)
 		require.Equal(t, "function", toolCall["type"])
 
-		functionCall := toolCall["function"].(map[string]any)
+		functionCall, ok := toolCall["function"].(map[string]any)
+		require.True(t, ok)
 		require.Equal(t, "get_weather", functionCall["name"])
 
 		// Check the location is Tokyo
-		args := functionCall["arguments"].(string)
+		args, ok := functionCall["arguments"].(string)
+		require.True(t, ok)
 		var argsMap map[string]any
 		err = json.Unmarshal([]byte(args), &argsMap)
 		require.NoError(t, err)

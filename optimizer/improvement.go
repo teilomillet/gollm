@@ -58,7 +58,7 @@ import (
 //	}
 func (po *PromptOptimizer) generateImprovedPrompt(
 	ctx context.Context,
-	prevEntry OptimizationEntry,
+	prevEntry *OptimizationEntry,
 ) (*llm.Prompt, error) {
 	recentHistory := po.recentHistory()
 	improvePrompt := llm.NewPrompt(fmt.Sprintf(`

@@ -34,12 +34,20 @@ func (m *MockProvider) Endpoint() string {
 
 func (m *MockProvider) Headers() map[string]string {
 	args := m.Called()
-	return args.Get(0).(map[string]string)
+	headers, ok := args.Get(0).(map[string]string)
+	if !ok {
+		panic("Headers() must return map[string]string")
+	}
+	return headers
 }
 
 func (m *MockProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
 	args := m.Called(prompt, options)
-	return args.Get(0).([]byte), args.Error(1)
+	body, ok := args.Get(0).([]byte)
+	if !ok {
+		panic("PrepareRequest() must return []byte")
+	}
+	return body, args.Error(1)
 }
 
 func (m *MockProvider) ParseResponse(body []byte) (string, error) {
@@ -56,8 +64,8 @@ func (m *MockProvider) SetOption(key string, value any) {
 	m.Called(key, value)
 }
 
-func (m *MockProvider) SetDefaultOptions(config *config.Config) {
-	m.Called(config)
+func (m *MockProvider) SetDefaultOptions(cfg *config.Config) {
+	m.Called(cfg)
 }
 
 func (m *MockProvider) SetLogger(logger utils.Logger) {

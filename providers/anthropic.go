@@ -83,11 +83,11 @@ func (p *AnthropicProvider) SetOption(key string, value any) {
 
 // SetDefaultOptions configures standard options from the global configuration.
 // This includes temperature, max tokens, and sampling parameters.
-func (p *AnthropicProvider) SetDefaultOptions(config *config.Config) {
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption(keyMaxTokens, config.MaxTokens)
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+func (p *AnthropicProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption(keyMaxTokens, cfg.MaxTokens)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
 }
 

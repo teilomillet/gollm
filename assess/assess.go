@@ -106,6 +106,7 @@ type TestMetrics struct {
 }
 
 func NewTest(t *testing.T) *TestRunner {
+	t.Helper()
 	return &TestRunner{
 		t: t,
 		metrics: &TestMetrics{
@@ -367,6 +368,7 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 
 // Helper method to run a single batch test case
 func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm.LLM, tc *TestCase) (string, error) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(ctx, tc.Timeout)
 	defer cancel()
 
@@ -456,6 +458,7 @@ func (tr *TestRunner) setupClient(provider TestProvider) llm.LLM {
 }
 
 func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM, provider TestProvider, tc *TestCase) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(ctx, tc.Timeout)
 	defer cancel()
 

@@ -74,12 +74,12 @@ func (p *CohereProvider) SetOption(key string, value any) {
 
 // SetDefaultOptions configures standard options from the global configuration.
 // This includes temperature, max tokens, and sampling parameters.
-func (p *CohereProvider) SetDefaultOptions(config *config.Config) {
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption("max_tokens", config.MaxTokens)
+func (p *CohereProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("max_tokens", cfg.MaxTokens)
 	p.SetOption("stream", false)
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
 }
 
@@ -235,8 +235,7 @@ func (p *CohereProvider) ParseResponse(body []byte) (*Response, error) {
 	var finalResponse strings.Builder
 
 	for _, content := range response.Message.Content {
-		switch content.Type {
-		case cohereKeyText:
+		if content.Type == cohereKeyText {
 			finalResponse.WriteString(content.Text)
 			p.logger.Debug("Text content: %s", content.Text)
 		}

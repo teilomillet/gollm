@@ -231,7 +231,7 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 		}
 
 		// Check if optimization goal is met
-		goalMet, err := po.isOptimizationGoalMet(entry.Assessment)
+		goalMet, err := po.isOptimizationGoalMet(&entry.Assessment)
 		if err != nil {
 			po.debugManager.LogResponse(fmt.Sprintf("Error checking optimization goal: %v", err))
 		} else if goalMet {
@@ -240,7 +240,7 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 		}
 
 		// Generate improved prompt
-		improvedPrompt, err := po.generateImprovedPrompt(ctx, entry)
+		improvedPrompt, err := po.generateImprovedPrompt(ctx, &entry)
 		if err != nil {
 			po.debugManager.LogResponse(fmt.Sprintf("Failed to generate improved prompt at iteration %d: %v", i+1, err))
 			continue

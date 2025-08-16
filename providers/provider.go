@@ -64,7 +64,7 @@ type Provider interface {
 	SupportsJSONSchema() bool
 
 	// SetDefaultOptions configures provider-specific defaults from the global configuration.
-	SetDefaultOptions(config *config.Config)
+	SetDefaultOptions(cfg *config.Config)
 
 	// SetOption sets a specific option for the provider (e.g., temperature, max_tokens).
 	SetOption(key string, value any)

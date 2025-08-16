@@ -128,7 +128,7 @@ func (po *PromptOptimizer) assessPrompt(ctx context.Context, prompt *llm.Prompt)
 // Example threshold values:
 //   - Numerical: 0.75 requires score >= 15/20
 //   - Letter: Requires A- or better
-func (po *PromptOptimizer) isOptimizationGoalMet(assessment PromptAssessment) (bool, error) {
+func (po *PromptOptimizer) isOptimizationGoalMet(assessment *PromptAssessment) (bool, error) {
 	if po.ratingSystem == "" {
 		return false, nil
 	}

@@ -301,7 +301,9 @@ func TestGenericProviderStreamHandling(t *testing.T) {
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
-		assert.True(t, request["stream"].(bool))
+		streamVal, ok := request["stream"].(bool)
+		assert.True(t, ok)
+		assert.True(t, streamVal)
 	})
 
 	t.Run("ParseStreamResponse handles OpenAI chunk", func(t *testing.T) {
@@ -337,11 +339,11 @@ func TestProviderRegistryWithGenericProvider(t *testing.T) {
 		registry.RegisterProviderConfig("test-provider", testConfig)
 
 		// Retrieve the config
-		config, exists := registry.GetProviderConfig("test-provider")
+		cfg, exists := registry.GetProviderConfig("test-provider")
 		require.True(t, exists)
-		assert.Equal(t, "test-provider", config.Name)
-		assert.Equal(t, TypeOpenAI, config.Type)
-		assert.Equal(t, "https://api.test-provider.com/v1/chat/completions", config.Endpoint)
+		assert.Equal(t, "test-provider", cfg.Name)
+		assert.Equal(t, TypeOpenAI, cfg.Type)
+		assert.Equal(t, "https://api.test-provider.com/v1/chat/completions", cfg.Endpoint)
 	})
 
 	t.Run("RegisterGenericProvider registers constructor", func(t *testing.T) {

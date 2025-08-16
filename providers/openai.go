@@ -106,20 +106,20 @@ func (p *OpenAIProvider) SetOption(key string, value any) {
 
 // SetDefaultOptions configures standard options from the global configuration.
 // This includes temperature, max tokens, and sampling parameters.
-func (p *OpenAIProvider) SetDefaultOptions(config *config.Config) {
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption(openAIKeyMaxTokens, config.MaxTokens)
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+func (p *OpenAIProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption(openAIKeyMaxTokens, cfg.MaxTokens)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
 	p.logger.Debug(
 		"Default options set",
 		"temperature",
-		config.Temperature,
+		cfg.Temperature,
 		openAIKeyMaxTokens,
-		config.MaxTokens,
+		cfg.MaxTokens,
 		"seed",
-		config.Seed,
+		cfg.Seed,
 	)
 }
 

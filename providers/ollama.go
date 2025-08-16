@@ -85,23 +85,23 @@ func (p *OllamaProvider) SetOption(key string, value any) {
 
 // SetDefaultOptions configures standard options from the global configuration.
 // This includes temperature and other generation parameters.
-func (p *OllamaProvider) SetDefaultOptions(config *config.Config) {
-	p.SetOption("temperature", config.Temperature)
-	p.SetOption("num_predict", config.MaxTokens)
-	if config.Seed != nil {
-		p.SetOption("seed", *config.Seed)
+func (p *OllamaProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("num_predict", cfg.MaxTokens)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
 	}
-	if config.OllamaEndpoint != "" {
-		p.SetEndpoint(config.OllamaEndpoint)
+	if cfg.OllamaEndpoint != "" {
+		p.SetEndpoint(cfg.OllamaEndpoint)
 	}
-	p.SetOption("top_p", config.TopP)
-	p.SetOption("min_p", config.MinP)
-	p.SetOption("repeat_penalty", config.RepeatPenalty)
-	p.SetOption("repeat_last_n", config.RepeatLastN)
-	p.SetOption("mirostat", config.Mirostat)
-	p.SetOption("mirostat_eta", config.MirostatEta)
-	p.SetOption("mirostat_tau", config.MirostatTau)
-	p.SetOption("tfs_z", config.TfsZ)
+	p.SetOption("top_p", cfg.TopP)
+	p.SetOption("min_p", cfg.MinP)
+	p.SetOption("repeat_penalty", cfg.RepeatPenalty)
+	p.SetOption("repeat_last_n", cfg.RepeatLastN)
+	p.SetOption("mirostat", cfg.Mirostat)
+	p.SetOption("mirostat_eta", cfg.MirostatEta)
+	p.SetOption("mirostat_tau", cfg.MirostatTau)
+	p.SetOption("tfs_z", cfg.TfsZ)
 }
 
 // SupportsJSONSchema indicates whether this provider supports JSON schema validation.
