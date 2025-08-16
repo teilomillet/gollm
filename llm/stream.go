@@ -68,8 +68,8 @@ func (s *DefaultRetryStrategy) NextDelay() time.Duration {
 	if attempts < 0 {
 		attempts = 0
 	}
-	if attempts > 63 {
-		attempts = 63
+	if attempts > MaxRetryAttempts {
+		attempts = MaxRetryAttempts
 	}
 	// #nosec G115 - attempts is clamped to max 63 above, safe to convert
 	delay := s.InitialWait * time.Duration(1<<uint(attempts))

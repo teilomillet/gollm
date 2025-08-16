@@ -135,20 +135,20 @@ func (po *PromptOptimizer) isOptimizationGoalMet(assessment *PromptAssessment) (
 
 	switch po.ratingSystem {
 	case "numerical":
-		return assessment.OverallScore >= 20*po.threshold, nil
+		return assessment.OverallScore >= MaxRatingScale*po.threshold, nil
 	case "letter":
 		gradeValues := map[string]float64{
-			"A+": 4.3, "A": 4.0, "A-": 3.7,
-			"B+": 3.3, "B": 3.0, "B-": 2.7,
-			"C+": 2.3, "C": 2.0, "C-": 1.7,
-			"D+": 1.3, "D": 1.0, "D-": 0.7,
-			"F": 0.0,
+			"A+": GradeValueAPlus, "A": GradeValueA, "A-": GradeValueAMinus,
+			"B+": GradeValueBPlus, "B": GradeValueB, "B-": GradeValueBMinus,
+			"C+": GradeValueCPlus, "C": GradeValueC, "C-": GradeValueCMinus,
+			"D+": GradeValueDPlus, "D": GradeValueD, "D-": GradeValueDMinus,
+			"F": GradeValueF,
 		}
 		gradeValue, exists := gradeValues[assessment.OverallGrade]
 		if !exists {
 			return false, fmt.Errorf("invalid grade: %s", assessment.OverallGrade)
 		}
-		return gradeValue >= 3.7, nil // Equivalent to A- or better
+		return gradeValue >= MinimumOptimizationGradeValue, nil // Equivalent to A- or better
 	default:
 		return false, fmt.Errorf("unknown rating system: %s", po.ratingSystem)
 	}

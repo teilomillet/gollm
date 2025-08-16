@@ -22,13 +22,15 @@ import (
 
 // Constants for default values
 const (
-	DefaultTestTimeout   = 30 * time.Second
-	DefaultBatchTimeout  = 10 * time.Minute
-	DefaultMaxParallel   = 5
-	DefaultMaxRetries    = 3
-	DefaultRetryDelay    = 2 * time.Second
-	AverageWeight        = 2
-	PercentageMultiplier = 100
+	DefaultTestTimeout     = 30 * time.Second
+	DefaultBatchTimeout    = 10 * time.Minute
+	DefaultMaxParallel     = 5
+	DefaultMaxRetries      = 3
+	DefaultRetryDelay      = 2 * time.Second
+	AverageWeight          = 2
+	PercentageMultiplier   = 100
+	DefaultAnthropicTokens = 1000
+	DefaultOpenAITokens    = 500
 )
 
 // BatchTestConfig configures batch test execution
@@ -105,6 +107,7 @@ type TestMetrics struct {
 	StartTime     time.Time
 }
 
+// NewTest creates a new test runner instance
 func NewTest(t *testing.T) *TestRunner {
 	t.Helper()
 	return &TestRunner{
@@ -129,6 +132,7 @@ func (tr *TestRunner) WithProvider(name, model string) *TestRunner {
 	return tr
 }
 
+// WithProviders configures the test runner with multiple providers
 func (tr *TestRunner) WithProviders(providerList map[string]string) *TestRunner {
 	for name, model := range providerList {
 		tr.WithProvider(name, model)
@@ -136,31 +140,37 @@ func (tr *TestRunner) WithProviders(providerList map[string]string) *TestRunner 
 	return tr
 }
 
+// WithConfig sets the configuration for the test runner
 func (tr *TestRunner) WithConfig(cfg *config.Config) *TestRunner {
 	tr.config = cfg
 	return tr
 }
 
+// WithSystemPrompt sets the system prompt for the test case
 func (tc *TestCase) WithSystemPrompt(prompt string) *TestCase {
 	tc.SystemPrompt = prompt
 	return tc
 }
 
+// WithTimeout sets the timeout duration for the test case
 func (tc *TestCase) WithTimeout(timeout time.Duration) *TestCase {
 	tc.Timeout = timeout
 	return tc
 }
 
+// ExpectSchema sets the expected schema for validation
 func (tc *TestCase) ExpectSchema(schema any) *TestCase {
 	tc.ExpectedSchema = schema
 	return tc
 }
 
+// Validate adds a validation function to the test case
 func (tc *TestCase) Validate(fn ValidationFunc) *TestCase {
 	tc.Validations = append(tc.Validations, fn)
 	return tc
 }
 
+// WithOption sets a test case option
 func (tc *TestCase) WithOption(key string, value any) *TestCase {
 	if tc.options == nil {
 		tc.options = make(map[string]any)
@@ -169,6 +179,7 @@ func (tc *TestCase) WithOption(key string, value any) *TestCase {
 	return tc
 }
 
+// AddCase adds a new test case to the runner
 func (tr *TestRunner) AddCase(name, input string) *TestCase {
 	tc := &TestCase{
 		Name:    name,
@@ -180,6 +191,7 @@ func (tr *TestRunner) AddCase(name, input string) *TestCase {
 	return tc
 }
 
+// WithBatchConfig configures batch test execution settings
 func (tr *TestRunner) WithBatchConfig(cfg BatchTestConfig) *TestRunner {
 	if cfg.MaxParallel <= 0 {
 		cfg.MaxParallel = DefaultMaxParallel // default
@@ -195,6 +207,7 @@ func (tr *TestRunner) WithBatchConfig(cfg BatchTestConfig) *TestRunner {
 	return tr
 }
 
+// GetBatchMetrics returns the batch execution metrics
 func (tr *TestRunner) GetBatchMetrics() *BatchMetrics {
 	return tr.batchMetrics
 }
@@ -225,6 +238,23 @@ func (tr *TestRunner) printErrorSummary() {
 	tr.t.Log("==================")
 }
 
+// testResult represents the result of a single test execution
+type testResult struct {
+	provider string
+	testCase string
+	duration time.Duration
+	err      error
+	response string
+}
+
+// workerState tracks concurrency state across workers
+type workerState struct {
+	current int
+	max     int
+	mu      sync.Mutex
+}
+
+// RunBatch executes all test cases in parallel batches
 func (tr *TestRunner) RunBatch(ctx context.Context) {
 	if tr.batchCfg == nil {
 		tr.batchCfg = &BatchTestConfig{
@@ -243,89 +273,11 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 	// Create worker pool
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, tr.batchCfg.MaxParallel)
-	currentConcurrent := 0
-	maxConcurrent := 0
-
-	var concurrencyMu sync.Mutex
-
-	// Create channels for real-time updates
-	type testResult struct {
-		provider string
-		testCase string
-		duration time.Duration
-		err      error
-		response string
-	}
+	workerState := &workerState{}
 	results := make(chan testResult, len(tr.providers)*len(tr.cases))
 
-	for _, provider := range tr.providers {
-		client := tr.setupClient(provider)
-		tr.t.Logf("Initialized client for provider: %s", provider.Name)
-
-		for _, tc := range tr.cases {
-			wg.Add(1)
-			go func(p TestProvider, testCase *TestCase) {
-				defer wg.Done()
-
-				// Acquire semaphore
-				semaphore <- struct{}{}
-				concurrencyMu.Lock()
-				currentConcurrent++
-				if currentConcurrent > maxConcurrent {
-					maxConcurrent = currentConcurrent
-				}
-				concurrencyMu.Unlock()
-
-				tr.t.Logf("Starting test case [%s] for provider [%s]", testCase.Name, p.Name)
-
-				// Apply rate limiting if configured
-				if tr.batchCfg.RateLimit != nil {
-					if err := tr.batchCfg.RateLimit.Wait(ctx); err != nil {
-						tr.recordError(p.Name, fmt.Errorf("rate limit wait failed: %w", err))
-						tr.t.Logf("Rate limit wait error for provider %s: %v", p.Name, err)
-					}
-				}
-
-				// Run the test case
-				start := time.Now()
-				var testErr error
-				var response string
-
-				// Create a sub-test for proper test organization
-				tr.t.Run(fmt.Sprintf("%s/%s", p.Name, testCase.Name), func(t *testing.T) {
-					response, testErr = tr.runBatchCase(ctx, t, client, testCase)
-				})
-
-				duration := time.Since(start)
-
-				// Send result through channel
-				results <- testResult{
-					provider: p.Name,
-					testCase: testCase.Name,
-					duration: duration,
-					err:      testErr,
-					response: response,
-				}
-
-				// Update provider latency metrics
-				tr.mu.Lock()
-				if existing, ok := tr.batchMetrics.BatchTiming.ProviderLatency[p.Name]; ok {
-					tr.batchMetrics.BatchTiming.ProviderLatency[p.Name] = (existing + duration) / AverageWeight
-				} else {
-					tr.batchMetrics.BatchTiming.ProviderLatency[p.Name] = duration
-				}
-				tr.mu.Unlock()
-
-				// Release semaphore
-				concurrencyMu.Lock()
-				currentConcurrent--
-				concurrencyMu.Unlock()
-				<-semaphore
-
-				tr.t.Logf("Completed test case [%s] for provider [%s] in %v", testCase.Name, p.Name, duration)
-			}(provider, tc)
-		}
-	}
+	// Launch test workers
+	tr.launchTestWorkers(ctx, &wg, semaphore, workerState, results)
 
 	// Start a goroutine to close results channel when all tests complete
 	go func() {
@@ -333,7 +285,105 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 		close(results)
 	}()
 
-	// Process results as they come in
+	// Process results
+	tr.processTestResults(results)
+
+	// Finalize metrics
+	tr.finalizeBatchMetrics(workerState.max)
+}
+
+// launchTestWorkers starts test execution workers
+func (tr *TestRunner) launchTestWorkers(
+	ctx context.Context,
+	wg *sync.WaitGroup,
+	semaphore chan struct{},
+	state *workerState,
+	results chan testResult,
+) {
+	for _, provider := range tr.providers {
+		client := tr.setupClient(provider)
+		tr.t.Logf("Initialized client for provider: %s", provider.Name)
+
+		for _, tc := range tr.cases {
+			wg.Add(1)
+			go tr.runTestWorker(ctx, wg, semaphore, state, results, provider, tc, client)
+		}
+	}
+}
+
+// runTestWorker executes a single test in a worker goroutine
+func (tr *TestRunner) runTestWorker(
+	ctx context.Context,
+	wg *sync.WaitGroup,
+	semaphore chan struct{},
+	state *workerState,
+	results chan testResult,
+	p TestProvider,
+	testCase *TestCase,
+	client llm.LLM,
+) {
+	defer wg.Done()
+
+	// Acquire semaphore
+	semaphore <- struct{}{}
+	state.mu.Lock()
+	state.current++
+	if state.current > state.max {
+		state.max = state.current
+	}
+	state.mu.Unlock()
+
+	tr.t.Logf("Starting test case [%s] for provider [%s]", testCase.Name, p.Name)
+
+	// Apply rate limiting if configured
+	if tr.batchCfg.RateLimit != nil {
+		if err := tr.batchCfg.RateLimit.Wait(ctx); err != nil {
+			tr.recordError(p.Name, fmt.Errorf("rate limit wait failed: %w", err))
+			tr.t.Logf("Rate limit wait error for provider %s: %v", p.Name, err)
+		}
+	}
+
+	// Run the test case
+	start := time.Now()
+	var testErr error
+	var response string
+
+	// Create a sub-test for proper test organization
+	tr.t.Run(fmt.Sprintf("%s/%s", p.Name, testCase.Name), func(t *testing.T) {
+		response, testErr = tr.runBatchCase(ctx, t, client, testCase)
+	})
+
+	duration := time.Since(start)
+
+	// Send result through channel
+	results <- testResult{
+		provider: p.Name,
+		testCase: testCase.Name,
+		duration: duration,
+		err:      testErr,
+		response: response,
+	}
+
+	// Update provider latency metrics
+	tr.mu.Lock()
+	if existing, ok := tr.batchMetrics.BatchTiming.ProviderLatency[p.Name]; ok {
+		tr.batchMetrics.BatchTiming.ProviderLatency[p.Name] = (existing + duration) / AverageWeight
+	} else {
+		tr.batchMetrics.BatchTiming.ProviderLatency[p.Name] = duration
+	}
+	tr.mu.Unlock()
+
+	// Release semaphore
+	state.mu.Lock()
+	state.current--
+	state.mu.Unlock()
+	<-semaphore
+
+	tr.t.Logf("Completed test case [%s] for provider [%s] in %v", testCase.Name, p.Name, duration)
+}
+
+// processTestResults handles incoming test results
+func (tr *TestRunner) processTestResults(results chan testResult) {
 	completedTests := 0
 	totalTests := len(tr.providers) * len(tr.cases)
 	for result := range results {
@@ -351,8 +401,10 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 			(completedTests*PercentageMultiplier)/totalTests,
 		)
 	}
+}
 
-	// Record final metrics
+// finalizeBatchMetrics records final execution metrics
+func (tr *TestRunner) finalizeBatchMetrics(maxConcurrent int) {
 	tr.batchMetrics.BatchTiming.EndTime = time.Now()
 	tr.batchMetrics.BatchTiming.TotalDuration = tr.batchMetrics.BatchTiming.EndTime.Sub(
 		tr.batchMetrics.BatchTiming.StartTime,
@@ -432,11 +484,11 @@ func (tr *TestRunner) setupClient(provider TestProvider) llm.LLM {
 	switch provider.Name {
 	case "anthropic":
 		opts = append(opts,
-			gollm.SetMaxTokens(1000),
+			gollm.SetMaxTokens(DefaultAnthropicTokens),
 		)
 	case "openai":
 		opts = append(opts,
-			gollm.SetMaxTokens(500),
+			gollm.SetMaxTokens(DefaultOpenAITokens),
 		)
 	}
 
@@ -457,12 +509,8 @@ func (tr *TestRunner) setupClient(provider TestProvider) llm.LLM {
 	return client
 }
 
-func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM, provider TestProvider, tc *TestCase) {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(ctx, tc.Timeout)
-	defer cancel()
-
-	// Create prompt with all options
+// buildPromptOptions creates prompt options from test case configuration
+func (tc *TestCase) buildPromptOptions() []gollm.PromptOption {
 	var promptOpts []gollm.PromptOption
 
 	if tc.SystemPrompt != "" {
@@ -505,6 +553,16 @@ func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM,
 		promptOpts = append(promptOpts, gollm.WithOutput(tc.output))
 	}
 
+	return promptOpts
+}
+
+func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM, provider TestProvider, tc *TestCase) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(ctx, tc.Timeout)
+	defer cancel()
+
+	// Create prompt with all options
+	promptOpts := tc.buildPromptOptions()
 	prompt := gollm.NewPrompt(tc.Input, promptOpts...)
 
 	// Apply test case options
@@ -565,6 +623,7 @@ func ExpectContains(substr string) ValidationFunc {
 	}
 }
 
+// ExpectMatches creates a validation function that checks if response matches a regex pattern
 func ExpectMatches(pattern string) ValidationFunc {
 	return func(response string) error {
 		matched, err := regexp.MatchString(pattern, response)
@@ -578,6 +637,7 @@ func ExpectMatches(pattern string) ValidationFunc {
 	}
 }
 
+// Run executes all test cases sequentially
 func (tr *TestRunner) Run(ctx context.Context) {
 	for _, provider := range tr.providers {
 		tr.t.Run(provider.Name, func(t *testing.T) {

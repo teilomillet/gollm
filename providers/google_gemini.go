@@ -418,28 +418,7 @@ func (p *GeminiProvider) ParseResponse(body []byte) (*Response, error) {
 		}
 		// If the part is a function call, format it as a string and collect it
 		if part.FunctionCall != nil {
-			// The functionCall map should have "name" and "args"
-			nameVal, nameOK := (*part.FunctionCall)["name"].(string)
-			argsVal, argsOK := (*part.FunctionCall)["args"]
-			if nameOK {
-				var formattedCall string
-				if argsOK {
-					// Marshal the args object to JSON string
-					argsJSON, err := json.Marshal(argsVal)
-					if err != nil {
-						formattedCall = nameVal + "()"
-					} else {
-						formattedCall = fmt.Sprintf("%s(%s)", nameVal, argsJSON)
-					}
-				} else {
-					formattedCall = nameVal + "()"
-				}
-				// If there is pending text not yet added to output, add a newline before function call
-				if finalText.Len() > 0 {
-					finalText.WriteString("\n")
-				}
-				finalText.WriteString(formattedCall)
-			}
+			p.processFunctionCall(*part.FunctionCall, &finalText)
 		}
 		// If the part is a function response (function output fed back to model), we skip it for final content.
 		if part.FunctionResponse != nil {
@@ -557,20 +536,8 @@ func (p *GeminiProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	}
 	if part.FunctionCall != nil {
 		// Format function call as in ParseResponse
-		nameVal, nameOK := (*part.FunctionCall)["name"].(string)
-		argsVal, argsOK := (*part.FunctionCall)["args"]
-		if nameOK {
-			var formattedCall string
-			if argsOK {
-				argsJSON, err := json.Marshal(argsVal)
-				if err != nil {
-					formattedCall = nameVal + "()"
-				} else {
-					formattedCall = fmt.Sprintf("%s(%s)", nameVal, argsJSON)
-				}
-			} else {
-				formattedCall = nameVal + "()"
-			}
+		formattedCall := p.formatFunctionCall(*part.FunctionCall)
+		if formattedCall != "" {
 			return &Response{Content: Text{Value: formattedCall}}, nil
 		}
 	}
@@ -580,4 +547,50 @@ func (p *GeminiProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	}
 
 	return nil, errors.New("skip chunk")
+}
+
+// processFunctionCall formats a function call and adds it to the final text
+func (p *GeminiProvider) processFunctionCall(functionCall map[string]any, finalText *strings.Builder) {
+	nameVal, nameOK := functionCall["name"].(string)
+	if !nameOK {
+		return
+	}
+
+	argsVal, argsOK := functionCall["args"]
+	var formattedCall string
+	if argsOK {
+		// Marshal the args object to JSON string
+		argsJSON, err := json.Marshal(argsVal)
+		if err != nil {
+			formattedCall = nameVal + "()"
+		} else {
+			formattedCall = fmt.Sprintf("%s(%s)", nameVal, argsJSON)
+		}
+	} else {
+		formattedCall = nameVal + "()"
+	}
+
+	// If there is pending text not yet added to output, add a newline before function call
+	if finalText.Len() > 0 {
+		finalText.WriteString("\n")
+	}
+	finalText.WriteString(formattedCall)
+}
+
+// formatFunctionCall formats a function call and returns the formatted string
+func (p *GeminiProvider) formatFunctionCall(functionCall map[string]any) string {
+	nameVal, nameOK := functionCall["name"].(string)
+	if !nameOK {
+		return ""
+	}
+
+	argsVal, argsOK := functionCall["args"]
+	if argsOK {
+		argsJSON, err := json.Marshal(argsVal)
+		if err != nil {
+			return nameVal + "()"
+		}
+		return fmt.Sprintf("%s(%s)", nameVal, argsJSON)
+	}
+	return nameVal + "()"
 }

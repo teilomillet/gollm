@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -68,7 +67,7 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 		if err != nil {
 			return false
 		}
-		client := &http.Client{Timeout: 5 * time.Second}
+		client := &http.Client{Timeout: DefaultOllamaTimeout}
 		resp, err := client.Do(req)
 		if err != nil {
 			return false
@@ -91,11 +90,11 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 	// Validate key format based on provider
 	switch provider {
 	case "openai":
-		return strings.HasPrefix(apiKey, "sk-") && len(apiKey) > 20
+		return strings.HasPrefix(apiKey, "sk-") && len(apiKey) > MinAPIKeyLength
 	case "anthropic":
-		return strings.HasPrefix(apiKey, "sk-ant-") && len(apiKey) > 20
+		return strings.HasPrefix(apiKey, "sk-ant-") && len(apiKey) > MinAPIKeyLength
 	default:
-		return len(apiKey) > 20 // Generic validation for unknown providers
+		return len(apiKey) > MinAPIKeyLength // Generic validation for unknown providers
 	}
 }
 
@@ -283,103 +282,119 @@ func getFieldSchema(field *reflect.StructField) (map[string]any, error) {
 func addValidationToSchema(schema map[string]any, validateTag string) {
 	rules := strings.Split(validateTag, ",")
 	for _, rule := range rules {
-		parts := strings.SplitN(rule, "=", 2)
+		parts := strings.SplitN(rule, "=", MaxValidationSplitParts)
 		key := parts[0]
 		var value string
 		if len(parts) > 1 {
 			value = parts[1]
 		}
+		applyValidationRule(schema, key, value)
+	}
+}
 
-		switch key {
-		case "required":
-			// This is handled in generateJSONSchemaFromStruct
-
-		case "min":
-			if num, err := strconv.ParseFloat(value, 64); err == nil {
-				if schema["type"] == "array" {
-					schema["minItems"] = int(num)
-				} else {
-					schema["minimum"] = num
-				}
-			}
-
-		case "max":
-			if num, err := strconv.ParseFloat(value, 64); err == nil {
-				if schema["type"] == "array" {
-					schema["maxItems"] = int(num)
-				} else {
-					schema["maximum"] = num
-				}
-			}
-
-		case "len":
-			if num, err := strconv.ParseInt(value, 10, 64); err == nil {
-				schema["minLength"] = num
-				schema["maxLength"] = num
-			}
-
-		case "one_decimal":
-			schema["multipleOf"] = 0.1
-
-		case "email":
-			schema["format"] = "email"
-
-		case "url":
-			schema["format"] = "uri"
-
-		case "datetime":
-			schema["format"] = "date-time"
-
-		case "regex":
-			schema["pattern"] = value
-
-		case "enum":
-			schema["enum"] = strings.Split(value, "|")
-
-		case "contains":
-			if schema["allOf"] == nil {
-				schema["allOf"] = []map[string]any{}
-			}
-			allOf, ok := schema["allOf"].([]map[string]any)
-			if !ok {
-				continue
-			}
-			schema["allOf"] = append(allOf,
-				map[string]any{
-					"pattern": fmt.Sprintf(".*%s.*", regexp.QuoteMeta(value)),
-				})
-
-		case "excludes":
-			if schema["not"] == nil {
-				schema["not"] = map[string]any{}
-			}
-			notSchema, ok := schema["not"].(map[string]any)
-			if ok {
-				notSchema["pattern"] = fmt.Sprintf(".*%s.*", regexp.QuoteMeta(value))
-			}
-
-		case "unique":
-			if value == "true" {
-				schema["uniqueItems"] = true
-			}
-
-		case "minItems":
-			if num, err := strconv.ParseInt(value, 10, 64); err == nil {
-				schema["minItems"] = num
-			}
-
-		case "maxItems":
-			if num, err := strconv.ParseInt(value, 10, 64); err == nil {
-				schema["maxItems"] = num
-			}
-
-		case "password":
-			// Example: password=strong (requires at least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special
-			// char)
-			schema["pattern"] = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
-
-			// Add more cases as needed
+// applyValidationRule applies a single validation rule to the schema
+func applyValidationRule(schema map[string]any, key, value string) {
+	switch key {
+	case "required":
+		// This is handled in generateJSONSchemaFromStruct
+	case "min":
+		applyMinRule(schema, value)
+	case "max":
+		applyMaxRule(schema, value)
+	case "len":
+		applyLenRule(schema, value)
+	case "one_decimal":
+		schema["multipleOf"] = 0.1
+	case "email":
+		schema["format"] = "email"
+	case "url":
+		schema["format"] = "uri"
+	case "datetime":
+		schema["format"] = "date-time"
+	case "regex":
+		schema["pattern"] = value
+	case "enum":
+		schema["enum"] = strings.Split(value, "|")
+	case "contains":
+		applyContainsRule(schema, value)
+	case "excludes":
+		applyExcludesRule(schema, value)
+	case "unique":
+		if value == "true" {
+			schema["uniqueItems"] = true
 		}
+
+	case "minItems":
+		if num, err := strconv.ParseInt(value, 10, 64); err == nil {
+			schema["minItems"] = num
+		}
+
+	case "maxItems":
+		if num, err := strconv.ParseInt(value, 10, 64); err == nil {
+			schema["maxItems"] = num
+		}
+
+	case "password":
+		// Example: password=strong (requires at least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special
+		// char)
+		schema["pattern"] = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+		// Add more cases as needed
+	}
+}
+
+// applyMinRule applies minimum value validation
+func applyMinRule(schema map[string]any, value string) {
+	if num, err := strconv.ParseFloat(value, 64); err == nil {
+		if schema["type"] == "array" {
+			schema["minItems"] = int(num)
+		} else {
+			schema["minimum"] = num
+		}
+	}
+}
+
+// applyMaxRule applies maximum value validation
+func applyMaxRule(schema map[string]any, value string) {
+	if num, err := strconv.ParseFloat(value, 64); err == nil {
+		if schema["type"] == "array" {
+			schema["maxItems"] = int(num)
+		} else {
+			schema["maximum"] = num
+		}
+	}
+}
+
+// applyLenRule applies length validation
+func applyLenRule(schema map[string]any, value string) {
+	if num, err := strconv.ParseInt(value, 10, 64); err == nil {
+		schema["minLength"] = num
+		schema["maxLength"] = num
+	}
+}
+
+// applyContainsRule applies contains validation
+func applyContainsRule(schema map[string]any, value string) {
+	if schema["allOf"] == nil {
+		schema["allOf"] = []map[string]any{}
+	}
+	allOf, ok := schema["allOf"].([]map[string]any)
+	if !ok {
+		return
+	}
+	schema["allOf"] = append(allOf,
+		map[string]any{
+			"pattern": fmt.Sprintf(".*%s.*", regexp.QuoteMeta(value)),
+		})
+}
+
+// applyExcludesRule applies excludes validation
+func applyExcludesRule(schema map[string]any, value string) {
+	if schema["not"] == nil {
+		schema["not"] = map[string]any{}
+	}
+	notSchema, ok := schema["not"].(map[string]any)
+	if ok {
+		notSchema["pattern"] = fmt.Sprintf(".*%s.*", regexp.QuoteMeta(value))
 	}
 }
 

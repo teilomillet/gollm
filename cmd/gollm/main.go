@@ -1,3 +1,4 @@
+// Package main provides a command-line interface for the GoLLM library.
 package main
 
 import (
@@ -16,82 +17,140 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
-func main() {
-	// Existing flags
-	promptType := flag.String("type", "raw", "Prompt type (raw, qa, cot, summarize, optimize)")
-	verbose := flag.Bool("verbose", false, "Display verbose output including full prompt")
-	provider := flag.String("provider", "", "LLM provider (anthropic, openai, groq, mistral, ollama, cohere)")
-	model := flag.String("model", "", "LLM model")
-	temperature := flag.Float64("temperature", -1, "LLM temperature")
-	maxTokens := flag.Int("max-tokens", 0, "LLM max tokens")
-	timeout := flag.Duration("timeout", 0, "LLM timeout")
-	apiKey := flag.String("api-key", "", "API key for the specified provider")
-	maxRetries := flag.Int("max-retries", 3, "Maximum number of retries for API calls")
-	retryDelay := flag.Duration("retry-delay", time.Second*2, "Delay between retries")
-	debugLevel := flag.String("debug-level", "warn", "Debug level (debug, info, warn, error)")
-	outputFormat := flag.String("output-format", "", "Output format for structured responses (json)")
+// Default configuration values
+const (
+	DefaultMaxRetries         = 3
+	DefaultRetryDelaySeconds  = 2
+	DefaultOptimizeIterations = 5
+	DefaultOptimizeMemory     = 2
+)
 
-	// New flags for prompt optimization
-	optimizeGoal := flag.String("optimize-goal", "Improve the prompt's clarity and effectiveness", "Optimization goal")
-	optimizeIterations := flag.Int("optimize-iterations", 5, "Number of optimization iterations")
-	optimizeMemory := flag.Int("optimize-memory", 2, "Number of previous iterations to remember")
+// cmdFlags holds all command-line flags
+type cmdFlags struct {
+	apiKey             string
+	optimizeGoal       string
+	provider           string
+	model              string
+	outputFormat       string
+	debugLevel         string
+	promptType         string
+	timeout            time.Duration
+	maxRetries         int
+	retryDelay         time.Duration
+	maxTokens          int
+	temperature        float64
+	optimizeIterations int
+	optimizeMemory     int
+	verbose            bool
+}
 
-	flag.Parse()
-
-	// Prepare configuration options
-	configOpts := prepareConfigOptions(
-		provider,
-		model,
-		temperature,
-		maxTokens,
-		timeout,
-		apiKey,
-		maxRetries,
-		retryDelay,
-		debugLevel,
+// parseFlags parses command-line flags
+func parseFlags() *cmdFlags {
+	flags := &cmdFlags{}
+	flag.StringVar(&flags.promptType, "type", "raw", "Prompt type (raw, qa, cot, summarize, optimize)")
+	flag.BoolVar(&flags.verbose, "verbose", false, "Display verbose output including full prompt")
+	flag.StringVar(&flags.provider, "provider", "", "LLM provider (anthropic, openai, groq, mistral, ollama, cohere)")
+	flag.StringVar(&flags.model, "model", "", "LLM model")
+	flag.Float64Var(&flags.temperature, "temperature", -1, "LLM temperature")
+	flag.IntVar(&flags.maxTokens, "max-tokens", 0, "LLM max tokens")
+	flag.DurationVar(&flags.timeout, "timeout", 0, "LLM timeout")
+	flag.StringVar(&flags.apiKey, "api-key", "", "API key for the specified provider")
+	flag.IntVar(&flags.maxRetries, "max-retries", DefaultMaxRetries, "Maximum number of retries for API calls")
+	flag.DurationVar(&flags.retryDelay, "retry-delay", time.Second*DefaultRetryDelaySeconds, "Delay between retries")
+	flag.StringVar(&flags.debugLevel, "debug-level", "warn", "Debug level (debug, info, warn, error)")
+	flag.StringVar(&flags.outputFormat, "output-format", "", "Output format for structured responses (json)")
+	flag.StringVar(
+		&flags.optimizeGoal,
+		"optimize-goal",
+		"Improve the prompt's clarity and effectiveness",
+		"Optimization goal",
 	)
+	flag.IntVar(
+		&flags.optimizeIterations,
+		"optimize-iterations",
+		DefaultOptimizeIterations,
+		"Number of optimization iterations",
+	)
+	flag.IntVar(
+		&flags.optimizeMemory,
+		"optimize-memory",
+		DefaultOptimizeMemory,
+		"Number of previous iterations to remember",
+	)
+	flag.Parse()
+	return flags
+}
 
-	// Create LLM client with the specified options
-	llmClient, err := gollm.NewLLM(configOpts...)
+func main() {
+	flags := parseFlags()
+
+	// Create LLM client
+	llmClient, err := createLLMClient(flags)
 	if err != nil {
-		_, fmtErr := fmt.Fprintf(os.Stderr, "Error creating LLM client: %v\n", err)
-		if fmtErr != nil {
-			return
-		}
-		os.Exit(1)
+		exitWithError("Error creating LLM client: %v\n", err)
 	}
 
+	// Get and validate prompt
+	rawPrompt := getPrompt()
+
+	// Generate and print response
+	ctx := context.Background()
+	processPrompt(ctx, llmClient, flags, rawPrompt)
+}
+
+// exitWithError prints an error message and exits
+func exitWithError(format string, args ...any) {
+	_, _ = fmt.Fprintf(os.Stderr, format, args...)
+	os.Exit(1)
+}
+
+// getPrompt gets the prompt from command-line arguments
+func getPrompt() string {
 	if len(flag.Args()) < 1 {
-		_, fmtErr := fmt.Fprintf(os.Stderr, "Usage: %s [flags] <prompt>\n", os.Args[0])
-		if fmtErr != nil {
-			return
-		}
+		_, _ = fmt.Fprintf(os.Stderr, "Usage: %s [flags] <prompt>\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
+	return strings.Join(flag.Args(), " ")
+}
 
-	rawPrompt := strings.Join(flag.Args(), " ")
-	ctx := context.Background()
+// createLLMClient creates an LLM client with the given flags
+func createLLMClient(flags *cmdFlags) (gollm.LLM, error) {
+	configOpts := prepareConfigOptions(
+		&flags.provider,
+		&flags.model,
+		&flags.temperature,
+		&flags.maxTokens,
+		&flags.timeout,
+		&flags.apiKey,
+		&flags.maxRetries,
+		&flags.retryDelay,
+		&flags.debugLevel,
+	)
+	client, err := gollm.NewLLM(configOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM client: %w", err)
+	}
+	return client, nil
+}
 
+// processPrompt generates and prints the response
+func processPrompt(ctx context.Context, llmClient gollm.LLM, flags *cmdFlags, rawPrompt string) {
 	response, fullPrompt, err := generateResponse(
 		ctx,
 		llmClient,
-		*promptType,
+		flags.promptType,
 		rawPrompt,
-		*outputFormat,
-		*optimizeGoal,
-		*optimizeIterations,
-		*optimizeMemory,
+		flags.outputFormat,
+		flags.optimizeGoal,
+		flags.optimizeIterations,
+		flags.optimizeMemory,
 	)
 	if err != nil {
-		_, fmtErr := fmt.Fprintf(os.Stderr, "Error generating response: %v\n", err)
-		if fmtErr != nil {
-			return
-		}
-		os.Exit(1)
+		exitWithError("Error generating response: %v\n", err)
 	}
 
-	printResponse(*verbose, *promptType, fullPrompt, rawPrompt, response, *outputFormat)
+	printResponse(flags.verbose, flags.promptType, fullPrompt, rawPrompt, response, flags.outputFormat)
 }
 
 func generateResponse(

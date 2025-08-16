@@ -163,42 +163,12 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any
 
 	// If we have tools, add tool usage instructions to the system prompt
 	if tools, ok := options[anthropicKeyTools].([]types.Tool); ok && len(tools) > 0 {
-		anthropicTools := make([]map[string]any, len(tools))
-		for i, tool := range tools {
-			anthropicTools[i] = map[string]any{
-				"name":         tool.Function.Name,
-				"description":  tool.Function.Description,
-				"input_schema": tool.Function.Parameters,
-			}
-		}
-		requestBody[anthropicKeyTools] = anthropicTools
-
-		// Add tool usage instructions to system prompt
-		if len(tools) > 1 {
-			toolUsagePrompt := "When multiple tools are needed to answer a question, you should identify all required tools upfront and use them all at once in your response, rather than using them sequentially. Do not wait for tool results before calling other tools."
-			if systemPrompt != "" {
-				systemPrompt = toolUsagePrompt + "\n\n" + systemPrompt
-			} else {
-				systemPrompt = toolUsagePrompt
-			}
-		}
-
-		// Only set tool_choice when tools are provided
-		if toolChoice, ok := options["tool_choice"].(string); ok {
-			requestBody["tool_choice"] = map[string]any{
-				"type": toolChoice,
-			}
-		} else {
-			// Default to auto for tool choice when tools are provided
-			requestBody["tool_choice"] = map[string]any{
-				"type": "auto",
-			}
-		}
+		systemPrompt = p.processTools(tools, requestBody, systemPrompt, options)
 	}
 
 	// Add system prompt if we have one
 	if systemPrompt != "" {
-		parts := splitSystemPrompt(systemPrompt, 3)
+		parts := splitSystemPrompt(systemPrompt, AnthropicSystemPromptMaxParts)
 		for i, part := range parts {
 			systemMessage := map[string]any{
 				"type": "text",
@@ -249,6 +219,90 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 	return data, nil
+}
+
+// processTools handles tool configuration and updates system prompt
+func (p *AnthropicProvider) processTools(
+	tools []types.Tool,
+	requestBody map[string]any,
+	systemPrompt string,
+	options map[string]any,
+) string {
+	anthropicTools := make([]map[string]any, len(tools))
+	for i, tool := range tools {
+		anthropicTools[i] = map[string]any{
+			"name":         tool.Function.Name,
+			"description":  tool.Function.Description,
+			"input_schema": tool.Function.Parameters,
+		}
+	}
+	requestBody[anthropicKeyTools] = anthropicTools
+
+	// Add tool usage instructions to system prompt for multiple tools
+	if len(tools) > 1 {
+		toolUsagePrompt := "When multiple tools are needed to answer a question, you should identify all required tools upfront and use them all at once in your response, rather than using them sequentially. Do not wait for tool results before calling other tools."
+		if systemPrompt != "" {
+			systemPrompt = toolUsagePrompt + "\n\n" + systemPrompt
+		} else {
+			systemPrompt = toolUsagePrompt
+		}
+	}
+
+	// Set tool choice
+	if toolChoice, ok := options["tool_choice"].(string); ok {
+		requestBody["tool_choice"] = map[string]any{
+			"type": toolChoice,
+		}
+	} else {
+		// Default to auto for tool choice when tools are provided
+		requestBody["tool_choice"] = map[string]any{
+			"type": "auto",
+		}
+	}
+
+	return systemPrompt
+}
+
+// processToolsForMessages handles tool configuration for message-based requests
+func (p *AnthropicProvider) processToolsForMessages(
+	tools []types.Tool,
+	requestBody map[string]any,
+	options map[string]any,
+) {
+	anthropicTools := make([]map[string]any, len(tools))
+	for i, tool := range tools {
+		anthropicTools[i] = map[string]any{
+			"name":         tool.Function.Name,
+			"description":  tool.Function.Description,
+			"input_schema": tool.Function.Parameters,
+		}
+	}
+	requestBody[anthropicKeyTools] = anthropicTools
+
+	// Add tool usage instructions to system prompt if needed
+	if len(tools) > 1 {
+		toolUsagePrompt := "When multiple tools are needed to answer a question, you should identify all required tools upfront and use them all at once in your response, rather than using them sequentially. Do not wait for tool results before calling other tools."
+		// This is separate from the existing system messages
+		systemMessage := map[string]any{
+			"type": "text",
+			"text": toolUsagePrompt,
+		}
+		if systemArray, ok := requestBody["system"].([]map[string]any); ok {
+			requestBody["system"] = append(systemArray, systemMessage)
+		}
+	}
+
+	// Set tool choice
+	if toolChoice, ok := options["tool_choice"].(string); ok {
+		requestBody["tool_choice"] = map[string]any{
+			"type": toolChoice,
+		}
+	} else {
+		// Default to auto for tool choice when tools are provided
+		requestBody["tool_choice"] = map[string]any{
+			"type": "auto",
+		}
+	}
 }
 
 // Helper function to split the system prompt into a maximum of n parts
@@ -331,6 +385,94 @@ func (p *AnthropicProvider) PrepareRequestWithSchema(
 	return data, nil
 }
 
+// processAnthropicContent processes the content blocks from Anthropic response
+func (p *AnthropicProvider) processAnthropicContent(contents []anthropicContent) (string, error) {
+	var finalResponse strings.Builder
+	var functionCalls []string
+	var pendingText strings.Builder
+	var lastType string
+
+	// First pass: collect all function calls and text
+	for i, content := range contents {
+		p.logger.Debug("Processing content block %d: type=%s", i, content.Type)
+
+		switch content.Type {
+		case "text":
+			p.processTextContent(&pendingText, content.Text, lastType)
+			p.logger.Debug("Added text content: %s", content.Text)
+
+		case "tool_use", "tool_calls":
+			// Transfer pending text to final response
+			p.transferPendingText(&finalResponse, &pendingText)
+
+			// Process function call
+			functionCall, err := p.processFunctionCall(content)
+			if err != nil {
+				return "", err
+			}
+			functionCalls = append(functionCalls, functionCall)
+			p.logger.Debug("Added function call: %s", functionCall)
+		}
+		lastType = content.Type
+	}
+
+	// Add any remaining pending text
+	p.transferPendingText(&finalResponse, &pendingText)
+
+	p.logger.Debug("Number of function calls collected: %d", len(functionCalls))
+	for i, call := range functionCalls {
+		p.logger.Debug("Function call %d: %s", i, call)
+	}
+
+	// Add all function calls at the end
+	if len(functionCalls) > 0 {
+		if finalResponse.Len() > 0 {
+			finalResponse.WriteString("\n")
+		}
+		finalResponse.WriteString(strings.Join(functionCalls, "\n"))
+	}
+
+	return finalResponse.String(), nil
+}
+
+// processTextContent handles text content blocks
+func (p *AnthropicProvider) processTextContent(pendingText *strings.Builder, text string, lastType string) {
+	// If we have pending text and this is also text, add a space
+	if lastType == "text" && pendingText.Len() > 0 {
+		pendingText.WriteString(" ")
+	}
+	pendingText.WriteString(text)
+}
+
+// transferPendingText transfers pending text to final response
+func (p *AnthropicProvider) transferPendingText(finalResponse, pendingText *strings.Builder) {
+	if pendingText.Len() > 0 {
+		if finalResponse.Len() > 0 {
+			finalResponse.WriteString("\n")
+		}
+		finalResponse.WriteString(pendingText.String())
+		pendingText.Reset()
+	}
+}
+
+// processFunctionCall processes a function call content block
+func (p *AnthropicProvider) processFunctionCall(content anthropicContent) (string, error) {
+	// Parse input as raw JSON to preserve the exact format
+	var args any
+	if err := json.Unmarshal(content.Input, &args); err != nil {
+		p.logger.Debug("Error parsing tool input: %v, raw input: %s", err, string(content.Input))
+		return "", fmt.Errorf("error parsing tool input: %w", err)
+	}
+
+	functionCall, err := FormatFunctionCall(content.Name, args)
+	if err != nil {
+		p.logger.Debug("Error formatting function call: %v", err)
+		return "", fmt.Errorf("error formatting function call: %w", err)
+	}
+
+	return functionCall, nil
+}
+
 // ParseResponse extracts the generated text from the Anthropic API response.
 // It handles various response formats and error cases.
 //
@@ -355,74 +497,12 @@ func (p *AnthropicProvider) ParseResponse(body []byte) (*Response, error) {
 	p.logger.Debug("Number of content blocks: %d", len(anthropicResponse.Content))
 	p.logger.Debug("Stop reason: %s", anthropicResponse.StopReason)
 
-	var finalResponse strings.Builder
-	var functionCalls []string
-	var pendingText strings.Builder
-	var lastType string
-
-	// First pass: collect all function calls and text
-	for i, content := range anthropicResponse.Content {
-		p.logger.Debug("Processing content block %d: type=%s", i, content.Type)
-
-		switch content.Type {
-		case "text":
-			// If we have pending text and this is also text, add a space
-			if lastType == "text" && pendingText.Len() > 0 {
-				pendingText.WriteString(" ")
-			}
-			pendingText.WriteString(content.Text)
-			p.logger.Debug("Added text content: %s", content.Text)
-
-		case "tool_use", "tool_calls":
-			// If we have any pending text, add it to the final anthropicResponse
-			if pendingText.Len() > 0 {
-				if finalResponse.Len() > 0 {
-					finalResponse.WriteString("\n")
-				}
-				finalResponse.WriteString(pendingText.String())
-				pendingText.Reset()
-			}
-
-			// Parse input as raw JSON to preserve the exact format
-			var args any
-			if err := json.Unmarshal(content.Input, &args); err != nil {
-				p.logger.Debug("Error parsing tool input: %v, raw input: %s", err, string(content.Input))
-				return nil, fmt.Errorf("error parsing tool input: %w", err)
-			}
-
-			functionCall, err := FormatFunctionCall(content.Name, args)
-			if err != nil {
-				p.logger.Debug("Error formatting function call: %v", err)
-				return nil, fmt.Errorf("error formatting function call: %w", err)
-			}
-			functionCalls = append(functionCalls, functionCall)
-			p.logger.Debug("Added function call: %s", functionCall)
-		}
-		lastType = content.Type
+	// Process content blocks
+	result, err := p.processAnthropicContent(anthropicResponse.Content)
+	if err != nil {
+		return nil, err
 	}
 
-	// Add any remaining pending text
-	if pendingText.Len() > 0 {
-		if finalResponse.Len() > 0 {
-			finalResponse.WriteString("\n")
-		}
-		finalResponse.WriteString(pendingText.String())
-	}
-
-	p.logger.Debug("Number of function calls collected: %d", len(functionCalls))
-	for i, call := range functionCalls {
-		p.logger.Debug("Function call %d: %s", i, call)
-	}
-
-	// Add all function calls at the end
-	if len(functionCalls) > 0 {
-		if finalResponse.Len() > 0 {
-			finalResponse.WriteString("\n")
-		}
-		finalResponse.WriteString(strings.Join(functionCalls, "\n"))
-	}
-
-	result := finalResponse.String()
 	p.logger.Debug("Final anthropicResponse: %s", result)
 
 	response := &Response{
@@ -484,7 +564,7 @@ func (p *AnthropicProvider) PrepareStreamRequest(prompt string, options map[stri
 				"content": prompt,
 			},
 		},
-		"max_tokens": 1024, // Default max tokens
+		"max_tokens": AnthropicDefaultMaxTokens, // Default max tokens
 	}
 
 	// Add system prompt if present
@@ -613,7 +693,7 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 
 	// Handle system prompt
 	if systemPrompt != "" {
-		parts := splitSystemPrompt(systemPrompt, 3)
+		parts := splitSystemPrompt(systemPrompt, AnthropicSystemPromptMaxParts)
 		for i, part := range parts {
 			systemMessage := map[string]any{
 				"type": "text",
@@ -630,40 +710,7 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 
 	// Process tools if present
 	if tools, ok := options[anthropicKeyTools].([]types.Tool); ok && len(tools) > 0 {
-		anthropicTools := make([]map[string]any, len(tools))
-		for i, tool := range tools {
-			anthropicTools[i] = map[string]any{
-				"name":         tool.Function.Name,
-				"description":  tool.Function.Description,
-				"input_schema": tool.Function.Parameters,
-			}
-		}
-		requestBody[anthropicKeyTools] = anthropicTools
-
-		// Add tool usage instructions to system prompt if needed
-		if len(tools) > 1 {
-			toolUsagePrompt := "When multiple tools are needed to answer a question, you should identify all required tools upfront and use them all at once in your response, rather than using them sequentially. Do not wait for tool results before calling other tools."
-			// This is separate from the existing system messages
-			systemMessage := map[string]any{
-				"type": "text",
-				"text": toolUsagePrompt,
-			}
-			if systemArray, ok := requestBody["system"].([]map[string]any); ok {
-				requestBody["system"] = append(systemArray, systemMessage)
-			}
-		}
-
-		// Only set tool_choice when tools are provided
-		if toolChoice, ok := options["tool_choice"].(string); ok {
-			requestBody["tool_choice"] = map[string]any{
-				"type": toolChoice,
-			}
-		} else {
-			// Default to auto for tool choice when tools are provided
-			requestBody["tool_choice"] = map[string]any{
-				"type": "auto",
-			}
-		}
+		p.processToolsForMessages(tools, requestBody, options)
 	}
 
 	// Convert MemoryMessage objects to Anthropic messages

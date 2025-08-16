@@ -142,24 +142,31 @@ func TestProviderSpecificFeatures(t *testing.T) {
 }
 
 // Add batch integration test
-func TestBatchIntegration(t *testing.T) {
-	test := NewTest(t).
-		WithProviders(map[string]string{
-			"anthropic": "claude-3-5-haiku-latest",
-			"openai":    "gpt-4o-mini",
-		}).
-		WithBatchConfig(BatchTestConfig{
-			EnableBatch:  true,
-			MaxParallel:  2,
-			BatchTimeout: 2 * time.Minute,
-		})
+// validatePrimeNumbers validates that at least 3 prime numbers are in the response
+func validatePrimeNumbers(response string) error {
+	// Define prime numbers up to 20
+	primes := []string{"2", "3", "5", "7", "11", "13", "17", "19"}
+	count := 0
 
-	// Test cases with different validation requirements
+	// Count how many prime numbers are in the response
+	for _, prime := range primes {
+		if strings.Contains(response, prime) {
+			count++
+		}
+	}
+
+	if count < 3 {
+		return fmt.Errorf("expected at least 3 prime numbers, found %d", count)
+	}
+	return nil
+}
+
+// setupBatchTestCases adds standard test cases to the test runner
+func setupBatchTestCases(test *TestRunner) {
 	testCases := []struct {
-		name      string
-		query     string
-		validate  ValidationFunc
-		expectErr bool
+		name     string
+		query    string
+		validate ValidationFunc
 	}{
 		{
 			name:     "simple_math",
@@ -172,25 +179,9 @@ func TestBatchIntegration(t *testing.T) {
 			validate: ExpectContains("def fibonacci"),
 		},
 		{
-			name:  "pattern_matching",
-			query: "List three prime numbers between 1 and 20",
-			validate: func(response string) error {
-				// Define prime numbers up to 20
-				primes := []string{"2", "3", "5", "7", "11", "13", "17", "19"}
-				count := 0
-
-				// Count how many prime numbers are in the response
-				for _, prime := range primes {
-					if strings.Contains(response, prime) {
-						count++
-					}
-				}
-
-				if count < 3 {
-					return fmt.Errorf("expected at least 3 prime numbers, found %d", count)
-				}
-				return nil
-			},
+			name:     "pattern_matching",
+			query:    "List three prime numbers between 1 and 20",
+			validate: validatePrimeNumbers,
 		},
 	}
 
@@ -200,12 +191,11 @@ func TestBatchIntegration(t *testing.T) {
 			WithTimeout(30 * time.Second).
 			Validate(tc.validate)
 	}
+}
 
-	ctx := context.Background()
-	test.RunBatch(ctx)
-
-	metrics := test.GetBatchMetrics()
-
+// verifyBatchMetrics checks that batch execution metrics are valid
+func verifyBatchMetrics(t *testing.T, metrics *BatchMetrics) {
+	t.Helper()
 	// Verify batch execution completed
 	assert.Positive(t, metrics.BatchTiming.TotalDuration)
 	assert.True(t, metrics.BatchTiming.EndTime.After(metrics.BatchTiming.StartTime))
@@ -222,6 +212,27 @@ func TestBatchIntegration(t *testing.T) {
 			t.Logf("Provider %s error: %v", provider, err)
 		}
 	}
+}
+
+func TestBatchIntegration(t *testing.T) {
+	test := NewTest(t).
+		WithProviders(map[string]string{
+			"anthropic": "claude-3-5-haiku-latest",
+			"openai":    "gpt-4o-mini",
+		}).
+		WithBatchConfig(BatchTestConfig{
+			EnableBatch:  true,
+			MaxParallel:  2,
+			BatchTimeout: 2 * time.Minute,
+		})
+
+	setupBatchTestCases(test)
+
+	ctx := context.Background()
+	test.RunBatch(ctx)
+
+	metrics := test.GetBatchMetrics()
+	verifyBatchMetrics(t, metrics)
 }
 
 // TestBatchCrossProvider tests cross-provider consistency

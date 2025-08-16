@@ -84,6 +84,7 @@ func (l *LlmImpl) SetOption(key string, value any) {
 	l.logger.Debug("Option set successfully")
 }
 
+// SetOllamaEndpoint sets the Ollama server endpoint URL
 func (l *LlmImpl) SetOllamaEndpoint(endpoint string) error {
 	if p, ok := l.provider.(interface{ SetEndpoint(endpoint string) }); ok {
 		p.SetEndpoint(endpoint)
@@ -143,6 +144,29 @@ func (l *LlmImpl) Generate(
 // - Configuration loading fails
 // - Provider initialization fails
 // - Memory setup fails (if memory option is enabled)
+// ensureOllamaAPIKey ensures Ollama has an API key set
+func ensureOllamaAPIKey(cfg *Config) {
+	if cfg.Provider == "ollama" {
+		if cfg.APIKeys == nil {
+			cfg.APIKeys = make(map[string]string)
+		}
+		if _, exists := cfg.APIKeys[cfg.Provider]; !exists || cfg.APIKeys[cfg.Provider] == "" {
+			cfg.APIKeys[cfg.Provider] = "ollama-local"
+		}
+	}
+}
+
+// setupAnthropicCaching configures Anthropic caching headers
+func setupAnthropicCaching(cfg *Config) {
+	if cfg.Provider == "anthropic" && cfg.EnableCaching {
+		if cfg.ExtraHeaders == nil {
+			cfg.ExtraHeaders = make(map[string]string)
+		}
+		cfg.ExtraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
+	}
+}
+
+// NewLLM creates a new LLM instance with the provided configuration options
 func NewLLM(opts ...ConfigOption) (*LlmImpl, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -153,15 +177,7 @@ func NewLLM(opts ...ConfigOption) (*LlmImpl, error) {
 		opt(cfg)
 	}
 
-	// For Ollama, ensure we have a fake API key if none is provided
-	if cfg.Provider == "ollama" {
-		if cfg.APIKeys == nil {
-			cfg.APIKeys = make(map[string]string)
-		}
-		if _, exists := cfg.APIKeys[cfg.Provider]; !exists || cfg.APIKeys[cfg.Provider] == "" {
-			cfg.APIKeys[cfg.Provider] = "ollama-local"
-		}
-	}
+	ensureOllamaAPIKey(cfg)
 
 	// Validate config
 	if err := llm.Validate(cfg); err != nil {
@@ -169,13 +185,7 @@ func NewLLM(opts ...ConfigOption) (*LlmImpl, error) {
 	}
 
 	logger := utils.NewLogger(cfg.LogLevel)
-
-	if cfg.Provider == "anthropic" && cfg.EnableCaching {
-		if cfg.ExtraHeaders == nil {
-			cfg.ExtraHeaders = make(map[string]string)
-		}
-		cfg.ExtraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
-	}
+	setupAnthropicCaching(cfg)
 
 	baseLLM, err := llm.NewLLM(cfg, logger, providers.NewProviderRegistry())
 	if err != nil {

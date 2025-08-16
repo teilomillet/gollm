@@ -13,7 +13,7 @@ func ExtractFunctionCalls(response string) ([]map[string]any, error) {
 	functionCallRegex := regexp.MustCompile(`<function_call>(.*?)</function_call>`)
 	matches := functionCallRegex.FindAllStringSubmatch(response, -1)
 
-	var functionCalls []map[string]any
+	functionCalls := make([]map[string]any, 0, len(matches))
 	for _, match := range matches {
 		if len(match) <= 1 {
 			continue
@@ -42,7 +42,7 @@ func ExtractFunctionCalls(response string) ([]map[string]any, error) {
 // and any function calls. It returns the cleaned text and a slice of function call JSON strings.
 func CleanResponse(rawResponse string) (string, []string, error) {
 	var cleanedResponse strings.Builder
-	functionCalls := make([]string, 0, 5)
+	functionCalls := make([]string, 0, ResponseParserRetryAttempts)
 
 	// Extract function calls
 	functionCallRegex := regexp.MustCompile(`<function_call>(.*?)</function_call>`)

@@ -1,3 +1,4 @@
+// Package utils provides utility functions and types for the GoLLM library.
 package utils
 
 import "time"

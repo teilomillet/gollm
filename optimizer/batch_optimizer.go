@@ -37,8 +37,11 @@ type BatchPromptOptimizer struct {
 //	optimizer := NewBatchPromptOptimizer(llmInstance)
 func NewBatchPromptOptimizer(llmInstance llm.LLM) *BatchPromptOptimizer {
 	return &BatchPromptOptimizer{
-		LLM:         llmInstance,
-		rateLimiter: rate.NewLimiter(rate.Every(3*time.Second), 1), // Default: 1 request per 3 seconds
+		LLM: llmInstance,
+		rateLimiter: rate.NewLimiter(
+			rate.Every(DefaultRateLimitSeconds*time.Second),
+			1,
+		), // Default: 1 request per 3 seconds
 	}
 }
 
@@ -141,7 +144,7 @@ func (bpo *BatchPromptOptimizer) OptimizePrompts(ctx context.Context, examples [
 				Metrics:      example.Metrics,
 				RatingSystem: "numerical",
 				Threshold:    example.Threshold,
-				MaxRetries:   3,
+				MaxRetries:   DefaultMaxRetries,
 				RetryDelay:   DefaultRetryDelay,
 			}
 

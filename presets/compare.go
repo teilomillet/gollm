@@ -127,12 +127,150 @@ type ValidateFunc[T any] func(T) error
 //	}
 //
 //	// Compare model outputs
-//	results, err := CompareModels[ComplexPerson](
-//	    ctx, prompt, validatePerson, configs...)
 //
-//	// Analyze and display results
-//	analysis := AnalyzeComparisonResults(results)
-//	fmt.Println(analysis)
+// validateCompareInputs validates the inputs for CompareModels
+func validateCompareInputs[T any](prompt string, validateFunc ValidateFunc[T], configs []*config.Config) error {
+	if prompt == "" {
+		return errors.New("prompt cannot be empty")
+	}
+	if validateFunc == nil {
+		return errors.New("validator function cannot be nil")
+	}
+	if len(configs) == 0 {
+		return errors.New("at least one config must be provided")
+	}
+	return nil
+}
+
+// processConfig processes a single configuration and returns whether it succeeded
+func processConfig[T any](
+	ctx context.Context,
+	prompt string,
+	validateFunc ValidateFunc[T],
+	remainingConfig *config.Config,
+	configs []*config.Config,
+	results []ComparisonResult[T],
+	attempt int,
+	logger utils.Logger,
+) (bool, error) {
+	debugLog(
+		remainingConfig,
+		"Attempting generation for %s %s (Attempt %d)",
+		remainingConfig.Provider,
+		remainingConfig.Model,
+		attempt,
+	)
+
+	// Generate response
+	response, err := generateResponse(ctx, prompt, remainingConfig, logger)
+	if err != nil {
+		return handleGenerationError(err, remainingConfig, attempt)
+	}
+
+	// Store result
+	index := findConfigIndex(configs, remainingConfig)
+	updateResult(&results[index], remainingConfig, response, attempt)
+
+	// Process and validate response
+	return processAndValidateResponse[T](&results[index], response, validateFunc, remainingConfig, attempt)
+}
+
+// generateResponse generates a response using the LLM
+func generateResponse(
+	ctx context.Context,
+	prompt string,
+	config *config.Config,
+	logger utils.Logger,
+) (*providers.Response, error) {
+	registry := providers.NewProviderRegistry()
+	llmInstance, err := llm.NewLLM(config, logger, registry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM for %s: %w", config.Provider, err)
+	}
+	return llmInstance.Generate(ctx, llm.NewPrompt(prompt))
+}
+
+// handleGenerationError handles errors from response generation
+func handleGenerationError(err error, config *config.Config, attempt int) (bool, error) {
+	debugLog(config, "Error generating response: %v", err)
+
+	// Immediately propagate API errors (like invalid keys)
+	if strings.Contains(err.Error(), "API error") {
+		return false, fmt.Errorf(
+			"API error for %s %s: %w",
+			config.Provider,
+			config.Model,
+			err,
+		)
+	}
+
+	if attempt == MaxRetryAttempts {
+		return false, fmt.Errorf("failed to generate response after all attempts: %w", err)
+	}
+
+	return false, nil // Will retry
+}
+
+// updateResult updates the comparison result with response data
+func updateResult[T any](
+	result *ComparisonResult[T],
+	config *config.Config,
+	response *providers.Response,
+	attempt int,
+) {
+	result.Provider = config.Provider
+	result.Model = config.Model
+	result.Response = response
+	result.Attempts = attempt
+}
+
+// processAndValidateResponse processes the response and validates it
+func processAndValidateResponse[T any](
+	result *ComparisonResult[T],
+	response *providers.Response,
+	validateFunc ValidateFunc[T],
+	config *config.Config,
+	attempt int,
+) (bool, error) {
+	debugLog(config, "Raw response received: %v", response)
+
+	cleanedResponse := cleanResponse(response.AsText())
+	debugLog(config, "Cleaned response: %s", cleanedResponse)
+
+	result.Response.Content = providers.Text{Value: cleanedResponse}
+
+	// Parse JSON
+	var data T
+	if err := json.Unmarshal([]byte(cleanedResponse), &data); err != nil {
+		debugLog(config, "Invalid JSON: %v", err)
+		result.Error = fmt.Errorf("invalid JSON: %w", err)
+		if attempt == MaxRetryAttempts {
+			return false, fmt.Errorf("failed to parse JSON after all attempts: %w", err)
+		}
+		return false, nil // Will retry
+	}
+
+	// Validate data
+	if err := validateFunc(data); err != nil {
+		debugLog(config, "Validation failed: %v", err)
+		result.Error = fmt.Errorf("validation failed: %w", err)
+		if attempt == MaxRetryAttempts {
+			return false, fmt.Errorf("validation failed after all attempts: %w", err)
+		}
+		return false, nil // Will retry
+	}
+
+	result.Data = data
+	return true, nil // Success
+}
+
+// results, err := CompareModels[ComplexPerson](
+//
+//	ctx, prompt, validatePerson, configs...)
+//
+// // Analyze and display results
+// analysis := AnalyzeComparisonResults(results)
+// fmt.Println(analysis)
 func CompareModels[T any](
 	ctx context.Context,
 	prompt string,
@@ -140,14 +278,8 @@ func CompareModels[T any](
 	configs ...*config.Config,
 ) ([]ComparisonResult[T], error) {
 	// Validate inputs
-	if prompt == "" {
-		return nil, errors.New("prompt cannot be empty")
-	}
-	if validateFunc == nil {
-		return nil, errors.New("validator function cannot be nil")
-	}
-	if len(configs) == 0 {
-		return nil, errors.New("at least one config must be provided")
+	if err := validateCompareInputs(prompt, validateFunc, configs); err != nil {
+		return nil, err
 	}
 
 	results := make([]ComparisonResult[T], len(configs))
@@ -156,7 +288,7 @@ func CompareModels[T any](
 
 	logger := utils.NewLogger(utils.LogLevelDebug)
 
-	for attempt := 1; attempt <= 3; attempt++ {
+	for attempt := 1; attempt <= MaxRetryAttempts; attempt++ {
 		if len(remainingConfigs) == 0 {
 			break
 		}
@@ -164,82 +296,22 @@ func CompareModels[T any](
 		var newRemainingConfigs []*config.Config
 
 		for _, remainingConfig := range remainingConfigs {
-			debugLog(
+			success, err := processConfig[T](
+				ctx,
+				prompt,
+				validateFunc,
 				remainingConfig,
-				"Attempting generation for %s %s (Attempt %d)",
-				remainingConfig.Provider,
-				remainingConfig.Model,
+				configs,
+				results,
 				attempt,
+				logger,
 			)
-
-			registry := providers.NewProviderRegistry()
-			llmInstance, err := llm.NewLLM(remainingConfig, logger, registry)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create LLM for %s: %w", remainingConfig.Provider, err)
+				return nil, err
 			}
-
-			response, err := llmInstance.Generate(ctx, llm.NewPrompt(prompt))
-			if err != nil {
-				debugLog(remainingConfig, "Error generating response: %v", err)
-				// Immediately propagate API errors (like invalid keys)
-				if strings.Contains(err.Error(), "API error") {
-					return nil, fmt.Errorf(
-						"API error for %s %s: %w",
-						remainingConfig.Provider,
-						remainingConfig.Model,
-						err,
-					)
-				}
-				if attempt == 3 {
-					return nil, fmt.Errorf("failed to generate response after all attempts: %w", err)
-				}
+			if !success {
 				newRemainingConfigs = append(newRemainingConfigs, remainingConfig)
-				continue
 			}
-
-			index := findConfigIndex(configs, remainingConfig)
-			results[index].Provider = remainingConfig.Provider
-			results[index].Model = remainingConfig.Model
-			results[index].Response = response
-			results[index].Error = err
-			results[index].Attempts = attempt
-
-			debugLog(remainingConfig, "Raw response received: %v", response)
-
-			cleanedResponse := cleanResponse(response.AsText())
-
-			debugLog(remainingConfig, "Cleaned response: %s", cleanedResponse)
-
-			results[index].Response.Content = providers.Text{Value: cleanedResponse}
-
-			var data T
-			if err := json.Unmarshal([]byte(cleanedResponse), &data); err != nil {
-				debugLog(remainingConfig, "Invalid JSON: %v", err)
-				results[index].Error = fmt.Errorf("invalid JSON: %w", err)
-				if attempt == 3 {
-					return nil, fmt.Errorf("failed to parse JSON after all attempts: %w", err)
-				}
-				newRemainingConfigs = append(newRemainingConfigs, remainingConfig)
-				continue
-			}
-
-			if err := validateFunc(data); err != nil {
-				debugLog(remainingConfig, "Validation failed: %v", err)
-				results[index].Error = fmt.Errorf("validation failed: %w", err)
-				if attempt == 3 {
-					return nil, fmt.Errorf("validation failed after all attempts: %w", err)
-				}
-				newRemainingConfigs = append(newRemainingConfigs, remainingConfig)
-				continue
-			}
-
-			results[index].Data = data
-			debugLog(
-				remainingConfig,
-				"Valid response received for %s %s",
-				remainingConfig.Provider,
-				remainingConfig.Model,
-			)
 		}
 
 		remainingConfigs = newRemainingConfigs
@@ -318,7 +390,7 @@ func AnalyzeComparisonResults[T any](results []ComparisonResult[T]) string {
 	var analysis strings.Builder
 
 	for _, result := range results {
-		analysis.WriteString(strings.Repeat("-", 40) + "\n")
+		analysis.WriteString(strings.Repeat("-", SeparatorLineLength) + "\n")
 		analysis.WriteString(fmt.Sprintf("Provider: %s, Model: %s\n", result.Provider, result.Model))
 		analysis.WriteString(fmt.Sprintf("Attempts: %d\n", result.Attempts))
 		if result.Error != nil {
@@ -332,7 +404,7 @@ func AnalyzeComparisonResults[T any](results []ComparisonResult[T]) string {
 				analysis.WriteString(fmt.Sprintf("Response: %s\n", string(prettyJSON)))
 			}
 		}
-		analysis.WriteString(strings.Repeat("-", 40) + "\n")
+		analysis.WriteString(strings.Repeat("-", SeparatorLineLength) + "\n")
 	}
 
 	return analysis.String()

@@ -22,11 +22,7 @@ func ReadExamplesFromFile(filePath string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			// Log the error but don't return it as we're in a defer
-		}
-	}()
+	defer file.Close() //nolint:errcheck // Ignore close error in defer
 
 	var examples []string
 	ext := strings.ToLower(filepath.Ext(filePath))
@@ -71,7 +67,7 @@ func SelectExamples(examples []string, n int, order string) []string {
 		length := len(examples)
 		for i := length - 1; i > 0; i-- {
 			// #nosec G115 - i is bounded by slice length, safe conversion
-			j := int(uint64(i+1) * uint64(^uint32(0)) >> 32) // Simple random without rand
+			j := int(uint64(i+1) * uint64(^uint32(0)) >> RandomBitShift) // Simple random without rand
 			examples[i], examples[j] = examples[j], examples[i]
 		}
 	case "desc":

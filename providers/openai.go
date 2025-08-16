@@ -634,16 +634,9 @@ func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 // Returns:
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
-func (p *OpenAIProvider) PrepareRequestWithMessages(
-	messages []types.MemoryMessage,
-	options map[string]any,
-) ([]byte, error) {
-	request := map[string]any{
-		"model":    p.model,
-		"messages": []map[string]any{},
-	}
 
-	// Handle system prompt as system message
+// addSystemPromptToRequest adds the system prompt to the request if present
+func (p *OpenAIProvider) addSystemPromptToRequest(request map[string]any, options map[string]any) {
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
 		if messagesArray, ok := request["messages"].([]map[string]any); ok {
 			request["messages"] = append(messagesArray, map[string]any{
@@ -652,8 +645,10 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(
 			})
 		}
 	}
+}
 
-	// Convert MemoryMessage objects to OpenAI messages format
+// addMemoryMessagesToRequest converts MemoryMessage objects to OpenAI format and adds them to request
+func (p *OpenAIProvider) addMemoryMessagesToRequest(request map[string]any, messages []types.MemoryMessage) {
 	for _, msg := range messages {
 		message := map[string]any{
 			"role":    msg.Role,
@@ -671,7 +666,10 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(
 			request["messages"] = append(messagesArray, message)
 		}
 	}
+}
 
+// addToolsToRequest handles tool configuration for the request
+func (p *OpenAIProvider) addToolsToRequest(request map[string]any, options map[string]any) {
 	// Handle tool_choice
 	if toolChoice, ok := options[openAIKeyToolChoice].(string); ok {
 		request[openAIKeyToolChoice] = toolChoice
@@ -688,11 +686,68 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(
 					"description": tool.Function.Description,
 					"parameters":  tool.Function.Parameters,
 				},
-				"strict": true, // Add this if you want strict mode
+				"strict": true,
 			}
 		}
 		request[KeyTools] = openAITools
 	}
+}
+
+// mergeOptionsWithMessages merges provider options with request options
+func (p *OpenAIProvider) mergeOptionsWithMessages(options map[string]any) map[string]any {
+	mergedOptions := make(map[string]any)
+
+	// First add options from provider (p.options)
+	for k, v := range p.options {
+		if k != KeyTools && k != openAIKeyToolChoice && k != KeySystemPrompt && k != KeyStructuredMessages {
+			mergedOptions[k] = v
+		}
+	}
+
+	// Then add options from the function parameters (may override provider options)
+	for k, v := range options {
+		if k != KeyTools && k != openAIKeyToolChoice && k != KeySystemPrompt && k != KeyStructuredMessages {
+			mergedOptions[k] = v
+		}
+	}
+
+	return mergedOptions
+}
+
+// handleTokenParameters handles max_tokens/max_completion_tokens conflict
+func (p *OpenAIProvider) handleTokenParameters(mergedOptions map[string]any) {
+	// For models that need max_completion_tokens, ensure we use that and not max_tokens
+	if p.needsMaxCompletionTokens() {
+		if _, hasMaxTokens := mergedOptions[openAIKeyMaxTokens]; hasMaxTokens {
+			// Move max_tokens value to max_completion_tokens
+			mergedOptions["max_completion_tokens"] = mergedOptions[openAIKeyMaxTokens]
+			delete(mergedOptions, openAIKeyMaxTokens)
+		}
+	} else {
+		// For other models, ensure we use max_tokens and not max_completion_tokens
+		if _, hasMaxCompletionTokens := mergedOptions["max_completion_tokens"]; hasMaxCompletionTokens {
+			// Move max_completion_tokens value to max_tokens
+			mergedOptions[openAIKeyMaxTokens] = mergedOptions["max_completion_tokens"]
+			delete(mergedOptions, "max_completion_tokens")
+		}
+	}
+}
+
+func (p *OpenAIProvider) PrepareRequestWithMessages(
+	messages []types.MemoryMessage,
+	options map[string]any,
+) ([]byte, error) {
+	request := map[string]any{
+		"model":    p.model,
+		"messages": []map[string]any{},
+	}
+
+	// Build messages array
+	p.addSystemPromptToRequest(request, options)
+	p.addMemoryMessagesToRequest(request, messages)
+
+	// Handle tools and tool choice
+	p.addToolsToRequest(request, options)
 
 	// Create a merged copy of options to handle token parameters properly
 	mergedOptions := make(map[string]any)

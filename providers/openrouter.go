@@ -350,7 +350,18 @@ func (p *OpenRouterProvider) PrepareRequestWithSchema(
 
 // ParseResponse extracts the completion text from the OpenRouter API response.
 func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
-	// First try to parse as chat completion to see if it's a chat/completions response
+	// Try to parse as chat completion first
+	resp, err := p.parseChatCompletion(body)
+	if err == nil {
+		return resp, nil
+	}
+
+	// If chat completion failed, try text completion
+	return p.parseTextCompletion(body, err)
+}
+
+// parseChatCompletion attempts to parse the response as a chat completion
+func (p *OpenRouterProvider) parseChatCompletion(body []byte) (*Response, error) {
 	var chatResp struct {
 		Choices []struct {
 			Message struct {
@@ -373,39 +384,42 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 		} `json:"usage"`
 	}
 
-	// Try to parse as a chat completion
-	chatErr := json.Unmarshal(body, &chatResp)
-
-	// Check if we have valid chat completion choices
-	if chatErr == nil && len(chatResp.Choices) > 0 && chatResp.Choices[0].Message.Content != "" {
-		// This is a chat completion response
-
-		// Check for errors
-		if chatResp.Error.Message != "" {
-			return nil, fmt.Errorf("OpenRouter API error: %s", chatResp.Error.Message)
-		}
-
-		// Store the generation ID and used model in the logger for potential later use
-		if chatResp.ID != "" {
-			p.logger.Debug("Generation ID", "id", chatResp.ID)
-		}
-		if chatResp.Model != "" && chatResp.Model != p.model {
-			p.logger.Info("Model used", "requested", p.model, "actual", chatResp.Model)
-		}
-
-		resp := &Response{Content: Text{Value: chatResp.Choices[0].Message.Content}}
-		if chatResp.Usage != nil {
-			resp.Usage = NewUsage(
-				chatResp.Usage.PromptTokens,
-				chatResp.Usage.CacheCreationInputTokens+chatResp.Usage.CacheReadInputTokens,
-				chatResp.Usage.CompletionTokens,
-				0,
-			)
-		}
-		return resp, nil
+	if err := json.Unmarshal(body, &chatResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal chat response: %w", err)
 	}
 
-	// If it wasn't a valid chat completion, try parsing as a text completion
+	// Check if we have valid chat completion choices
+	if len(chatResp.Choices) == 0 || chatResp.Choices[0].Message.Content == "" {
+		return nil, errors.New("invalid chat completion response")
+	}
+
+	// Check for errors
+	if chatResp.Error.Message != "" {
+		return nil, fmt.Errorf("OpenRouter API error: %s", chatResp.Error.Message)
+	}
+
+	// Log generation info
+	if chatResp.ID != "" {
+		p.logger.Debug("Generation ID", "id", chatResp.ID)
+	}
+	if chatResp.Model != "" && chatResp.Model != p.model {
+		p.logger.Info("Model used", "requested", p.model, "actual", chatResp.Model)
+	}
+
+	resp := &Response{Content: Text{Value: chatResp.Choices[0].Message.Content}}
+	if chatResp.Usage != nil {
+		resp.Usage = NewUsage(
+			chatResp.Usage.PromptTokens,
+			chatResp.Usage.CacheCreationInputTokens+chatResp.Usage.CacheReadInputTokens,
+			chatResp.Usage.CompletionTokens,
+			0,
+		)
+	}
+	return resp, nil
+}
+
+// parseTextCompletion attempts to parse the response as a text completion
+func (p *OpenRouterProvider) parseTextCompletion(body []byte, chatErr error) (*Response, error) {
 	var textResp struct {
 		Choices []struct {
 			Text string `json:"text"`
@@ -425,7 +439,7 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 	}
 
 	if err := json.Unmarshal(body, &textResp); err != nil {
-		// If we can't parse as text completion either, return the original chat parsing error
+		// Return the original chat parsing error if text parsing also fails
 		return nil, fmt.Errorf("error parsing OpenRouter response: %w", chatErr)
 	}
 
@@ -439,7 +453,7 @@ func (p *OpenRouterProvider) ParseResponse(body []byte) (*Response, error) {
 		return nil, errors.New("no completion choices in OpenRouter response")
 	}
 
-	// Store the generation ID and used model in the logger for potential later use
+	// Log generation info
 	if textResp.ID != "" {
 		p.logger.Debug("Generation ID (text completion)", "id", textResp.ID)
 	}
@@ -489,23 +503,25 @@ func (p *OpenRouterProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 	}
 
 	// Check if we have a function call or tool calls
-	if len(resp.Choices) > 0 {
-		message := &resp.Choices[0].Message
-		if message.FunctionCall != nil || len(message.ToolCalls) > 0 {
-			// Store the generation ID and used model in the logger for potential later use
-			if resp.ID != "" {
-				p.logger.Debug("Generation ID with tool calls", "id", resp.ID)
-			}
-			if resp.Model != "" && resp.Model != p.model {
-				p.logger.Info("Model used for tool calls", "requested", p.model, "actual", resp.Model)
-			}
-
-			// Return the original body since it already contains the function call data
-			return body, nil
-		}
+	if len(resp.Choices) == 0 {
+		return nil, nil
 	}
 
-	return nil, nil
+	message := &resp.Choices[0].Message
+	if message.FunctionCall == nil && len(message.ToolCalls) == 0 {
+		return nil, nil
+	}
+
+	// Store the generation ID and used model in the logger for potential later use
+	if resp.ID != "" {
+		p.logger.Debug("Generation ID with tool calls", "id", resp.ID)
+	}
+	if resp.Model != "" && resp.Model != p.model {
+		p.logger.Info("Model used for tool calls", "requested", p.model, "actual", resp.Model)
+	}
+
+	// Return the original body since it already contains the function call data
+	return body, nil
 }
 
 // SetExtraHeaders configures additional HTTP headers for OpenRouter API requests.
@@ -664,7 +680,7 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(
 		// Handle Anthropic-style prompt caching if enabled
 		if caching, ok := req["enable_prompt_caching"].(bool); ok && caching && msg.Role == "user" {
 			// Check if the message is large enough to benefit from caching
-			if len(msg.Content) > 1000 {
+			if len(msg.Content) > OpenRouterCachingThreshold {
 				// For Anthropic models, we need to use multipart messages with cache_control
 				if strings.HasPrefix(p.model, "anthropic/") {
 					formattedMsg["content"] = []map[string]any{

@@ -40,9 +40,9 @@ type OptimizationConfig struct {
 func DefaultOptimizationConfig() OptimizationConfig {
 	return OptimizationConfig{
 		RatingSystem: "numerical",
-		Threshold:    0.8, // Requires 16/20 or better
-		MaxRetries:   3,
-		RetryDelay:   time.Second * 2,
+		Threshold:    DefaultThreshold, // Requires 16/20 or better
+		MaxRetries:   DefaultMaxRetries,
+		RetryDelay:   DefaultRetryDelay,
 		Metrics: []Metric{
 			{Name: "Relevance", Description: "How relevant the prompt is to the task"},
 			{Name: "Clarity", Description: "How clear and unambiguous the prompt is"},

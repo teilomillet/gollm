@@ -191,8 +191,35 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		configs:   make(map[string]ProviderConfig),
 	}
 
-	// Register all known providers
-	knownProviders := map[string]ProviderConstructor{
+	// Get known providers and configs
+	knownProviders := getKnownProviders()
+	standardConfigs := getStandardConfigs()
+
+	// Store standard configs
+	for name, config := range standardConfigs {
+		registry.configs[name] = config
+	}
+
+	if len(providerNames) == 0 {
+		// If no specific providers are requested, register all known providers
+		for name, constructor := range knownProviders {
+			registry.providers[name] = constructor
+		}
+	} else {
+		// Otherwise, register only the requested providers
+		for _, name := range providerNames {
+			if constructor, ok := knownProviders[name]; ok {
+				registry.providers[name] = constructor
+			}
+		}
+	}
+
+	return registry
+}
+
+// getKnownProviders returns all known provider constructors
+func getKnownProviders() map[string]ProviderConstructor {
+	return map[string]ProviderConstructor{
 		"openai": func(apiKey, model string, extraHeaders map[string]string) Provider {
 			return NewOpenAIProvider(apiKey, model, extraHeaders)
 		},
@@ -220,11 +247,12 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"openrouter": func(apiKey, model string, extraHeaders map[string]string) Provider {
 			return NewOpenRouterProvider(apiKey, model, extraHeaders)
 		},
-		// Add other providers here as they are implemented
 	}
+}
 
-	// Standard provider configurations
-	standardConfigs := map[string]ProviderConfig{
+// getStandardConfigs returns standard provider configurations
+func getStandardConfigs() map[string]ProviderConfig {
+	return map[string]ProviderConfig{
 		"openai": {
 			Name:              "openai",
 			Type:              TypeOpenAI,
@@ -305,29 +333,7 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			SupportsSchema:    true,
 			SupportsStreaming: true,
 		},
-		// Add other provider configurations""
 	}
-
-	// Store standard configs
-	for name, config := range standardConfigs {
-		registry.configs[name] = config
-	}
-
-	if len(providerNames) == 0 {
-		// If no specific providers are requested, register all known providers
-		for name, constructor := range knownProviders {
-			registry.providers[name] = constructor
-		}
-	} else {
-		// Otherwise, register only the requested providers
-		for _, name := range providerNames {
-			if constructor, ok := knownProviders[name]; ok {
-				registry.providers[name] = constructor
-			}
-		}
-	}
-
-	return registry
 }
 
 // GetProviderConfig returns the configuration for a named provider

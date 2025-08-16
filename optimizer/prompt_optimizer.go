@@ -45,7 +45,7 @@ type NumericalRating struct {
 // IsGoalMet checks if the numerical score meets the optimization goal.
 // Returns true if the score is 90% or higher of the maximum possible score.
 func (nr NumericalRating) IsGoalMet() bool {
-	return nr.Score >= nr.Max*0.9 // Consider goal met if score is 90% or higher
+	return nr.Score >= nr.Max*DefaultGoalMetThreshold // Consider goal met if score is 90% or higher
 }
 
 // String formats the numerical rating as a string in the form "score/max".
@@ -165,11 +165,11 @@ func NewPromptOptimizer(
 		initialPrompt: initialPrompt,
 		taskDesc:      taskDesc,
 		history:       []OptimizationEntry{},
-		threshold:     0.8,
-		maxRetries:    3,
-		retryDelay:    time.Second * 2,
-		memorySize:    2,
-		iterations:    5,
+		threshold:     DefaultThreshold,
+		maxRetries:    DefaultMaxRetries,
+		retryDelay:    DefaultRetryDelay,
+		memorySize:    DefaultMemorySize,
+		iterations:    DefaultIterations,
 	}
 
 	for _, opt := range opts {
