@@ -14,6 +14,12 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+const (
+	geminiKeyTools        = "tools"
+	geminiKeyMaxTokens    = "max_tokens"
+	geminiKeySystemPrompt = "system_prompt"
+)
+
 // GeminiProvider implements the Provider interface for Google's Gemini API (Generative Language API).
 // It supports chat completions with system instructions, function/tool calling with JSON schemas,
 // streaming via Server-Sent Events (SSE), and usage reporting.
@@ -129,7 +135,7 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]any) (
 	}
 
 	// Handle system instruction if provided
-	if sys, ok := options["system_prompt"].(string); ok && sys != "" {
+	if sys, ok := options[geminiKeySystemPrompt].(string); ok && sys != "" {
 		// Add a systemInstruction content with the system text
 		requestBody["systemInstruction"] = map[string]any{
 			"parts": []map[string]string{
@@ -150,7 +156,7 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]any) (
 	}
 
 	// Include tool definitions if any are provided
-	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
+	if tools, ok := options[geminiKeyTools].([]types.Tool); ok && len(tools) > 0 {
 		// Build functionDeclarations for each provided tool (function)
 		funcDecls := make([]map[string]any, 0, len(tools))
 		for _, tool := range tools {
@@ -161,7 +167,7 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]any) (
 			}
 			funcDecls = append(funcDecls, decl)
 		}
-		requestBody["tools"] = []map[string]any{
+		requestBody[geminiKeyTools] = []map[string]any{
 			{"functionDeclarations": funcDecls},
 		}
 		// Optionally, set function calling mode if specified (e.g., "NONE", "AUTO", "ANY")
@@ -202,11 +208,11 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]any) (
 
 	// Merge any other options that are not handled above (e.g., if new parameters exist)
 	for k, v := range options {
-		if k == "system_prompt" || k == "tools" || k == "function_call_mode" {
+		if k == geminiKeySystemPrompt || k == geminiKeyTools || k == "function_call_mode" {
 			continue // already handled
 		}
 		// If option corresponds to known generationConfig fields, skip here (already in genConfig)
-		if k == "max_tokens" || k == "temperature" || k == "top_p" || k == "top_k" || k == "stop_sequences" {
+		if k == geminiKeyMaxTokens || k == "temperature" || k == "top_p" || k == "top_k" || k == "stop_sequences" {
 			continue
 		}
 		requestBody[k] = v
@@ -232,7 +238,7 @@ func (p *GeminiProvider) PrepareRequestWithMessages(
 	}
 
 	// Include system instruction if provided via options
-	if sys, ok := options["system_prompt"].(string); ok && sys != "" {
+	if sys, ok := options[geminiKeySystemPrompt].(string); ok && sys != "" {
 		requestBody["systemInstruction"] = map[string]any{
 			"parts": []map[string]string{
 				{"text": sys},
@@ -241,7 +247,7 @@ func (p *GeminiProvider) PrepareRequestWithMessages(
 	}
 
 	// Tools and function calling support
-	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
+	if tools, ok := options[geminiKeyTools].([]types.Tool); ok && len(tools) > 0 {
 		funcDecls := make([]map[string]any, 0, len(tools))
 		for _, tool := range tools {
 			funcDecl := map[string]any{
@@ -251,7 +257,7 @@ func (p *GeminiProvider) PrepareRequestWithMessages(
 			}
 			funcDecls = append(funcDecls, funcDecl)
 		}
-		requestBody["tools"] = []map[string]any{
+		requestBody[geminiKeyTools] = []map[string]any{
 			{"functionDeclarations": funcDecls},
 		}
 		if mode, ok := options["function_call_mode"].(string); ok && mode != "" {

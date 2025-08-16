@@ -11,6 +11,7 @@ import (
 	"github.com/teilomillet/gollm"
 )
 
+// main is the entry point for the basic usage example.
 func main() {
 	fmt.Println("Starting the LLM basic usage example...")
 

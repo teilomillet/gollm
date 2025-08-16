@@ -169,7 +169,7 @@ func printResponse(verbose bool, promptType, fullPrompt, rawPrompt, response, ou
 		if fullPrompt == "" {
 			fullPrompt = rawPrompt // For qa, cot, and summarize, we don't have access to the full prompt
 		}
-		fmt.Printf("Prompt Type: %s\nFull Prompt:\n%s\n\nResponse:\n---------\n", promptType, fullPrompt)
+		log.Printf("Prompt Type: %s\nFull Prompt:\n%s\n\nResponse:\n---------\n", promptType, fullPrompt)
 	}
 
 	if outputFormat == "json" {
@@ -180,17 +180,17 @@ func printResponse(verbose bool, promptType, fullPrompt, rawPrompt, response, ou
 			if fmtErr != nil {
 				return
 			}
-			fmt.Println(response) // Print raw response if JSON parsing fails
+			log.Println(response) // Print raw response if JSON parsing fails
 		} else {
 			jsonPretty, err := json.MarshalIndent(jsonResponse, "", "  ")
 			if err != nil {
 				log.Printf("Warning: Failed to format JSON: %v", err)
 				jsonPretty = []byte(response)
 			}
-			fmt.Println(string(jsonPretty))
+			log.Println(string(jsonPretty))
 		}
 	} else {
-		fmt.Println(response)
+		log.Println(response)
 	}
 }
 

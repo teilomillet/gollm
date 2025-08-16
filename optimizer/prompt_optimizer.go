@@ -4,6 +4,7 @@ package optimizer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -12,12 +13,17 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
-// init registers custom validation functions for the optimizer package.
-func init() {
-	err := llm.RegisterCustomValidation("validGrade", validGrade)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to register validGrade function: %v", err))
-	}
+var registerValidationOnce sync.Once
+
+// registerValidationFunctions registers custom validation functions for the optimizer package.
+// This function is called when the optimizer is first used.
+func registerValidationFunctions() {
+	registerValidationOnce.Do(func() {
+		err := llm.RegisterCustomValidation("validGrade", validGrade)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to register validGrade function: %v", err))
+		}
+	})
 }
 
 // OptimizationRating defines the interface for different rating systems used in prompt optimization.
@@ -150,6 +156,9 @@ func NewPromptOptimizer(
 	taskDesc string,
 	opts ...OptimizerOption,
 ) *PromptOptimizer {
+	// Register validation functions on first use
+	registerValidationFunctions()
+
 	optimizer := &PromptOptimizer{
 		llm:           llmInstance,
 		debugManager:  debugManager,

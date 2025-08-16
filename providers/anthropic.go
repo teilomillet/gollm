@@ -21,6 +21,15 @@ const (
 	keyText      = "text"
 )
 
+// Anthropic-specific parameter keys
+const (
+	anthropicKeySystemPrompt       = "system_prompt"
+	anthropicKeyTools              = "tools"
+	anthropicKeyToolChoice         = "tool_choice"
+	anthropicKeyEnableCaching      = "enable_caching"
+	anthropicKeyStructuredMessages = "structured_messages"
+)
+
 // AnthropicProvider implements the Provider interface for Anthropic's Claude API.
 // It supports Claude models and provides access to Anthropic's language model capabilities,
 // including structured output and system prompts.
@@ -153,7 +162,7 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any
 	}
 
 	// If we have tools, add tool usage instructions to the system prompt
-	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
+	if tools, ok := options[anthropicKeyTools].([]types.Tool); ok && len(tools) > 0 {
 		anthropicTools := make([]map[string]any, len(tools))
 		for i, tool := range tools {
 			anthropicTools[i] = map[string]any{
@@ -162,7 +171,7 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any
 				"input_schema": tool.Function.Parameters,
 			}
 		}
-		requestBody["tools"] = anthropicTools
+		requestBody[anthropicKeyTools] = anthropicTools
 
 		// Add tool usage instructions to system prompt
 		if len(tools) > 1 {
@@ -228,7 +237,7 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any
 
 	// Add other options
 	for k, v := range options {
-		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" && k != "enable_caching" {
+		if k != anthropicKeySystemPrompt && k != keyMaxTokens && k != anthropicKeyTools && k != anthropicKeyToolChoice && k != anthropicKeyEnableCaching {
 			requestBody[k] = v
 		}
 	}
@@ -538,24 +547,28 @@ func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (*Response, error)
 	case "message_start":
 		// Usage may be present on the embedded message
 		if ev.Message != nil && ev.Message.Usage != nil {
-			return &Response{Usage: NewUsage(
-				ev.Message.Usage.InputTokens,
-				ev.Message.Usage.CacheCreationInputTokens,
-				ev.Message.Usage.OutputTokens,
-				ev.Message.Usage.CacheReadInputTokens,
-			)}, nil
+			return &Response{
+				Usage: NewUsage(
+					ev.Message.Usage.InputTokens,
+					ev.Message.Usage.CacheCreationInputTokens,
+					ev.Message.Usage.OutputTokens,
+					ev.Message.Usage.CacheReadInputTokens,
+				),
+			}, nil
 		}
 		return nil, errors.New("skip token")
 
 	case "message_delta":
 		// Usage may be present at the top level; counts are cumulative
 		if ev.Usage != nil {
-			return &Response{Usage: NewUsage(
-				ev.Usage.InputTokens,
-				ev.Usage.CacheCreationInputTokens,
-				ev.Usage.OutputTokens,
-				ev.Usage.CacheReadInputTokens,
-			)}, nil
+			return &Response{
+				Usage: NewUsage(
+					ev.Usage.InputTokens,
+					ev.Usage.CacheCreationInputTokens,
+					ev.Usage.OutputTokens,
+					ev.Usage.CacheReadInputTokens,
+				),
+			}, nil
 		}
 		return nil, errors.New("skip token")
 
@@ -614,7 +627,7 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 	}
 
 	// Process tools if present
-	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
+	if tools, ok := options[anthropicKeyTools].([]types.Tool); ok && len(tools) > 0 {
 		anthropicTools := make([]map[string]any, len(tools))
 		for i, tool := range tools {
 			anthropicTools[i] = map[string]any{
@@ -623,7 +636,7 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 				"input_schema": tool.Function.Parameters,
 			}
 		}
-		requestBody["tools"] = anthropicTools
+		requestBody[anthropicKeyTools] = anthropicTools
 
 		// Add tool usage instructions to system prompt if needed
 		if len(tools) > 1 {
@@ -680,8 +693,8 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 
 	// Add other options
 	for k, v := range options {
-		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" && k != "enable_caching" &&
-			k != "structured_messages" {
+		if k != anthropicKeySystemPrompt && k != keyMaxTokens && k != anthropicKeyTools && k != anthropicKeyToolChoice && k != anthropicKeyEnableCaching &&
+			k != anthropicKeyStructuredMessages {
 			requestBody[k] = v
 		}
 	}

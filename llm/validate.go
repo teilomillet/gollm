@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -28,16 +29,20 @@ const (
 
 // validate is the shared validator instance used across the package.
 var validate *validator.Validate
+var validateOnce sync.Once
 
-func init() {
-	validate = validator.New()
+// getValidator returns the initialized validator instance, creating it if necessary.
+func getValidator() *validator.Validate {
+	validateOnce.Do(func() {
+		validate = validator.New()
 
-	// Register custom validator for API key map
-	if err := validate.RegisterValidation("apikey", validateAPIKey); err != nil {
-		// Since this is in init(), we can't return the error
-		// Instead, panic with a clear message as this is a critical setup failure
-		panic(fmt.Sprintf("failed to register API key validator: %v", err))
-	}
+		// Register custom validator for API key map
+		if err := validate.RegisterValidation("apikey", validateAPIKey); err != nil {
+			// This is a critical setup failure
+			panic(fmt.Sprintf("failed to register API key validator: %v", err))
+		}
+	})
+	return validate
 }
 
 // validateAPIKey checks if the API key map contains a valid key for the current provider
@@ -69,7 +74,9 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 			return false
 		}
 		defer func() {
-			_ = resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				// Log the error but don't return it as we're in a defer
+			}
 		}()
 		return resp.StatusCode == http.StatusOK
 	}
@@ -112,7 +119,7 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 //	    log.Fatal(err)
 //	}
 func Validate(s any) error {
-	if err := validate.Struct(s); err != nil {
+	if err := getValidator().Struct(s); err != nil {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 	return nil
@@ -136,7 +143,7 @@ func Validate(s any) error {
 //
 //	err := RegisterCustomValidation("model", validateModel)
 func RegisterCustomValidation(tag string, fn validator.Func) error {
-	if err := validate.RegisterValidation(tag, fn); err != nil {
+	if err := getValidator().RegisterValidation(tag, fn); err != nil {
 		return fmt.Errorf("failed to register validation for tag '%s': %w", tag, err)
 	}
 	return nil
@@ -193,7 +200,7 @@ func getStructProperties(t reflect.Type) (map[string]any, []string, error) {
 	properties := make(map[string]any)
 	var required []string
 
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 		jsonTag := field.Tag.Get("json")
 		if jsonTag == "-" {

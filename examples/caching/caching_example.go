@@ -11,6 +11,7 @@ import (
 	"github.com/teilomillet/gollm"
 )
 
+// createSystemPrompt returns a system prompt for the caching example.
 func createSystemPrompt() string {
 	return `This is a fictional discussion between five pioneers in technology: Paul Buchheit, Steve Jobs, Ken Thompson, Linus Torvalds, and Jensen Huang. They are discussing innovation, the evolution of technology, and its impact on the world.
 
@@ -59,6 +60,7 @@ func createSystemPrompt() string {
 This discussion covered various topics related to innovation, user-centered design, simplicity, and the future of technology. Each of these pioneers contributed their unique perspective on how the past informs the future, especially in the fields of software, hardware, and AI.`
 }
 
+// main is the entry point for the caching example.
 func main() {
 	fmt.Println("Starting the Caching Example...")
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
@@ -111,6 +113,7 @@ func main() {
 	fmt.Println("Caching example completed.")
 }
 
+// createLLM creates an LLM instance with caching configuration.
 func createLLM(apiKey string, enableCaching bool) (gollm.LLM, error) {
 	llm, err := gollm.NewLLM(
 		gollm.SetProvider("anthropic"),

@@ -15,6 +15,7 @@ const (
 	cohereKeyText               = "text"
 	cohereKeyUser               = "user"
 	cohereKeyStructuredMessages = "structured_messages"
+	cohereKeySystemPrompt       = "system_prompt"
 )
 
 // CohereProvider implements the Provider interface for Cohere's API.
@@ -351,7 +352,7 @@ func (p *CohereProvider) PrepareRequestWithMessages(
 		}
 	}
 	for k, v := range options {
-		if k != "message" && k != "chat_history" && k != "system_prompt" && k != cohereKeyStructuredMessages {
+		if k != "message" && k != "chat_history" && k != cohereKeySystemPrompt && k != cohereKeyStructuredMessages {
 			request[k] = v
 		}
 	}

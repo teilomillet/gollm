@@ -4,7 +4,7 @@ package optimizer
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -156,7 +156,7 @@ func (bpo *BatchPromptOptimizer) OptimizePrompts(ctx context.Context, examples [
 
 			// Log progress if verbose mode is enabled
 			if bpo.Verbose {
-				log.Printf("Optimized prompt for %s: %s", example.Name, optimizedPrompt)
+				slog.Info("Optimized prompt", "name", example.Name, "prompt", optimizedPrompt)
 			}
 		}(i, example)
 	}

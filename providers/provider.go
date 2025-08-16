@@ -13,10 +13,9 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
-// Provider defines the interface that all LLM providers must implement.
-// This interface abstracts the common operations needed to interact with
-// different LLM services, allowing for a unified approach to LLM integration.
-type Provider interface {
+// BaseProvider defines the core interface that all LLM providers must implement.
+// This interface covers the essential operations for provider identification and basic requests.
+type BaseProvider interface {
 	// Name returns the provider's identifier (e.g., "openai", "anthropic").
 	Name() string
 
@@ -27,6 +26,26 @@ type Provider interface {
 	// This typically includes authentication and content-type headers.
 	Headers() map[string]string
 
+	// ParseResponse extracts the generated text from the API response.
+	// It handles provider-specific response formats and error cases.
+	ParseResponse(body []byte) (*Response, error)
+
+	// SetExtraHeaders configures additional HTTP headers for API requests.
+	// This is useful for provider-specific features or authentication methods.
+	SetExtraHeaders(extraHeaders map[string]string)
+
+	// SetDefaultOptions configures provider-specific defaults from the global configuration.
+	SetDefaultOptions(cfg *config.Config)
+
+	// SetOption sets a specific option for the provider (e.g., temperature, max_tokens).
+	SetOption(key string, value any)
+
+	// SetLogger configures the logger for the provider instance.
+	SetLogger(logger utils.Logger)
+}
+
+// RequestProvider defines the interface for preparing different types of requests.
+type RequestProvider interface {
 	// PrepareRequest creates the request body for an API call.
 	// It takes a prompt string and additional options, returning the serialized request body.
 	PrepareRequest(prompt string, options map[string]any) ([]byte, error)
@@ -47,31 +66,10 @@ type Provider interface {
 	//   - Serialized JSON request body
 	//   - Any error encountered during preparation
 	PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error)
+}
 
-	// ParseResponse extracts the generated text from the API response.
-	// It handles provider-specific response formats and error cases.
-	ParseResponse(body []byte) (*Response, error)
-
-	// SetExtraHeaders configures additional HTTP headers for API requests.
-	// This is useful for provider-specific features or authentication methods.
-	SetExtraHeaders(extraHeaders map[string]string)
-
-	// HandleFunctionCalls processes function calling capabilities.
-	// This is particularly relevant for providers that support function/tool calling.
-	HandleFunctionCalls(body []byte) ([]byte, error)
-
-	// SupportsJSONSchema indicates whether the provider supports native JSON schema validation.
-	SupportsJSONSchema() bool
-
-	// SetDefaultOptions configures provider-specific defaults from the global configuration.
-	SetDefaultOptions(cfg *config.Config)
-
-	// SetOption sets a specific option for the provider (e.g., temperature, max_tokens).
-	SetOption(key string, value any)
-
-	// SetLogger configures the logger for the provider instance.
-	SetLogger(logger utils.Logger)
-
+// StreamingProvider defines the interface for providers that support streaming responses.
+type StreamingProvider interface {
 	// SupportsStreaming indicates whether the provider supports streaming responses.
 	SupportsStreaming() bool
 
@@ -82,6 +80,25 @@ type Provider interface {
 	// ParseStreamResponse processes a single chunk from a streaming response.
 	// It returns the token text and any error encountered.
 	ParseStreamResponse(chunk []byte) (*Response, error)
+}
+
+// ExtendedProvider defines the interface for advanced provider features.
+type ExtendedProvider interface {
+	// HandleFunctionCalls processes function calling capabilities.
+	// This is particularly relevant for providers that support function/tool calling.
+	HandleFunctionCalls(body []byte) ([]byte, error)
+
+	// SupportsJSONSchema indicates whether the provider supports native JSON schema validation.
+	SupportsJSONSchema() bool
+}
+
+// Provider defines the complete interface that all LLM providers must implement.
+// This interface combines all the sub-interfaces for a unified approach to LLM integration.
+type Provider interface {
+	BaseProvider
+	RequestProvider
+	StreamingProvider
+	ExtendedProvider
 }
 
 // ProviderType represents the general type of LLM API
