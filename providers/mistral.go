@@ -311,7 +311,7 @@ func (p *MistralProvider) PrepareRequestWithMessages(
 	}
 
 	// Add system prompt if present
-	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+	if systemPrompt, ok := options[KeySystemPrompt].(string); ok && systemPrompt != "" {
 		if messagesArray, ok := request["messages"].([]map[string]any); ok {
 			request["messages"] = append(messagesArray, map[string]any{
 				"role":    "system",
@@ -332,12 +332,12 @@ func (p *MistralProvider) PrepareRequestWithMessages(
 
 	// Add other options
 	for k, v := range p.options {
-		if k != "messages" && k != "system_prompt" {
+		if k != "messages" && k != KeySystemPrompt {
 			request[k] = v
 		}
 	}
 	for k, v := range options {
-		if k != "messages" && k != "system_prompt" && k != "structured_messages" {
+		if k != "messages" && k != KeySystemPrompt && k != KeyStructuredMessages {
 			request[k] = v
 		}
 	}

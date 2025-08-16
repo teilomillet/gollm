@@ -308,7 +308,7 @@ func (p *GroqProvider) PrepareRequestWithMessages(
 		}
 	}
 	for k, v := range options {
-		if k != groqKeyMessages && k != "system_prompt" && k != "structured_messages" {
+		if k != groqKeyMessages && k != KeySystemPrompt && k != KeyStructuredMessages {
 			request[k] = v
 		}
 	}

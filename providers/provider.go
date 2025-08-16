@@ -336,16 +336,16 @@ func (r *ProviderRegistry) GetProviderConfig(name string) (ProviderConfig, bool)
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	config, exists := r.configs[name]
-	return config, exists
+	cfg, exists := r.configs[name]
+	return cfg, exists
 }
 
 // RegisterProviderConfig registers a new provider configuration
-func (r *ProviderRegistry) RegisterProviderConfig(name string, config ProviderConfig) {
+func (r *ProviderRegistry) RegisterProviderConfig(name string, cfg ProviderConfig) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	r.configs[name] = config
+	r.configs[name] = cfg
 }
 
 // defaultRegistry is a singleton instance of the provider registry
@@ -363,9 +363,9 @@ func GetDefaultRegistry() *ProviderRegistry {
 
 // RegisterGenericProvider creates a constructor for a generic provider
 // with the specified name and configuration
-func RegisterGenericProvider(name string, config ProviderConfig) {
+func RegisterGenericProvider(name string, cfg ProviderConfig) {
 	registry := GetDefaultRegistry()
-	registry.RegisterProviderConfig(name, config)
+	registry.RegisterProviderConfig(name, cfg)
 
 	// Register a constructor that creates a GenericProvider with this config
 	registry.providers[name] = func(apiKey, model string, extraHeaders map[string]string) Provider {

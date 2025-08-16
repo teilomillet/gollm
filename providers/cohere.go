@@ -15,7 +15,7 @@ const (
 	cohereKeyText               = "text"
 	cohereKeyUser               = "user"
 	cohereKeyStructuredMessages = "structured_messages"
-	cohereKeySystemPrompt       = "system_prompt"
+	cohereKeySystemPrompt       = KeySystemPrompt
 )
 
 // CohereProvider implements the Provider interface for Cohere's API.

@@ -15,23 +15,25 @@ func ExtractFunctionCalls(response string) ([]map[string]any, error) {
 
 	var functionCalls []map[string]any
 	for _, match := range matches {
-		if len(match) > 1 {
-			var functionCall map[string]any
-			if err := json.Unmarshal([]byte(match[1]), &functionCall); err != nil {
-				return nil, fmt.Errorf("error unmarshaling function call: %w", err)
-			}
-
-			// Handle string arguments by attempting to parse them as JSON
-			if args, ok := functionCall["arguments"].(string); ok {
-				var parsedArgs map[string]any
-				if err := json.Unmarshal([]byte(args), &parsedArgs); err != nil {
-					return nil, fmt.Errorf("error parsing string arguments: %w", err)
-				}
-				functionCall["arguments"] = parsedArgs
-			}
-
-			functionCalls = append(functionCalls, functionCall)
+		if len(match) <= 1 {
+			continue
 		}
+
+		var functionCall map[string]any
+		if err := json.Unmarshal([]byte(match[1]), &functionCall); err != nil {
+			return nil, fmt.Errorf("error unmarshaling function call: %w", err)
+		}
+
+		// Handle string arguments by attempting to parse them as JSON
+		if args, ok := functionCall["arguments"].(string); ok {
+			var parsedArgs map[string]any
+			if err := json.Unmarshal([]byte(args), &parsedArgs); err != nil {
+				return nil, fmt.Errorf("error parsing string arguments: %w", err)
+			}
+			functionCall["arguments"] = parsedArgs
+		}
+
+		functionCalls = append(functionCalls, functionCall)
 	}
 	return functionCalls, nil
 }

@@ -23,11 +23,11 @@ const (
 
 // Anthropic-specific parameter keys
 const (
-	anthropicKeySystemPrompt       = "system_prompt"
-	anthropicKeyTools              = "tools"
-	anthropicKeyToolChoice         = "tool_choice"
+	anthropicKeySystemPrompt       = KeySystemPrompt
+	anthropicKeyTools              = KeyTools
+	anthropicKeyToolChoice         = KeyToolChoice
 	anthropicKeyEnableCaching      = "enable_caching"
-	anthropicKeyStructuredMessages = "structured_messages"
+	anthropicKeyStructuredMessages = KeyStructuredMessages
 )
 
 // AnthropicProvider implements the Provider interface for Anthropic's Claude API.
@@ -319,7 +319,7 @@ func (p *AnthropicProvider) PrepareRequestWithSchema(
 
 	// Add any additional options
 	for k, v := range options {
-		if k != "system_prompt" { // Skip system_prompt as we're using it for schema
+		if k != KeySystemPrompt { // Skip system_prompt as we're using it for schema
 			requestBody[k] = v
 		}
 	}

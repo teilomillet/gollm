@@ -203,7 +203,7 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]any) (
 	}
 
 	// Handle tools
-	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
+	if tools, ok := options[KeyTools].([]types.Tool); ok && len(tools) > 0 {
 		openAITools := make([]map[string]any, len(tools))
 		for i, tool := range tools {
 			openAITools[i] = map[string]any{
@@ -216,7 +216,7 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]any) (
 				"strict": true, // Add this if you want strict mode
 			}
 		}
-		request["tools"] = openAITools
+		request[KeyTools] = openAITools
 	}
 
 	// Create a merged copy of options to handle token parameters properly
@@ -224,14 +224,14 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]any) (
 
 	// First add options from provider (p.options)
 	for k, v := range p.options {
-		if k != "tools" && k != openAIKeyToolChoice && k != "system_prompt" {
+		if k != KeyTools && k != openAIKeyToolChoice && k != KeySystemPrompt {
 			mergedOptions[k] = v
 		}
 	}
 
 	// Then add options from the function parameters (may override provider options)
 	for k, v := range options {
-		if k != "tools" && k != openAIKeyToolChoice && k != "system_prompt" {
+		if k != KeyTools && k != openAIKeyToolChoice && k != KeySystemPrompt {
 			mergedOptions[k] = v
 		}
 	}
@@ -678,7 +678,7 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(
 	}
 
 	// Handle tools
-	if tools, ok := options["tools"].([]types.Tool); ok && len(tools) > 0 {
+	if tools, ok := options[KeyTools].([]types.Tool); ok && len(tools) > 0 {
 		openAITools := make([]map[string]any, len(tools))
 		for i, tool := range tools {
 			openAITools[i] = map[string]any{
@@ -691,7 +691,7 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(
 				"strict": true, // Add this if you want strict mode
 			}
 		}
-		request["tools"] = openAITools
+		request[KeyTools] = openAITools
 	}
 
 	// Create a merged copy of options to handle token parameters properly
@@ -699,14 +699,14 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(
 
 	// First add options from provider (p.options)
 	for k, v := range p.options {
-		if k != "tools" && k != openAIKeyToolChoice && k != "system_prompt" && k != "structured_messages" {
+		if k != KeyTools && k != openAIKeyToolChoice && k != KeySystemPrompt && k != KeyStructuredMessages {
 			mergedOptions[k] = v
 		}
 	}
 
 	// Then add options from the function parameters (may override provider options)
 	for k, v := range options {
-		if k != "tools" && k != openAIKeyToolChoice && k != "system_prompt" && k != "structured_messages" {
+		if k != KeyTools && k != openAIKeyToolChoice && k != KeySystemPrompt && k != KeyStructuredMessages {
 			mergedOptions[k] = v
 		}
 	}
