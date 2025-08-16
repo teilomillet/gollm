@@ -1,4 +1,4 @@
-module github.com/teilomillet/gollm
+module github.com/weave-labs/gollm
 
 go 1.23.0
 

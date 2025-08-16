@@ -4,9 +4,9 @@ package optimizer
 import (
 	"context"
 	"fmt"
-	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/llm"
+	"github.com/weave-labs/gollm/providers"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // OptimizePrompt performs automated optimization of an LLM prompt and generates a response.

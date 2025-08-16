@@ -2,7 +2,7 @@
 package providers
 
 import (
-	"github.com/teilomillet/gollm/config"
+	"github.com/weave-labs/gollm/config"
 )
 
 // GoogleProvider implements the Provider interface for Google's Gemini API through the
@@ -29,7 +29,7 @@ func NewGoogleProvider(apiKey, model string, extraHeaders map[string]string) Pro
 	return provider
 }
 
- // Name returns "google-openai" as the provider identifier.
+// Name returns "google-openai" as the provider identifier.
 func (p *GoogleProvider) Name() string {
 	return "google-openai"
 }

@@ -38,8 +38,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/config"
+	"github.com/weave-labs/gollm"
+	"github.com/weave-labs/gollm/config"
 )
 
 func main() {

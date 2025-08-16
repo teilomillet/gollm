@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/teilomillet/gollm/llm"
+	"github.com/weave-labs/gollm/llm"
 )
 
 // generateImprovedPrompt creates an enhanced version of a prompt based on its assessment

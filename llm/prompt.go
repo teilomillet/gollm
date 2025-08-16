@@ -3,11 +3,11 @@ package llm
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/teilomillet/gollm/types"
+	"github.com/weave-labs/gollm/types"
 	"strings"
 
 	"github.com/invopop/jsonschema"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // CacheType defines how prompts and responses should be cached in the system.

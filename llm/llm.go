@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/providers"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // LLM interface defines the methods that our internal language model should implement.
@@ -27,9 +27,9 @@ type LLM interface {
 	// Returns ErrorTypeRequest for request preparation failures,
 	// ErrorTypeAPI for provider API errors, or ErrorTypeResponse for response processing issues.
 	Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (response *providers.Response, err error)
-	// Stream initiates a streaming response from the LLM.
+	// GenerateStream initiates a streaming response from the LLM.
 	// Returns ErrorTypeUnsupported if the provider doesn't support streaming.
-	Stream(ctx context.Context, prompt *Prompt, opts ...StreamOption) (TokenStream, error)
+	GenerateStream(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (TokenStream, error)
 	// SupportsStreaming checks if the provider supports streaming responses.
 	SupportsStreaming() bool
 	// SetOption configures a provider-specific option.
@@ -44,8 +44,8 @@ type LLM interface {
 	NewPrompt(input string) *Prompt
 	// GetLogger returns the current logger instance.
 	GetLogger() utils.Logger
-	// SupportsJSONSchema checks if the provider supports JSON schema validation.
-	SupportsJSONSchema() bool
+	// SupportsStructuredResponse checks if the provider supports JSON schema validation.
+	SupportsStructuredResponse() bool
 }
 
 // LLMImpl implements the LLM interface and manages interactions with specific providers.
@@ -59,33 +59,6 @@ type LLMImpl struct {
 	config       *config.Config     // Configuration settings
 	MaxRetries   int                // Maximum number of retry attempts
 	RetryDelay   time.Duration      // Delay between retry attempts
-}
-
-// GenerateOption is a function type for configuring generation behavior.
-type GenerateOption func(*GenerateConfig)
-
-// WithStructuredResponseSchema configures Generate to produce output conforming to the provided schema type.
-// The generic type parameter T should be a struct type describing the expected JSON structure.
-func WithStructuredResponseSchema[T any]() GenerateOption {
-	return func(cfg *GenerateConfig) {
-		cfg.StructuredResponseSchema = *new(T)
-	}
-}
-
-// WithStructuredResponse configures Generate to produce output conforming to the provided schema value.
-// Use this when you already have a JSON Schema or example instance at runtime (e.g., map[string]any or a struct instance).
-func WithStructuredResponse(schema any) GenerateOption {
-	return func(cfg *GenerateConfig) {
-		cfg.StructuredResponseSchema = schema
-	}
-}
-
-// GenerateConfig holds configuration options for text generation.
-type GenerateConfig struct {
-	// StructuredResponseSchema, when non-nil, requests that the response conform to the provided schema.
-	// Providers that support JSON Schema will receive it directly; others will have the schema
-	// embedded into the prompt, and the result validated client-side.
-	StructuredResponseSchema any
 }
 
 // NewLLM creates a new LLM instance with the specified configuration.
@@ -161,9 +134,9 @@ func (l *LLMImpl) NewPrompt(prompt string) *Prompt {
 	return &Prompt{Input: prompt}
 }
 
-// SupportsJSONSchema checks if the current provider supports JSON schema validation.
-func (l *LLMImpl) SupportsJSONSchema() bool {
-	return l.Provider.SupportsJSONSchema()
+// SupportsStructuredResponse checks if the current provider supports JSON schema validation.
+func (l *LLMImpl) SupportsStructuredResponse() bool {
+	return l.Provider.SupportsStructuredResponse()
 }
 
 // Generate produces text based on the given prompt and options.
@@ -361,7 +334,7 @@ func (l *LLMImpl) attemptGenerateWithSchema(ctx context.Context, prompt string, 
 	}
 	l.optionsMutex.RUnlock()
 
-	if l.SupportsJSONSchema() {
+	if l.SupportsStructuredResponse() {
 		reqBody, err = l.Provider.PrepareRequestWithSchema(prompt, options, schema)
 		fullPrompt = prompt
 	} else {
@@ -426,15 +399,14 @@ func (l *LLMImpl) preparePromptWithSchema(prompt string, schema any) string {
 	return fmt.Sprintf("%s\n\nPlease provide your response in JSON format according to this schema:\n%s", prompt, string(schemaJSON))
 }
 
-// Stream initiates a streaming response from the LLM.
-func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOption) (TokenStream, error) {
+// GenerateStream initiates a streaming response from the LLM.
+func (l *LLMImpl) GenerateStream(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (TokenStream, error) {
 	if !l.SupportsStreaming() {
 		return nil, NewLLMError(ErrorTypeUnsupported, "streaming not supported by provider", nil)
 	}
 
-	// Apply stream options
-	streamConfig := &StreamConfig{
-		BufferSize: 100,
+	generateConfig := &GenerateConfig{
+		StreamBufferSize: 100,
 		RetryStrategy: &DefaultRetryStrategy{
 			MaxRetries:  l.MaxRetries,
 			InitialWait: l.RetryDelay,
@@ -442,10 +414,9 @@ func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOpti
 		},
 	}
 	for _, opt := range opts {
-		opt(streamConfig)
+		opt(generateConfig)
 	}
 
-	// Prepare request with streaming enabled
 	options := make(map[string]any)
 	l.optionsMutex.RLock()
 	for k, v := range l.Options {
@@ -482,7 +453,7 @@ func (l *LLMImpl) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOpti
 	}
 
 	// Create and return stream
-	return newProviderStream(resp.Body, l.Provider, streamConfig), nil
+	return newProviderStream(resp.Body, l.Provider, generateConfig), nil
 }
 
 // SupportsStreaming checks if the provider supports streaming responses.
@@ -494,13 +465,13 @@ func (l *LLMImpl) SupportsStreaming() bool {
 type providerStream struct {
 	decoder       *SSEDecoder
 	provider      providers.Provider
-	config        *StreamConfig
+	config        *GenerateConfig
 	buffer        []byte
 	currentIndex  int
 	retryStrategy RetryStrategy
 }
 
-func newProviderStream(reader io.ReadCloser, provider providers.Provider, config *StreamConfig) *providerStream {
+func newProviderStream(reader io.ReadCloser, provider providers.Provider, config *GenerateConfig) *providerStream {
 	return &providerStream{
 		decoder:       NewSSEDecoder(reader),
 		provider:      provider,

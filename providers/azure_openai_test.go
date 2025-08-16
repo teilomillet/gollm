@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/providers"
+	"github.com/weave-labs/gollm"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/providers"
 )
 
 // TestAzureOpenAIIntegration tests the Azure OpenAI provider integration

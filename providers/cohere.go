@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // CohereProvider implements the Provider interface for Cohere's API.
@@ -89,7 +89,7 @@ func (p *CohereProvider) Endpoint() string {
 
 // SupportsJSONSchema indicates that Cohere supports structured output
 // through its system prompts and response formatting capabilities.
-func (p *CohereProvider) SupportsJSONSchema() bool {
+func (p *CohereProvider) SupportsStructuredResponse() bool {
 	return true
 }
 

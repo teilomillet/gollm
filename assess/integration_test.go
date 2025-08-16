@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm"
+	"github.com/weave-labs/gollm"
 )
 
 // TestProviderIntegration demonstrates comprehensive testing across providers

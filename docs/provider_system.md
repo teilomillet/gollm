@@ -30,8 +30,8 @@ For built-in providers, usage remains the same as before:
 ```go
 import (
     "context"
-    "github.com/teilomillet/gollm"
-    "github.com/teilomillet/gollm/config"
+    "github.com/weave-labs/gollm"
+    "github.com/weave-labs/gollm/config"
 )
 
 // Create an LLM instance
@@ -55,8 +55,8 @@ Azure OpenAI is now supported through the enhanced provider system:
 import (
     "context"
     "fmt"
-    "github.com/teilomillet/gollm"
-    "github.com/teilomillet/gollm/config"
+    "github.com/weave-labs/gollm"
+    "github.com/weave-labs/gollm/config"
 )
 
 // Get Azure details
@@ -94,7 +94,7 @@ For providers not built into Gollm, you can register them at the start of your p
 
 ```go
 import (
-    "github.com/teilomillet/gollm/providers"
+    "github.com/weave-labs/gollm/providers"
 )
 
 // Define a configuration for the new provider

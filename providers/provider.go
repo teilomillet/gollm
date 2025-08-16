@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // Provider defines the interface that all LLM providers must implement.
@@ -60,8 +60,8 @@ type Provider interface {
 	// This is particularly relevant for providers that support function/tool calling.
 	HandleFunctionCalls(body []byte) ([]byte, error)
 
-	// SupportsJSONSchema indicates whether the provider supports native JSON schema validation.
-	SupportsJSONSchema() bool
+	// SupportsStructuredResponse indicates whether the provider supports native JSON schema validation.
+	SupportsStructuredResponse() bool
 
 	// SetDefaultOptions configures provider-specific defaults from the global configuration.
 	SetDefaultOptions(config *config.Config)
@@ -269,7 +269,7 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			SupportsSchema:    true,
 			SupportsStreaming: true,
 		},
-		// Add other provider configurations""
+		// Add other provider configurations
 	}
 
 	// Store standard configs

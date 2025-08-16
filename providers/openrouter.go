@@ -7,9 +7,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // OpenRouterProvider implements the Provider interface for OpenRouter API.
@@ -102,7 +102,7 @@ func (p *OpenRouterProvider) SetDefaultOptions(config *config.Config) {
 
 // SupportsJSONSchema indicates whether this provider supports JSON schema validation.
 // OpenRouter supports JSON schema validation when using supported models.
-func (p *OpenRouterProvider) SupportsJSONSchema() bool {
+func (p *OpenRouterProvider) SupportsStructuredResponse() bool {
 	return true
 }
 
@@ -111,7 +111,7 @@ func (p *OpenRouterProvider) Headers() map[string]string {
 	headers := map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer " + p.apiKey,
-		"HTTP-Referer":  "https://github.com/teilomillet/gollm", // Identify the app to OpenRouter
+		"HTTP-Referer":  "https://github.com/weave-labs/gollm", // Identify the app to OpenRouter
 	}
 
 	// Add OpenRouter specific headers

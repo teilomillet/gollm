@@ -11,10 +11,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/teilomillet/gollm"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/providers"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // MockProvider implements the Provider interface for testing
@@ -78,7 +78,7 @@ func TestStructuredOutput(t *testing.T) {
 	// Create and configure mock provider
 	mockProvider := new(MockProvider)
 	mockProvider.On("Name").Return("mock")
-	mockProvider.On("SupportsJSONSchema").Return(true)
+	mockProvider.On("SupportsStructuredResponse").Return(true)
 	mockProvider.On("SetOption", mock.Anything, mock.Anything).Return()
 	mockProvider.On("SetDefaultOptions", mock.Anything).Return()
 	mockProvider.On("SetLogger", mock.Anything).Return()
@@ -122,7 +122,7 @@ func TestJSONSchemaValidation(t *testing.T) {
 	// Create and configure mock provider
 	mockProvider := new(MockProvider)
 	mockProvider.On("Name").Return("mock")
-	mockProvider.On("SupportsJSONSchema").Return(true)
+	mockProvider.On("SupportsStructuredResponse").Return(true)
 	mockProvider.On("SetOption", mock.Anything, mock.Anything).Return()
 	mockProvider.On("SetDefaultOptions", mock.Anything).Return()
 	mockProvider.On("SetLogger", mock.Anything).Return()

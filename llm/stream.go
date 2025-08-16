@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"time"
 )
 
 // StreamToken represents a single token from the streaming response.
@@ -36,57 +35,8 @@ type TokenStream interface {
 	// When the stream is finished, it returns io.EOF.
 	Next(context.Context) (*StreamToken, error)
 
-	// Close releases any resources associated with the stream.
+	// Closer Close releases any resources associated with the stream.
 	io.Closer
-}
-
-// StreamOption is a function type for configuring streaming behavior.
-type StreamOption func(*StreamConfig)
-
-// StreamConfig holds configuration options for streaming.
-type StreamConfig struct {
-	// BufferSize is the size of the token buffer
-	BufferSize int
-
-	// RetryStrategy defines how to handle stream interruptions
-	RetryStrategy RetryStrategy
-}
-
-// RetryStrategy defines how to handle stream interruptions.
-type RetryStrategy interface {
-	// ShouldRetry determines if a retry should be attempted.
-	ShouldRetry(error) bool
-
-	// NextDelay returns the delay before the next retry.
-	NextDelay() time.Duration
-
-	// Reset resets the retry state.
-	Reset()
-}
-
-// DefaultRetryStrategy implements a simple exponential backoff strategy.
-type DefaultRetryStrategy struct {
-	MaxRetries  int
-	InitialWait time.Duration
-	MaxWait     time.Duration
-	attempts    int
-}
-
-func (s *DefaultRetryStrategy) ShouldRetry(err error) bool {
-	return s.attempts < s.MaxRetries
-}
-
-func (s *DefaultRetryStrategy) NextDelay() time.Duration {
-	s.attempts++
-	delay := s.InitialWait * time.Duration(1<<uint(s.attempts-1))
-	if delay > s.MaxWait {
-		delay = s.MaxWait
-	}
-	return delay
-}
-
-func (s *DefaultRetryStrategy) Reset() {
-	s.attempts = 0
 }
 
 // SSEDecoder handles Server-Sent Events (SSE) streaming

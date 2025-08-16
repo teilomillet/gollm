@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
 )
 
 func TestOpenRouterProvider(t *testing.T) {
@@ -38,8 +38,8 @@ func TestOpenRouterProvider(t *testing.T) {
 		assert.Equal(t, "GoLLM Integration", headers["X-Title"])
 	})
 
-	t.Run("SupportsJSONSchema returns true", func(t *testing.T) {
-		assert.True(t, provider.SupportsJSONSchema())
+	t.Run("SupportsStructuredResponse returns true", func(t *testing.T) {
+		assert.True(t, provider.SupportsStructuredResponse())
 	})
 
 	t.Run("SupportsStreaming returns true", func(t *testing.T) {

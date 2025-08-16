@@ -4,9 +4,9 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // GroqProvider implements the Provider interface for Groq's API.
@@ -82,7 +82,7 @@ func (p *GroqProvider) SetDefaultOptions(config *config.Config) {
 
 // SupportsJSONSchema indicates whether this provider supports JSON schema validation.
 // Currently, Groq does not natively support JSON schema validation.
-func (p *GroqProvider) SupportsJSONSchema() bool {
+func (p *GroqProvider) SupportsStructuredResponse() bool {
 	return false
 }
 

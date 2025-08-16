@@ -4,12 +4,12 @@ package llm
 import (
 	"context"
 	"fmt"
-	"github.com/teilomillet/gollm/providers"
+	"github.com/weave-labs/gollm/providers"
 	"sync"
 
 	"github.com/pkoukk/tiktoken-go"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // MemoryMessage represents a single message in the conversation history.
@@ -218,14 +218,14 @@ func (l *LLMWithMemory) SupportsStreaming() bool {
 	return l.LLM.SupportsStreaming()
 }
 
-// Stream initiates a streaming response from the LLM.
-func (l *LLMWithMemory) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOption) (TokenStream, error) {
-	return l.LLM.Stream(ctx, prompt, opts...)
+// GenerateStream initiates a streaming response from the LLM.
+func (l *LLMWithMemory) GenerateStream(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (TokenStream, error) {
+	return l.LLM.GenerateStream(ctx, prompt, opts...)
 }
 
-// SupportsJSONSchema checks if the provider supports JSON schema validation.
-func (l *LLMWithMemory) SupportsJSONSchema() bool {
-	return l.LLM.SupportsJSONSchema()
+// SupportsStructuredResponse checks if the provider supports JSON schema validation.
+func (l *LLMWithMemory) SupportsStructuredResponse() bool {
+	return l.LLM.SupportsStructuredResponse()
 }
 
 // NewLLMWithMemory creates a new LLM instance with memory.

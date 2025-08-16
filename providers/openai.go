@@ -8,9 +8,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // OpenAIProvider implements the Provider interface for OpenAI's API.
@@ -121,7 +121,7 @@ func (p *OpenAIProvider) Endpoint() string {
 
 // SupportsJSONSchema indicates that OpenAI supports native JSON schema validation
 // through its function calling and JSON mode capabilities.
-func (p *OpenAIProvider) SupportsJSONSchema() bool {
+func (p *OpenAIProvider) SupportsStructuredResponse() bool {
 	return true
 }
 

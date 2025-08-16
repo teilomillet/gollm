@@ -3,7 +3,7 @@
 package gollm
 
 import (
-	"github.com/teilomillet/gollm/llm"
+	"github.com/weave-labs/gollm/llm"
 )
 
 // Re-export streaming types from the llm package
@@ -15,12 +15,6 @@ type (
 	// StreamToken represents a single token from a streaming response.
 	StreamToken = llm.StreamToken
 
-	// StreamConfig holds configuration options for streaming.
-	StreamConfig = llm.StreamConfig
-
 	// RetryStrategy defines the interface for handling stream interruptions.
 	RetryStrategy = llm.RetryStrategy
 )
-
-// StreamOption is a function type that modifies StreamConfig
-type StreamOption = llm.StreamOption

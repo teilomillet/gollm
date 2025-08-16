@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/teilomillet/gollm"
+	"github.com/weave-labs/gollm"
 )
 
 // QuestionAnswerTemplate defines a structured prompt template for question answering.

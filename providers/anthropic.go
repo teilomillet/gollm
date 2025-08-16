@@ -8,9 +8,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // AnthropicProvider implements the Provider interface for Anthropic's Claude API.
@@ -94,13 +94,13 @@ func (p *AnthropicProvider) Endpoint() string {
 	return "https://api.anthropic.com/v1/messages"
 }
 
-// SupportsJSONSchema indicates that Anthropic supports structured output
+// SupportsStructuredResponse indicates that Anthropic supports structured output
 // through its system prompts and response formatting capabilities.
-func (p *AnthropicProvider) SupportsJSONSchema() bool {
+func (p *AnthropicProvider) SupportsStructuredResponse() bool {
 	return true
 }
 
-// Headers returns the required HTTP headers for Anthropic API requests.
+// Headers return the required HTTP headers for Anthropic API requests.
 // This includes:
 //   - x-api-key: API key for authentication
 //   - anthropic-version: API version identifier

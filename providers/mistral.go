@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // MistralProvider implements the Provider interface for Mistral AI's API.
@@ -84,7 +84,7 @@ func (p *MistralProvider) Endpoint() string {
 
 // SupportsJSONSchema indicates that Mistral supports structured output
 // through its system prompts and response formatting capabilities.
-func (p *MistralProvider) SupportsJSONSchema() bool {
+func (p *MistralProvider) SupportsStructuredResponse() bool {
 	return true
 }
 

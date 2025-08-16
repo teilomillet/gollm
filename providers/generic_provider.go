@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // GenericProvider is a flexible provider implementation that can adapt to
@@ -191,7 +191,7 @@ func (p *GenericProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
 }
 
 // SupportsJSONSchema indicates whether the provider supports native JSON schema validation.
-func (p *GenericProvider) SupportsJSONSchema() bool {
+func (p *GenericProvider) SupportsStructuredResponse() bool {
 	return p.config.SupportsSchema
 }
 

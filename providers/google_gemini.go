@@ -8,9 +8,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // GeminiProvider implements the Provider interface for Google's Gemini API (Generative Language API).
@@ -108,7 +108,7 @@ func (p *GeminiProvider) SetDefaultOptions(cfg *config.Config) {
 }
 
 // SupportsJSONSchema indicates that the Google provider supports structured output control via JSON schema.
-func (p *GeminiProvider) SupportsJSONSchema() bool {
+func (p *GeminiProvider) SupportsStructuredResponse() bool {
 	return true
 }
 
