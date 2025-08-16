@@ -6,9 +6,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 const (
@@ -19,7 +20,7 @@ const (
 // It supports Groq's optimized language models and provides access to their
 // high-performance inference capabilities.
 type GroqProvider struct {
-	logger       utils.Logger
+	logger       logging.Logger
 	extraHeaders map[string]string
 	options      map[string]any
 	apiKey       string
@@ -45,13 +46,13 @@ func NewGroqProvider(apiKey, model string, extraHeaders map[string]string) *Groq
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
 // SetLogger configures the logger for the Groq provider.
 // This is used for debugging and monitoring API interactions.
-func (p *GroqProvider) SetLogger(logger utils.Logger) {
+func (p *GroqProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -273,7 +274,7 @@ func (p *GroqProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 // PrepareRequestWithMessages creates a request body using structured message objects
 // rather than a flattened prompt string.
 func (p *GroqProvider) PrepareRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	request := map[string]any{

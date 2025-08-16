@@ -6,27 +6,24 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/pkoukk/tiktoken-go"
 
+	"github.com/weave-labs/gollm/internal/logging"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
 )
 
-// MemoryMessage represents a single message in the conversation history.
-// It includes the role of the speaker, the content of the message,
-// and the number of tokens in the message for efficient memory management.
-//
-// Deprecated: Use types.MemoryMessage instead.
-type MemoryMessage = types.MemoryMessage
+// MemoryMessage is an alias to the models package
+type MemoryMessage = models.MemoryMessage
 
 // Memory manages conversation history with token-based truncation.
 // It provides thread-safe operations for adding, retrieving, and managing messages
 // while ensuring the total token count stays within specified limits.
 type Memory struct {
-	logger      utils.Logger
+	logger      logging.Logger
 	encoding    *tiktoken.Tiktoken
-	messages    []types.MemoryMessage
+	messages    []MemoryMessage
 	totalTokens int
 	maxTokens   int
 	mutex       sync.Mutex
@@ -43,7 +40,7 @@ type Memory struct {
 // Returns:
 //   - Initialized Memory instance
 //   - ErrorTypeProvider if token encoding initialization fails
-func NewMemory(maxTokens int, model string, logger utils.Logger) (*Memory, error) {
+func NewMemory(maxTokens int, model string, logger logging.Logger) (*Memory, error) {
 	encoding, err := tiktoken.EncodingForModel(model)
 	if err != nil {
 		logger.Warn("Failed to get encoding for model, defaulting to gpt-4o", "model", model, "error", err)
@@ -54,7 +51,7 @@ func NewMemory(maxTokens int, model string, logger utils.Logger) (*Memory, error
 	}
 
 	return &Memory{
-		messages:  []types.MemoryMessage{},
+		messages:  []MemoryMessage{},
 		maxTokens: maxTokens,
 		encoding:  encoding,
 		logger:    logger,
@@ -73,7 +70,7 @@ func (m *Memory) Add(role, content string) {
 	defer m.mutex.Unlock()
 
 	tokens := m.encoding.Encode(content, nil, nil)
-	message := types.MemoryMessage{Role: role, Content: content, Tokens: len(tokens)}
+	message := MemoryMessage{Role: role, Content: content, Tokens: len(tokens)}
 	m.messages = append(m.messages, message)
 	m.totalTokens += len(tokens)
 
@@ -90,7 +87,7 @@ func (m *Memory) Add(role, content string) {
 //
 // Parameters:
 //   - message: The MemoryMessage to add
-func (m *Memory) AddStructured(message types.MemoryMessage) {
+func (m *Memory) AddStructured(message MemoryMessage) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -155,12 +152,12 @@ func (m *Memory) GetPrompt() string {
 //
 // Returns:
 //   - Slice of MemoryMessage objects representing the conversation
-func (m *Memory) GetMessages() []types.MemoryMessage {
+func (m *Memory) GetMessages() []MemoryMessage {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	// Return a copy to prevent external modifications
-	messages := make([]types.MemoryMessage, len(m.messages))
+	messages := make([]MemoryMessage, len(m.messages))
 	copy(messages, m.messages)
 	return messages
 }
@@ -171,7 +168,7 @@ func (m *Memory) Clear() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	m.messages = []types.MemoryMessage{}
+	m.messages = []MemoryMessage{}
 	m.totalTokens = 0
 	m.logger.Debug("Cleared memory")
 }
@@ -194,12 +191,12 @@ func (l *LLMWithMemory) NewPrompt(input string) *Prompt {
 }
 
 // GetLogger returns the logger from the wrapped LLM instance.
-func (l *LLMWithMemory) GetLogger() utils.Logger {
+func (l *LLMWithMemory) GetLogger() logging.Logger {
 	return l.LLM.GetLogger()
 }
 
 // SetLogLevel adjusts the logging verbosity.
-func (l *LLMWithMemory) SetLogLevel(level utils.LogLevel) {
+func (l *LLMWithMemory) SetLogLevel(level logging.LogLevel) {
 	l.LLM.SetLogLevel(level)
 }
 
@@ -354,7 +351,7 @@ func (l *LLMWithMemory) ClearMemory() {
 //
 // Returns:
 //   - Slice of MemoryMessage containing the conversation history
-func (l *LLMWithMemory) GetMemory() []types.MemoryMessage {
+func (l *LLMWithMemory) GetMemory() []models.MemoryMessage {
 	return l.memory.GetMessages()
 }
 
@@ -372,7 +369,7 @@ func (l *LLMWithMemory) AddToMemory(role, content string) {
 //   - content: Message content
 //   - cacheControl: Caching strategy ("ephemeral", "persistent", etc.)
 func (l *LLMWithMemory) AddStructuredMessage(role, content, cacheControl string) {
-	message := types.MemoryMessage{
+	message := models.MemoryMessage{
 		Role:         role,
 		Content:      content,
 		CacheControl: cacheControl,

@@ -9,9 +9,10 @@ import (
 	"io"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 // It supports GPT models and provides access to OpenAI's language model capabilities,
 // including function calling, JSON mode, and structured output validation.
 type OpenAIProvider struct {
-	logger       utils.Logger
+	logger       logging.Logger
 	extraHeaders map[string]string
 	options      map[string]any
 	apiKey       string
@@ -49,13 +50,13 @@ func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) *Op
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
 // SetLogger configures the logger for the OpenAI provider.
 // This is used for debugging and monitoring API interactions.
-func (p *OpenAIProvider) SetLogger(logger utils.Logger) {
+func (p *OpenAIProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -236,7 +237,7 @@ func (p *OpenAIProvider) addToolConfiguration(request map[string]any, options ma
 	}
 
 	// Handle tools
-	tools, ok := options[KeyTools].([]types.Tool)
+	tools, ok := options[KeyTools].([]models.Tool)
 	if !ok || len(tools) == 0 {
 		return
 	}
@@ -246,7 +247,7 @@ func (p *OpenAIProvider) addToolConfiguration(request map[string]any, options ma
 }
 
 // convertToolsToOpenAIFormat converts tools to OpenAI format
-func (p *OpenAIProvider) convertToolsToOpenAIFormat(tools []types.Tool) []map[string]any {
+func (p *OpenAIProvider) convertToolsToOpenAIFormat(tools []models.Tool) []map[string]any {
 	openAITools := make([]map[string]any, len(tools))
 	for i, tool := range tools {
 		openAITools[i] = map[string]any{
@@ -526,7 +527,8 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (*Response, error) {
 	if message.Content != "" {
 		return &Response{
 			Content: Text{message.Content},
-			Usage:   usage}, nil
+			Usage:   usage,
+		}, nil
 	}
 
 	if len(message.ToolCalls) > 0 {
@@ -547,7 +549,8 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (*Response, error) {
 
 		return &Response{
 			Content: Text{strings.Join(functionCalls, "\n")},
-			Usage:   usage}, nil
+			Usage:   usage,
+		}, nil
 	}
 
 	return nil, errors.New("no content or tool calls in response")
@@ -723,7 +726,7 @@ func (p *OpenAIProvider) addSystemPromptToRequest(request map[string]any, option
 }
 
 // addMemoryMessagesToRequest converts MemoryMessage objects to OpenAI format and adds them to request
-func (p *OpenAIProvider) addMemoryMessagesToRequest(request map[string]any, messages []types.MemoryMessage) {
+func (p *OpenAIProvider) addMemoryMessagesToRequest(request map[string]any, messages []models.MemoryMessage) {
 	for _, msg := range messages {
 		message := map[string]any{
 			"role":    msg.Role,
@@ -751,7 +754,7 @@ func (p *OpenAIProvider) addToolsToRequest(request map[string]any, options map[s
 	}
 
 	// Handle tools
-	if tools, ok := options[KeyTools].([]types.Tool); ok && len(tools) > 0 {
+	if tools, ok := options[KeyTools].([]models.Tool); ok && len(tools) > 0 {
 		openAITools := make([]map[string]any, len(tools))
 		for i, tool := range tools {
 			openAITools[i] = map[string]any{
@@ -788,7 +791,7 @@ func (p *OpenAIProvider) handleTokenParameters(mergedOptions map[string]any) {
 }
 
 func (p *OpenAIProvider) PrepareRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	request := map[string]any{

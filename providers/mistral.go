@@ -7,16 +7,17 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // MistralProvider implements the Provider interface for Mistral AI's API.
 // It supports Mistral's language models and provides access to their capabilities,
 // including chat completion and structured output.
 type MistralProvider struct {
-	logger       utils.Logger
+	logger       logging.Logger
 	extraHeaders map[string]string
 	options      map[string]any
 	apiKey       string
@@ -42,13 +43,13 @@ func NewMistralProvider(apiKey, model string, extraHeaders map[string]string) *M
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
 // SetLogger configures the logger for the Mistral provider.
 // This is used for debugging and monitoring API interactions.
-func (p *MistralProvider) SetLogger(logger utils.Logger) {
+func (p *MistralProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -302,7 +303,7 @@ func (p *MistralProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 
 // PrepareRequestWithMessages creates a request using structured message objects.
 func (p *MistralProvider) PrepareRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	request := map[string]any{

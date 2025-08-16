@@ -3,16 +3,17 @@ package providers
 import (
 	"testing"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/weave-labs/gollm/types"
 )
 
 // TestAllProvidersImplementStructuredMessages verifies that all providers
 // properly implement the PrepareRequestWithMessages method
 func TestAllProvidersImplementStructuredMessages(t *testing.T) {
 	// Define test messages
-	testMessages := []types.MemoryMessage{
+	testMessages := []models.MemoryMessage{
 		{
 			Role:         "user",
 			Content:      "Hello, how are you?",
@@ -62,7 +63,7 @@ func TestAllProvidersImplementStructuredMessages(t *testing.T) {
 
 			// Test the type assertion works (the provider correctly implements the method)
 			_, ok := p.provider.(interface {
-				PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error)
+				PrepareRequestWithMessages(messages []models.MemoryMessage, options map[string]any) ([]byte, error)
 			})
 			assert.True(t, ok, "Provider should implement PrepareRequestWithMessages")
 		})
@@ -75,7 +76,7 @@ func TestStructuredMessagesFormat(t *testing.T) {
 	// Test with minimal providers to verify message format
 	t.Run("OpenAI format", func(t *testing.T) {
 		provider := NewOpenAIProvider("fake-key", "gpt-4", nil)
-		messages := []types.MemoryMessage{
+		messages := []models.MemoryMessage{
 			{Role: "user", Content: "Hello"},
 		}
 		result, err := provider.PrepareRequestWithMessages(messages, nil)
@@ -88,7 +89,7 @@ func TestStructuredMessagesFormat(t *testing.T) {
 
 	t.Run("Anthropic format", func(t *testing.T) {
 		provider := NewAnthropicProvider("fake-key", "claude-3", nil)
-		messages := []types.MemoryMessage{
+		messages := []models.MemoryMessage{
 			{Role: "user", Content: "Hello", CacheControl: "ephemeral"},
 		}
 		result, err := provider.PrepareRequestWithMessages(messages, nil)

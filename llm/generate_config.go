@@ -12,7 +12,8 @@ func WithStructuredResponseSchema[T any]() GenerateOption {
 }
 
 // WithStructuredResponse configures Generate to produce output conforming to the provided schema value.
-// Use this when you already have a JSON Schema or example instance at runtime (e.g., map[string]any or a struct instance).
+// Use this when you already have a JSON Schema or example instance at runtime (e.g., map[string]any or a struct
+// instance).
 func WithStructuredResponse(schema any) GenerateOption {
 	return func(cfg *GenerateConfig) {
 		cfg.StructuredResponseSchema = schema
@@ -35,14 +36,7 @@ func WithRetryStrategy(strategy RetryStrategy) GenerateOption {
 
 // GenerateConfig holds configuration options for text generation.
 type GenerateConfig struct {
-	// StreamBufferSize is the size of the token buffer
-	StreamBufferSize int
-
-	// RetryStrategy defines how to handle stream interruptions
-	RetryStrategy RetryStrategy
-
-	// StructuredResponseSchema, when non-nil, requests that the response conform to the provided schema.
-	// Providers that support JSON Schema will receive it directly; others will have the schema
-	// embedded into the prompt, and the result validated client-side.
+	RetryStrategy            RetryStrategy
 	StructuredResponseSchema any
+	StreamBufferSize         int
 }

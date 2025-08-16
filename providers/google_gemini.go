@@ -9,9 +9,10 @@ import (
 	"io"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 const (
@@ -28,7 +29,7 @@ type GeminiProvider struct {
 	model        string            // Model name (e.g., "gemini-2.0-pro", "gemini-1.5-pro")
 	extraHeaders map[string]string // Additional HTTP headers
 	options      map[string]any    // Provider-specific options (temperature, max_tokens, etc.)
-	logger       utils.Logger      // Logger instance for debugging
+	logger       logging.Logger    // Logger instance for debugging
 }
 
 // NewGeminiProvider creates a new Google Gemini API provider instance.
@@ -47,7 +48,7 @@ func NewGeminiProvider(apiKey, model string, extraHeaders map[string]string) *Ge
 		model:        model,
 		extraHeaders: make(map[string]string),
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo), // default logger
+		logger:       logging.NewLogger(logging.LogLevelInfo), // default logger
 	}
 	// Copy any provided extra headers
 	for k, v := range extraHeaders {
@@ -95,7 +96,7 @@ func (p *GeminiProvider) SetExtraHeaders(extraHeaders map[string]string) {
 }
 
 // SetLogger allows configuring a custom logger for the Google provider.
-func (p *GeminiProvider) SetLogger(logger utils.Logger) {
+func (p *GeminiProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -150,7 +151,7 @@ func (p *GeminiProvider) addUserContent(requestBody map[string]any, prompt strin
 
 // addToolsToGeminiRequest adds tool definitions to the request
 func (p *GeminiProvider) addToolsToGeminiRequest(requestBody map[string]any, options map[string]any) {
-	tools, ok := options[geminiKeyTools].([]types.Tool)
+	tools, ok := options[geminiKeyTools].([]models.Tool)
 	if !ok || len(tools) == 0 {
 		return
 	}
@@ -265,7 +266,7 @@ func (p *GeminiProvider) PrepareRequest(prompt string, options map[string]any) (
 // It maps each MemoryMessage to a Gemini API Content, preserving roles and content. System prompts and tools are
 // handled similarly to PrepareRequest.
 func (p *GeminiProvider) PrepareRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	requestBody := p.initializeGeminiRequestBody()
@@ -313,7 +314,7 @@ func (p *GeminiProvider) addSystemInstructionForMessages(requestBody map[string]
 
 // addToolsForMessages adds tools and function calling configuration for messages
 func (p *GeminiProvider) addToolsForMessages(requestBody map[string]any, options map[string]any) {
-	tools, ok := options[geminiKeyTools].([]types.Tool)
+	tools, ok := options[geminiKeyTools].([]models.Tool)
 	if !ok || len(tools) == 0 {
 		return
 	}
@@ -327,7 +328,7 @@ func (p *GeminiProvider) addToolsForMessages(requestBody map[string]any, options
 }
 
 // buildFunctionDeclarations creates function declarations from tools
-func (p *GeminiProvider) buildFunctionDeclarations(tools []types.Tool) []map[string]any {
+func (p *GeminiProvider) buildFunctionDeclarations(tools []models.Tool) []map[string]any {
 	funcDecls := make([]map[string]any, 0, len(tools))
 	for _, tool := range tools {
 		funcDecl := map[string]any{
@@ -355,7 +356,7 @@ func (p *GeminiProvider) addFunctionCallingMode(requestBody map[string]any, opti
 }
 
 // addConvertedMessages converts and adds MemoryMessage objects to request
-func (p *GeminiProvider) addConvertedMessages(requestBody map[string]any, messages []types.MemoryMessage) {
+func (p *GeminiProvider) addConvertedMessages(requestBody map[string]any, messages []models.MemoryMessage) {
 	for _, msg := range messages {
 		contentEntry := p.convertMessageToGeminiFormat(msg)
 		if contentEntry == nil {
@@ -368,7 +369,7 @@ func (p *GeminiProvider) addConvertedMessages(requestBody map[string]any, messag
 }
 
 // convertMessageToGeminiFormat converts a MemoryMessage to Gemini format
-func (p *GeminiProvider) convertMessageToGeminiFormat(msg types.MemoryMessage) map[string]any {
+func (p *GeminiProvider) convertMessageToGeminiFormat(msg models.MemoryMessage) map[string]any {
 	role := p.mapRoleToGemini(msg.Role)
 	if role == "" {
 		return nil // Skip unknown roles

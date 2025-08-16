@@ -6,8 +6,8 @@ package optimizer
 import (
 	"time"
 
+	"github.com/weave-labs/gollm/internal/debug"
 	"github.com/weave-labs/gollm/llm"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // Metric represents a quantitative or qualitative measure of prompt performance.
@@ -83,7 +83,7 @@ type IterationCallback func(iteration int, entry OptimizationEntry)
 type PromptOptimizer struct {
 	llm               llm.LLM
 	iterationCallback IterationCallback
-	debugManager      *utils.DebugManager
+	debugManager      *debug.Manager
 	initialPrompt     *llm.Prompt
 	taskDesc          string
 	optimizationGoal  string

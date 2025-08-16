@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/weave-labs/gollm"
+	"github.com/weave-labs/gollm/internal/debug"
 	"github.com/weave-labs/gollm/optimizer"
 	"github.com/weave-labs/gollm/presets"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // Default configuration values
@@ -187,8 +187,7 @@ func handleOptimize(
 ) (string, string, error) {
 	promptOptimizer := optimizer.NewPromptOptimizer(
 		llmClient,
-		utils.NewDebugManager(
-			utils.DebugOptions{LogPrompts: true, LogResponses: true}),
+		debug.NewDebugManager(true, "./debug_output"),
 		llmClient.NewPrompt(rawPrompt),
 		optimizeGoal,
 		optimizer.WithIterations(optimizeIterations),

@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/internal/logging"
+	"github.com/weave-labs/gollm/internal/models"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // Constants for configuration defaults
@@ -43,14 +43,14 @@ type LLM interface {
 	// Returns ErrorTypeInvalidInput if the option is not supported.
 	SetOption(key string, value any)
 	// SetLogLevel adjusts the logging verbosity.
-	SetLogLevel(level utils.LogLevel)
+	SetLogLevel(level logging.LogLevel)
 	// SetEndpoint updates the API endpoint (primarily for local models).
 	// Returns ErrorTypeProvider if the provider doesn't support endpoint configuration.
 	SetEndpoint(endpoint string)
 	// NewPrompt creates a new prompt instance.
 	NewPrompt(input string) *Prompt
 	// GetLogger returns the current logger instance.
-	GetLogger() utils.Logger
+	GetLogger() logging.Logger
 	// SupportsStructuredResponse checks if the provider supports JSON schema validation.
 	SupportsStructuredResponse() bool
 }
@@ -61,7 +61,7 @@ type LLM interface {
 //nolint:revive // LLMImpl clearly indicates this is the implementation of the LLM interface
 type LLMImpl struct {
 	Provider     providers.Provider
-	logger       utils.Logger
+	logger       logging.Logger
 	Options      map[string]any
 	client       *http.Client
 	config       *config.Config
@@ -77,7 +77,7 @@ type LLMImpl struct {
 //   - Configured LLM instance
 //   - ErrorTypeProvider if provider initialization fails
 //   - ErrorTypeAuthentication if API key validation fails
-func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.ProviderRegistry) (*LLMImpl, error) {
+func NewLLM(cfg *config.Config, logger logging.Logger, registry *providers.ProviderRegistry) (*LLMImpl, error) {
 	extraHeaders := make(map[string]string)
 	if cfg.Provider == "anthropic" && cfg.EnableCaching {
 		extraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
@@ -127,13 +127,13 @@ func (l *LLMImpl) SetEndpoint(endpoint string) {
 }
 
 // SetLogLevel updates the logging verbosity level.
-func (l *LLMImpl) SetLogLevel(level utils.LogLevel) {
+func (l *LLMImpl) SetLogLevel(level logging.LogLevel) {
 	l.logger.Debug("Setting internal LLM log level", "new_level", level)
 	l.logger.SetLevel(level)
 }
 
 // GetLogger returns the current logger instance.
-func (l *LLMImpl) GetLogger() utils.Logger {
+func (l *LLMImpl) GetLogger() logging.Logger {
 	return l.logger
 }
 
@@ -299,10 +299,10 @@ func (l *LLMImpl) prepareRequestBody(prompt *Prompt, options map[string]any) ([]
 
 	// Use the structured messages API if the provider supports it
 	if prepareWithMessages, ok := l.Provider.(interface {
-		PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error)
+		PrepareRequestWithMessages(messages []models.MemoryMessage, options map[string]any) ([]byte, error)
 	}); ok {
 		// Convert to the expected type
-		messages, ok := structuredMessages.([]types.MemoryMessage)
+		messages, ok := structuredMessages.([]models.MemoryMessage)
 		if ok {
 			l.logger.Debug("Using structured messages API", "message_count", len(messages))
 			reqBody, err := prepareWithMessages.PrepareRequestWithMessages(messages, options)
@@ -580,14 +580,14 @@ type providerStream struct {
 	currentIndex  int
 }
 
-func newProviderStream(reader io.ReadCloser, provider providers.Provider, config *GenerateConfig) *providerStream {
+func newProviderStream(reader io.ReadCloser, provider providers.Provider, cfg *GenerateConfig) *providerStream {
 	return &providerStream{
 		decoder:       NewSSEDecoder(reader),
 		provider:      provider,
-		config:        config,
+		config:        cfg,
 		buffer:        make([]byte, 0, DefaultStreamBufferSize),
 		currentIndex:  0,
-		retryStrategy: config.RetryStrategy,
+		retryStrategy: cfg.RetryStrategy,
 	}
 }
 

@@ -11,16 +11,17 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // OllamaProvider implements the Provider interface for Ollama's API.
 // It enables interaction with locally hosted language models through Ollama,
 // supporting various open-source models like Llama, Mistral, and others.
 type OllamaProvider struct {
-	logger       utils.Logger
+	logger       logging.Logger
 	extraHeaders map[string]string
 	options      map[string]any
 	endpoint     string
@@ -48,13 +49,13 @@ func NewOllamaProvider(_ string, model string, extraHeaders map[string]string) *
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
 // SetLogger configures the logger for the Ollama provider.
 // This is used for debugging and monitoring API interactions.
-func (p *OllamaProvider) SetLogger(logger utils.Logger) {
+func (p *OllamaProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -288,7 +289,7 @@ func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response
 
 // SetDebugLevel sets the logging level for the provider.
 // This controls the verbosity of debug output.
-func (p *OllamaProvider) SetDebugLevel(level utils.LogLevel) {
+func (p *OllamaProvider) SetDebugLevel(level logging.LogLevel) {
 	if p.logger != nil {
 		p.logger.SetLevel(level)
 	}
@@ -341,7 +342,7 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
 func (p *OllamaProvider) PrepareRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	// Ollama doesn't natively support structured messages like Anthropic/OpenAI

@@ -10,9 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/stretchr/testify/require"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // TestOpenRouterIntegration performs integration tests against the actual OpenRouter API.
@@ -24,7 +26,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 	}
 
 	// Create a logger to see detailed output
-	logger := utils.NewLogger(utils.LogLevelDebug)
+	logger := logging.NewLogger(logging.LogLevelDebug)
 
 	t.Run("Basic Chat Completion", func(t *testing.T) {
 		// Create provider with Claude model
@@ -152,7 +154,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 		provider.SetLogger(logger)
 
 		// Create a conversation history
-		messages := []types.MemoryMessage{
+		messages := []models.MemoryMessage{
 			{Role: "system", Content: "You are a math tutor that explains step by step."},
 			{Role: "user", Content: "What is 17 × 6?"},
 		}

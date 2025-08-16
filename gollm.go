@@ -7,10 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/internal/logging"
 	"github.com/weave-labs/gollm/llm"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // LLM is the interface that wraps the basic LLM operations.
@@ -45,7 +46,7 @@ type LLM interface {
 type LlmImpl struct {
 	llm.LLM
 	provider providers.Provider
-	logger   utils.Logger
+	logger   logging.Logger
 	config   *config.Config
 	model    string
 }
@@ -106,7 +107,7 @@ func (l *LlmImpl) GetPromptJSONSchema(opts ...SchemaOption) ([]byte, error) {
 func (l *LlmImpl) UpdateLogLevel(level LogLevel) {
 	l.config.LogLevel = level
 	l.logger.SetLevel(level)
-	if internalLLM, ok := l.LLM.(interface{ SetLogLevel(level utils.LogLevel) }); ok {
+	if internalLLM, ok := l.LLM.(interface{ SetLogLevel(level logging.LogLevel) }); ok {
 		internalLLM.SetLogLevel(level)
 	}
 }
@@ -183,7 +184,7 @@ func NewLLM(opts ...ConfigOption) (*LlmImpl, error) {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	logger := utils.NewLogger(cfg.LogLevel)
+	logger := logging.NewLogger(cfg.LogLevel)
 	setupAnthropicCaching(cfg)
 
 	baseLLM, err := llm.NewLLM(cfg, logger, providers.NewProviderRegistry())

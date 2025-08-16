@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/internal/logging"
 	"github.com/weave-labs/gollm/llm"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // ComparisonResult represents the outcome of a model comparison for a specific provider.
@@ -31,7 +31,7 @@ type ComparisonResult[T any] struct {
 // debugLog outputs debug information when debug logging is enabled in the config.
 // It helps track the comparison process and troubleshoot issues.
 func debugLog(cfg *config.Config, format string, args ...any) {
-	if cfg.LogLevel == utils.LogLevelDebug {
+	if cfg.LogLevel == logging.LogLevelDebug {
 		slog.Debug(fmt.Sprintf(format, args...))
 	}
 }
@@ -151,7 +151,7 @@ func processConfig[T any](
 	configs []*config.Config,
 	results []ComparisonResult[T],
 	attempt int,
-	logger utils.Logger,
+	logger logging.Logger,
 ) (bool, error) {
 	debugLog(
 		remainingConfig,
@@ -180,7 +180,7 @@ func generateResponse(
 	ctx context.Context,
 	prompt string,
 	cfg *config.Config,
-	logger utils.Logger,
+	logger logging.Logger,
 ) (*providers.Response, error) {
 	registry := providers.NewProviderRegistry()
 	llmInstance, err := llm.NewLLM(cfg, logger, registry)
@@ -290,7 +290,7 @@ func CompareModels[T any](
 	remainingConfigs := make([]*config.Config, len(configs))
 	copy(remainingConfigs, configs)
 
-	logger := utils.NewLogger(utils.LogLevelDebug)
+	logger := logging.NewLogger(logging.LogLevelDebug)
 
 	for attempt := 1; attempt <= MaxRetryAttempts; attempt++ {
 		if len(remainingConfigs) == 0 {

@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/internal/logging"
 	"github.com/weave-labs/gollm/llm"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // MOAConfig represents the configuration for the Mixture of Agents (MOA) system.
@@ -65,7 +65,7 @@ func NewMOA(moaConfig MOAConfig, aggregatorOpts ...ConfigOption) (*MOA, error) {
 	}
 
 	registry := providers.NewProviderRegistry()
-	logger := utils.NewLogger(utils.LogLevelInfo)
+	logger := logging.NewLogger(logging.LogLevelInfo)
 
 	moa := &MOA{
 		Config: moaConfig,

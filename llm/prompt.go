@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/weave-labs/gollm/types"
-
 	"github.com/invopop/jsonschema"
 
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/fileutils"
+	"github.com/weave-labs/gollm/internal/models"
 )
 
 // CacheType defines how prompts and responses should be cached in the system.
@@ -57,7 +56,7 @@ type Prompt struct {
 	Directives      []string        `json:"directives,omitempty" jsonschema:"description=List of directives to guide the LLM"`
 	Examples        []string        `json:"examples,omitempty" jsonschema:"description=List of examples to guide the LLM"`
 	Messages        []PromptMessage `json:"messages,omitempty" jsonschema:"description=List of messages for the conversation"`
-	Tools           []types.Tool    `json:"tools,omitempty" jsonschema:"description=Available tools for the LLM to use"`
+	Tools           []models.Tool   `json:"tools,omitempty" jsonschema:"description=Available tools for the LLM to use"`
 	MaxLength       int             `json:"maxLength,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
 }
 
@@ -131,7 +130,7 @@ func WithMessage(role, content string, cacheType CacheType) PromptOption {
 //
 // Parameters:
 //   - tools: List of available tools
-func WithTools(tools []types.Tool) PromptOption {
+func WithTools(tools []models.Tool) PromptOption {
 	return func(p *Prompt) {
 		p.Tools = tools
 	}
@@ -207,7 +206,7 @@ func WithMaxLength(length int) PromptOption {
 func WithExamples(examples ...string) PromptOption {
 	return func(p *Prompt) {
 		if len(examples) == 1 && strings.HasSuffix(examples[0], ".txt") || strings.HasSuffix(examples[0], ".jsonl") {
-			fileExamples, err := utils.ReadExamplesFromFile(examples[0])
+			fileExamples, err := fileutils.ReadExamplesFromFile(examples[0])
 			if err != nil {
 				panic(fmt.Sprintf("Failed to read examples from file: %v", err))
 			}

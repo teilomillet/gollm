@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // BaseProvider defines the core interface that all LLM providers must implement.
@@ -41,7 +42,7 @@ type BaseProvider interface {
 	SetOption(key string, value any)
 
 	// SetLogger configures the logger for the provider instance.
-	SetLogger(logger utils.Logger)
+	SetLogger(logger logging.Logger)
 }
 
 // RequestProvider defines the interface for preparing different types of requests.
@@ -65,7 +66,7 @@ type RequestProvider interface {
 	// Returns:
 	//   - Serialized JSON request body
 	//   - Any error encountered during preparation
-	PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error)
+	PrepareRequestWithMessages(messages []models.MemoryMessage, options map[string]any) ([]byte, error)
 
 	// SupportsStructuredResponse indicates whether the provider supports native JSON schema validation.
 	SupportsStructuredResponse() bool
@@ -77,7 +78,7 @@ type RequestProvider interface {
 	SetOption(key string, value any)
 
 	// SetLogger configures the logger for the provider instance.
-	SetLogger(logger utils.Logger)
+	SetLogger(logger logging.Logger)
 
 	// SupportsStreaming indicates whether the provider supports streaming responses.
 	SupportsStreaming() bool
@@ -258,9 +259,35 @@ func getKnownProviders() map[string]ProviderConstructor {
 	}
 }
 
+// getGoogleConfigs returns Google provider configurations
+func getGoogleConfigs() map[string]ProviderConfig {
+	return map[string]ProviderConfig{
+		"google-openai": {
+			Name:              "google-openai",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"google": {
+			Name:              "google",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+	}
+}
+
 // getStandardConfigs returns standard provider configurations
 func getStandardConfigs() map[string]ProviderConfig {
-	return map[string]ProviderConfig{
+	configs := map[string]ProviderConfig{
 		"openai": {
 			Name:              "openai",
 			Type:              TypeOpenAI,
@@ -321,28 +348,12 @@ func getStandardConfigs() map[string]ProviderConfig {
 			SupportsSchema:    true,
 			SupportsStreaming: true,
 		},
-		"google-openai": {
-			Name:              "google-openai",
-			Type:              TypeOpenAI,
-			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-			AuthHeader:        "Authorization",
-			AuthPrefix:        "Bearer ",
-			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
-			SupportsSchema:    true,
-			SupportsStreaming: true,
-		},
-		"google": {
-			Name:              "google",
-			Type:              TypeOpenAI,
-			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-			AuthHeader:        "Authorization",
-			AuthPrefix:        "Bearer ",
-			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
-			SupportsSchema:    true,
-			SupportsStreaming: true,
-		},
-		// Add other provider configurations
 	}
+	// Merge Google configs
+	for k, v := range getGoogleConfigs() {
+		configs[k] = v
+	}
+	return configs
 }
 
 // GetProviderConfig returns the configuration for a named provider

@@ -4,9 +4,9 @@
 package gollm
 
 import (
+	"github.com/weave-labs/gollm/internal/models"
 	"github.com/weave-labs/gollm/llm"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/types"
 )
 
 // The following types are re-exported from the llm package to provide a cleaner API surface.
@@ -27,11 +27,11 @@ type (
 
 	// Function defines a callable function that can be used by the LLM.
 	// It includes metadata like name, description, and parameter schemas.
-	Function = types.Function
+	Function = models.Function
 
 	// Tool represents a tool that can be used by the LLM during generation.
 	// Tools are higher-level abstractions over functions that include usage policies.
-	Tool = types.Tool
+	Tool = models.Tool
 
 	// PromptOption defines a function that can modify a prompt's configuration.
 	// These are used to customize prompt behavior in a flexible, chainable way.
@@ -47,7 +47,7 @@ type (
 
 	// MemoryMessage represents a message stored in the LLM's conversation memory.
 	// These messages provide context for maintaining coherent conversations.
-	MemoryMessage = types.MemoryMessage
+	MemoryMessage = models.MemoryMessage
 
 	// PromptTemplate defines a reusable template for generating prompts.
 	// Templates can include variables that are filled in at runtime.

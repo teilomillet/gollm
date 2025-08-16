@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 const (
@@ -22,7 +23,7 @@ const (
 // It supports Cohere's language models and provides access to their capabilities,
 // including chat completion and structured output
 type CohereProvider struct {
-	logger       utils.Logger
+	logger       logging.Logger
 	extraHeaders map[string]string
 	options      map[string]any
 	apiKey       string
@@ -49,13 +50,13 @@ func NewCohereProvider(apiKey, model string, extraHeaders map[string]string) *Co
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
 // SetLogger configures the logger for the Cohere provider.
 // This is used for debugging and monitoring API interactions.
-func (p *CohereProvider) SetLogger(logger utils.Logger) {
+func (p *CohereProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -317,7 +318,7 @@ func (p *CohereProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 
 // PrepareRequestWithMessages creates a request using structured message objects.
 func (p *CohereProvider) PrepareRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	// Cohere uses a chat history format

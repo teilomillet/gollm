@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // ErrorType represents the category of an LLM error.
@@ -128,7 +128,7 @@ func NewLLMError(errType ErrorType, message string, err error) *LLMError {
 //   - err: The error to handle
 //   - fatal: If true, the program will panic after logging
 //   - logger: The logger to use for error reporting
-func HandleError(err error, fatal bool, logger utils.Logger) {
+func HandleError(err error, fatal bool, logger logging.Logger) {
 	if err == nil {
 		return
 	}

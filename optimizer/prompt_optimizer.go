@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-playground/validator/v10"
 
+	"github.com/weave-labs/gollm/internal/debug"
 	"github.com/weave-labs/gollm/llm"
-	"github.com/weave-labs/gollm/utils"
 )
 
 var registerValidationOnce sync.Once
@@ -151,7 +151,7 @@ func validGrade(fl validator.FieldLevel) bool {
 //   - Configured PromptOptimizer instance
 func NewPromptOptimizer(
 	llmInstance llm.LLM,
-	debugManager *utils.DebugManager,
+	debugManager *debug.Manager,
 	initialPrompt *llm.Prompt,
 	taskDesc string,
 	opts ...OptimizerOption,

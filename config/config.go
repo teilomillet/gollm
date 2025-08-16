@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v11"
-	"github.com/weave-labs/gollm/utils"
+
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // Default configuration values
@@ -76,17 +77,17 @@ type Config struct {
 	Provider              string `env:"LLM_PROVIDER" envDefault:"anthropic" validate:"required"`
 	Model                 string `env:"LLM_MODEL" envDefault:"claude-3-5-haiku-latest" validate:"required"`
 	SystemPromptCacheType string
-	OllamaEndpoint        string         `env:"OLLAMA_ENDPOINT" envDefault:"http://localhost:11434"`
-	FrequencyPenalty      float64        `env:"LLM_FREQUENCY_PENALTY" envDefault:"0.0"`
-	LogLevel              utils.LogLevel `env:"LLM_LOG_LEVEL" envDefault:"WARN"`
-	RetryDelay            time.Duration  `env:"LLM_RETRY_DELAY" envDefault:"2s"`
-	MaxRetries            int            `env:"LLM_MAX_RETRIES" envDefault:"3"`
-	Timeout               time.Duration  `env:"LLM_TIMEOUT" envDefault:"30s"`
-	PresencePenalty       float64        `env:"LLM_PRESENCE_PENALTY" envDefault:"0.0"`
-	TopP                  float64        `env:"LLM_TOP_P" envDefault:"0.9" validate:"gte=0,lte=1"`
-	MaxTokens             int            `env:"LLM_MAX_TOKENS" envDefault:"100"`
-	Temperature           float64        `env:"LLM_TEMPERATURE" envDefault:"0.7" validate:"gte=0,lte=1"`
-	EnableCaching         bool           `env:"LLM_ENABLE_CACHING" envDefault:"false"`
+	OllamaEndpoint        string           `env:"OLLAMA_ENDPOINT" envDefault:"http://localhost:11434"`
+	FrequencyPenalty      float64          `env:"LLM_FREQUENCY_PENALTY" envDefault:"0.0"`
+	LogLevel              logging.LogLevel `env:"LLM_LOG_LEVEL" envDefault:"WARN"`
+	RetryDelay            time.Duration    `env:"LLM_RETRY_DELAY" envDefault:"2s"`
+	MaxRetries            int              `env:"LLM_MAX_RETRIES" envDefault:"3"`
+	Timeout               time.Duration    `env:"LLM_TIMEOUT" envDefault:"30s"`
+	PresencePenalty       float64          `env:"LLM_PRESENCE_PENALTY" envDefault:"0.0"`
+	TopP                  float64          `env:"LLM_TOP_P" envDefault:"0.9" validate:"gte=0,lte=1"`
+	MaxTokens             int              `env:"LLM_MAX_TOKENS" envDefault:"100"`
+	Temperature           float64          `env:"LLM_TEMPERATURE" envDefault:"0.7" validate:"gte=0,lte=1"`
+	EnableCaching         bool             `env:"LLM_ENABLE_CACHING" envDefault:"false"`
 }
 
 // LoadConfig creates a new Config instance, loading values from environment
@@ -163,7 +164,7 @@ func NewConfig() *Config {
 		MaxRetries:   defaultMaxRetries,
 		RetryDelay:   defaultRetryDelay * time.Second,
 		APIKeys:      make(map[string]string),
-		LogLevel:     utils.LogLevelWarn,
+		LogLevel:     logging.LogLevelWarn,
 		ExtraHeaders: make(map[string]string),
 	}
 }
@@ -251,7 +252,7 @@ func SetRetryDelay(retryDelay time.Duration) ConfigOption {
 }
 
 // SetLogLevel sets the logging verbosity.
-func SetLogLevel(level utils.LogLevel) ConfigOption {
+func SetLogLevel(level logging.LogLevel) ConfigOption {
 	return func(c *Config) {
 		c.LogLevel = level
 	}

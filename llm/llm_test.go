@@ -6,14 +6,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/weave-labs/gollm/utils"
+
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 func TestConcurrentOptionsAccess(t *testing.T) {
-	mockLogger := &utils.MockLogger{}
-	// Configure mock logger to ignore any method calls
-	mockLogger.On("Debug", mock.Anything, mock.Anything).Return()
+	mockLogger := logging.NewMockLogger()
 
 	llm := &LLMImpl{
 		Options: make(map[string]any),

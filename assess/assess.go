@@ -4,8 +4,6 @@ package assess
 import (
 	"context"
 	"fmt"
-	"github.com/invopop/jsonschema"
-	"github.com/weave-labs/gollm/providers"
 	"os"
 	"regexp"
 	"strings"
@@ -13,10 +11,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/weave-labs/gollm/internal/models"
+
+	"github.com/invopop/jsonschema"
+
+	"github.com/weave-labs/gollm/providers"
+
+	"golang.org/x/time/rate"
+
 	"github.com/weave-labs/gollm"
 	"github.com/weave-labs/gollm/config"
 	"github.com/weave-labs/gollm/llm"
-	"golang.org/x/time/rate"
 )
 
 // Constants for default values
@@ -76,7 +81,7 @@ type TestCase struct {
 	context        string
 	maxLength      int
 	examples       []string
-	tools          []gollm.Tool
+	tools          []models.Tool
 	toolChoice     string
 	messages       []gollm.PromptMessage
 	output         string
@@ -692,7 +697,7 @@ func (tc *TestCase) WithExamples(examples []string) *TestCase {
 }
 
 // WithTools configures available tools for the test case
-func (tc *TestCase) WithTools(tools []gollm.Tool) *TestCase {
+func (tc *TestCase) WithTools(tools []models.Tool) *TestCase {
 	tc.tools = tools
 	tc.options["tools"] = tools
 	return tc

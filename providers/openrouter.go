@@ -9,9 +9,10 @@ import (
 	"io"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 const (
@@ -26,7 +27,7 @@ type OpenRouterProvider struct {
 	model        string            // Model identifier (e.g., "openai/gpt-4", "anthropic/claude-3-opus")
 	extraHeaders map[string]string // Additional HTTP headers
 	options      map[string]any    // Model-specific options
-	logger       utils.Logger      // Logger instance
+	logger       logging.Logger    // Logger instance
 }
 
 // NewOpenRouterProvider creates a new OpenRouter provider instance.
@@ -48,12 +49,12 @@ func NewOpenRouterProvider(apiKey, model string, extraHeaders map[string]string)
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
 // SetLogger configures the logger for the OpenRouter provider.
-func (p *OpenRouterProvider) SetLogger(logger utils.Logger) {
+func (p *OpenRouterProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -634,7 +635,7 @@ func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error
 
 // PrepareRequestWithMessages creates a request with structured message objects.
 func (p *OpenRouterProvider) PrepareRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	req := p.initializeRequestWithOptions(options)
@@ -705,7 +706,7 @@ func (p *OpenRouterProvider) handleRoutingConfiguration(req map[string]any) {
 
 // formatMessagesForRequest converts memory messages to OpenRouter format
 func (p *OpenRouterProvider) formatMessagesForRequest(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	req map[string]any,
 ) []map[string]any {
 	formattedMessages := make([]map[string]any, 0, len(messages))
@@ -719,7 +720,7 @@ func (p *OpenRouterProvider) formatMessagesForRequest(
 }
 
 // formatSingleMessage formats a single message with caching if needed
-func (p *OpenRouterProvider) formatSingleMessage(msg types.MemoryMessage, req map[string]any) map[string]any {
+func (p *OpenRouterProvider) formatSingleMessage(msg models.MemoryMessage, req map[string]any) map[string]any {
 	formattedMsg := map[string]any{
 		"role":    msg.Role,
 		"content": msg.Content,
@@ -734,7 +735,7 @@ func (p *OpenRouterProvider) formatSingleMessage(msg types.MemoryMessage, req ma
 // addCachingIfNeeded adds caching configuration for large messages
 func (p *OpenRouterProvider) addCachingIfNeeded(
 	formattedMsg map[string]any,
-	msg types.MemoryMessage,
+	msg models.MemoryMessage,
 	req map[string]any,
 ) {
 	caching, ok := req["enable_prompt_caching"].(bool)

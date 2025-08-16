@@ -10,9 +10,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // GenericProvider is a flexible provider implementation that can adapt to
@@ -20,7 +21,7 @@ import (
 // and Anthropic-compatible APIs out of the box, and can be extended for
 // custom implementations.
 type GenericProvider struct {
-	logger        utils.Logger
+	logger        logging.Logger
 	extraHeaders  map[string]string
 	options       map[string]any
 	apiKey        string
@@ -58,7 +59,7 @@ func NewGenericProvider(apiKey, model, providerName string, extraHeaders map[str
 		config:       cfg,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 }
 
@@ -215,7 +216,7 @@ func (p *GenericProvider) SetOption(key string, value any) {
 }
 
 // SetLogger configures the logger for the provider instance.
-func (p *GenericProvider) SetLogger(logger utils.Logger) {
+func (p *GenericProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -517,7 +518,7 @@ func (p *GenericProvider) parseAnthropicStreamResponse(chunk []byte) (*Response,
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
 func (p *GenericProvider) PrepareRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	switch p.config.Type {
@@ -535,7 +536,7 @@ func (p *GenericProvider) PrepareRequestWithMessages(
 
 // prepareOpenAIRequestWithMessages creates a request for OpenAI APIs using structured messages
 func (p *GenericProvider) prepareOpenAIRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	requestOptions := make(map[string]any)
@@ -584,7 +585,7 @@ func (p *GenericProvider) prepareOpenAIRequestWithMessages(
 
 // prepareAnthropicRequestWithMessages creates a request for Anthropic APIs using structured messages
 func (p *GenericProvider) prepareAnthropicRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	requestOptions := make(map[string]any)

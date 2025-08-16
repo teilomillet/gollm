@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 func TestGenericProviderBasics(t *testing.T) {
@@ -31,7 +32,7 @@ func TestGenericProviderBasics(t *testing.T) {
 		config:       testConfig,
 		extraHeaders: map[string]string{"Extra-Header": "value"},
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	t.Run("Name returns correct provider name", func(t *testing.T) {
@@ -90,7 +91,7 @@ func TestGenericProviderBasics(t *testing.T) {
 			model:   "test-model",
 			config:  noSchemaConfig,
 			options: make(map[string]any),
-			logger:  utils.NewLogger(utils.LogLevelInfo),
+			logger:  logging.NewLogger(logging.LogLevelInfo),
 		}
 
 		assert.False(t, noSchemaProvider.SupportsStructuredResponse())
@@ -107,7 +108,7 @@ func TestGenericProviderBasics(t *testing.T) {
 			model:   "test-model",
 			config:  noStreamConfig,
 			options: make(map[string]any),
-			logger:  utils.NewLogger(utils.LogLevelInfo),
+			logger:  logging.NewLogger(logging.LogLevelInfo),
 		}
 
 		assert.False(t, noStreamProvider.SupportsStreaming())
@@ -121,7 +122,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		model:   "gpt-4",
 		config:  ProviderConfig{Type: TypeOpenAI},
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	// Create an Anthropic-compatible provider
@@ -130,7 +131,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		model:   "claude-3",
 		config:  ProviderConfig{Type: TypeAnthropic},
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	t.Run("OpenAI request format is correct", func(t *testing.T) {
@@ -211,7 +212,7 @@ func TestGenericProviderResponseParsing(t *testing.T) {
 		model:   "gpt-4",
 		config:  ProviderConfig{Type: TypeOpenAI},
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	// Create an Anthropic-compatible provider
@@ -220,7 +221,7 @@ func TestGenericProviderResponseParsing(t *testing.T) {
 		model:   "claude-3",
 		config:  ProviderConfig{Type: TypeAnthropic},
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	t.Run("Parse OpenAI response correctly", func(t *testing.T) {
@@ -290,7 +291,7 @@ func TestGenericProviderStreamHandling(t *testing.T) {
 		model:   "gpt-4",
 		config:  ProviderConfig{Type: TypeOpenAI, SupportsStreaming: true},
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	t.Run("PrepareStreamRequest adds stream flag", func(t *testing.T) {
@@ -407,7 +408,7 @@ func TestAzureOpenAIProvider(t *testing.T) {
 		model:   deploymentName,
 		config:  azureConfig,
 		options: make(map[string]any),
-		logger:  utils.NewLogger(utils.LogLevelInfo),
+		logger:  logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	t.Run("Azure OpenAI provider formats request correctly", func(t *testing.T) {

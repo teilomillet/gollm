@@ -9,9 +9,10 @@ import (
 	"io"
 	"strings"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
-	"github.com/weave-labs/gollm/utils"
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 // Common parameter keys
@@ -34,7 +35,7 @@ const (
 // It supports Claude models and provides access to Anthropic's language model capabilities,
 // including structured output and system prompts.
 type AnthropicProvider struct {
-	logger       utils.Logger
+	logger       logging.Logger
 	extraHeaders map[string]string
 	options      map[string]any
 	apiKey       string
@@ -57,7 +58,7 @@ func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) 
 		model:        model,
 		extraHeaders: make(map[string]string),
 		options:      make(map[string]any),
-		logger:       utils.NewLogger(utils.LogLevelInfo), // Default logger
+		logger:       logging.NewLogger(logging.LogLevelInfo), // Default logger
 	}
 
 	// Copy the provided extraHeaders
@@ -75,7 +76,7 @@ func NewAnthropicProvider(apiKey, model string, extraHeaders map[string]string) 
 
 // SetLogger configures the logger for the Anthropic provider.
 // This is used for debugging and monitoring API interactions.
-func (p *AnthropicProvider) SetLogger(logger utils.Logger) {
+func (p *AnthropicProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
 }
 
@@ -193,7 +194,7 @@ func (p *AnthropicProvider) handleToolsForRequest(
 	systemPrompt string,
 	options map[string]any,
 ) string {
-	tools, ok := options[anthropicKeyTools].([]types.Tool)
+	tools, ok := options[anthropicKeyTools].([]models.Tool)
 	if !ok || len(tools) == 0 {
 		return systemPrompt
 	}
@@ -271,7 +272,7 @@ func (p *AnthropicProvider) isHandledAnthropicOption(key string) bool {
 
 // processTools handles tool configuration and updates system prompt
 func (p *AnthropicProvider) processTools(
-	tools []types.Tool,
+	tools []models.Tool,
 	requestBody map[string]any,
 	systemPrompt string,
 	options map[string]any,
@@ -313,7 +314,7 @@ func (p *AnthropicProvider) processTools(
 
 // processToolsForMessages handles tool configuration for message-based requests
 func (p *AnthropicProvider) processToolsForMessages(
-	tools []types.Tool,
+	tools []models.Tool,
 	requestBody map[string]any,
 	options map[string]any,
 ) {
@@ -723,7 +724,7 @@ func (p *AnthropicProvider) ParseStreamResponse(chunk []byte) (*Response, error)
 //   - Serialized JSON request body
 //   - Any error encountered during preparation
 func (p *AnthropicProvider) PrepareRequestWithMessages(
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	requestBody := p.initializeRequestBody()
@@ -750,7 +751,7 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 
 // handleToolsForMessagesRequest processes tools for message-based requests
 func (p *AnthropicProvider) handleToolsForMessagesRequest(requestBody map[string]any, options map[string]any) {
-	tools, ok := options[anthropicKeyTools].([]types.Tool)
+	tools, ok := options[anthropicKeyTools].([]models.Tool)
 	if !ok || len(tools) == 0 {
 		return
 	}
@@ -760,7 +761,7 @@ func (p *AnthropicProvider) handleToolsForMessagesRequest(requestBody map[string
 // addMemoryMessagesToRequestBody converts and adds memory messages to the request
 func (p *AnthropicProvider) addMemoryMessagesToRequestBody(
 	requestBody map[string]any,
-	messages []types.MemoryMessage,
+	messages []models.MemoryMessage,
 	options map[string]any,
 ) {
 	for _, msg := range messages {
@@ -770,7 +771,7 @@ func (p *AnthropicProvider) addMemoryMessagesToRequestBody(
 }
 
 // convertMemoryMessage converts a MemoryMessage to Anthropic format
-func (p *AnthropicProvider) convertMemoryMessage(msg types.MemoryMessage, options map[string]any) map[string]any {
+func (p *AnthropicProvider) convertMemoryMessage(msg models.MemoryMessage, options map[string]any) map[string]any {
 	content := []map[string]any{
 		{
 			"type": "text",

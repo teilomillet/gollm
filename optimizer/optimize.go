@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/weave-labs/gollm/internal/debug"
 	"github.com/weave-labs/gollm/llm"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // OptimizePrompt performs automated optimization of an LLM prompt and generates a response.
@@ -56,9 +56,7 @@ func OptimizePrompt(
 	config OptimizationConfig,
 ) (*llm.Prompt, *providers.Response, error) {
 	// Initialize debug manager for logging optimization process
-	debugManager := utils.NewDebugManager(
-		utils.DebugOptions{LogPrompts: true, LogResponses: true},
-	)
+	debugManager := debug.NewDebugManager(true, "./debug_output")
 
 	// Create initial prompt object
 	initialPrompt := llm.NewPrompt(config.Prompt)

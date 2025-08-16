@@ -15,8 +15,8 @@ import (
 
 	"github.com/weave-labs/gollm"
 	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/internal/logging"
 	"github.com/weave-labs/gollm/providers"
-	"github.com/weave-labs/gollm/utils"
 )
 
 // MockProvider implements the Provider interface for testing
@@ -70,7 +70,7 @@ func (m *MockProvider) SetDefaultOptions(cfg *config.Config) {
 	m.Called(cfg)
 }
 
-func (m *MockProvider) SetLogger(logger utils.Logger) {
+func (m *MockProvider) SetLogger(logger logging.Logger) {
 	m.Called(logger)
 }
 

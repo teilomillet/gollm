@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/weave-labs/gollm/utils"
+
+	"github.com/weave-labs/gollm/internal/logging"
 )
 
 func TestLLMError(t *testing.T) {
@@ -55,30 +55,32 @@ func TestLLMError(t *testing.T) {
 }
 
 func TestHandleError(t *testing.T) {
-	mockLogger := new(utils.MockLogger)
+	mockLogger := logging.NewMockLogger()
 
 	t.Run("Handle LLMError", func(t *testing.T) {
-		mockLogger.On("Error", mock.Anything, mock.Anything).Return()
+		mockLogger.Clear()
 		llmErr := NewLLMError(ErrorTypeAPI, "API Error", nil)
 		HandleError(llmErr, false, mockLogger)
 
-		mockLogger.AssertCalled(t, "Error", "API Error", mock.Anything)
-		assert.Equal(t, 1, mockLogger.ErrorCallCount)
-		assert.Equal(t, "API Error", mockLogger.LastErrorMessage)
+		messages := mockLogger.GetMessages()
+		assert.Len(t, messages, 1)
+		assert.Equal(t, "ERROR", messages[0].Level)
+		assert.Equal(t, "API Error", messages[0].Message)
 	})
 
 	t.Run("Handle generic error", func(t *testing.T) {
-		mockLogger.On("Error", mock.Anything, mock.Anything).Return()
+		mockLogger.Clear()
 		genericErr := errors.New("generic error")
 		HandleError(genericErr, false, mockLogger)
 
-		mockLogger.AssertCalled(t, "Error", "An error occurred", mock.Anything)
-		assert.Equal(t, 2, mockLogger.ErrorCallCount)
-		assert.Equal(t, "An error occurred", mockLogger.LastErrorMessage)
+		messages := mockLogger.GetMessages()
+		assert.Len(t, messages, 1)
+		assert.Equal(t, "ERROR", messages[0].Level)
+		assert.Equal(t, "An error occurred", messages[0].Message)
 	})
 
 	t.Run("Fatal error", func(t *testing.T) {
-		mockLogger.On("Error", mock.Anything, mock.Anything).Return()
+		mockLogger.Clear()
 		defer func() {
 			r := recover()
 			require.NotNil(t, r, "The code did not panic")

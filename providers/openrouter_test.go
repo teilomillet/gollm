@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/weave-labs/gollm/internal/models"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/weave-labs/gollm/config"
-	"github.com/weave-labs/gollm/types"
 )
 
 func TestOpenRouterProvider(t *testing.T) {
@@ -117,12 +118,12 @@ func TestOpenRouterProvider(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check fallback models were set correctly
-		models, ok := req["models"].([]any)
+		fallbackModels, ok := req["models"].([]any)
 		assert.True(t, ok)
-		assert.Len(t, models, 3)
-		assert.Equal(t, model, models[0])
-		assert.Equal(t, "openai/gpt-4o", models[1])
-		assert.Equal(t, "mistral/mistral-large", models[2])
+		assert.Len(t, fallbackModels, 3)
+		assert.Equal(t, model, fallbackModels[0])
+		assert.Equal(t, "openai/gpt-4o", fallbackModels[1])
+		assert.Equal(t, "mistral/mistral-large", fallbackModels[2])
 
 		// Check fallback_models was removed
 		_, exists := req["fallback_models"]
@@ -238,7 +239,7 @@ func TestOpenRouterProvider(t *testing.T) {
 	})
 
 	t.Run("PrepareRequestWithMessages formats messages correctly", func(t *testing.T) {
-		messages := []types.MemoryMessage{
+		messages := []models.MemoryMessage{
 			{Role: "system", Content: "You are a helpful assistant"},
 			{Role: "user", Content: "Hello, world!"},
 			{Role: "assistant", Content: "How can I help you?"},
