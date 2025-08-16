@@ -210,9 +210,10 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 				break
 			}
 
-			po.debugManager.LogResponse(fmt.Sprintf("Error in iteration %d, attempt %d: %v", i+1, attempt+1, err))
+			po.debugManager.LogResponse("iteration_error",
+				fmt.Sprintf("Error in iteration %d, attempt %d: %v", i+1, attempt+1, err))
 			if attempt < po.maxRetries-1 {
-				po.debugManager.LogResponse(fmt.Sprintf("Retrying in %v...", po.retryDelay))
+				po.debugManager.LogResponse("retry_info", fmt.Sprintf("Retrying in %v...", po.retryDelay))
 				time.Sleep(po.retryDelay)
 			}
 		}
@@ -242,21 +243,24 @@ func (po *PromptOptimizer) OptimizePrompt(ctx context.Context) (*llm.Prompt, err
 		// Check if optimization goal is met
 		goalMet, err := po.isOptimizationGoalMet(&entry.Assessment)
 		if err != nil {
-			po.debugManager.LogResponse(fmt.Sprintf("Error checking optimization goal: %v", err))
+			po.debugManager.LogResponse("goal_check_error", fmt.Sprintf("Error checking optimization goal: %v", err))
 		} else if goalMet {
-			po.debugManager.LogResponse(fmt.Sprintf("Optimization complete after %d iterations. Goal achieved.", i+1))
+			po.debugManager.LogResponse("optimization_complete",
+				fmt.Sprintf("Optimization complete after %d iterations. Goal achieved.", i+1))
 			return currentPrompt, nil
 		}
 
 		// Generate improved prompt
 		improvedPrompt, err := po.generateImprovedPrompt(ctx, &entry)
 		if err != nil {
-			po.debugManager.LogResponse(fmt.Sprintf("Failed to generate improved prompt at iteration %d: %v", i+1, err))
+			po.debugManager.LogResponse("improvement_failed",
+				fmt.Sprintf("Failed to generate improved prompt at iteration %d: %v", i+1, err))
 			continue
 		}
 
 		currentPrompt = improvedPrompt
-		po.debugManager.LogResponse(fmt.Sprintf("Iteration %d complete. New prompt: %s", i+1, currentPrompt.Input))
+		po.debugManager.LogResponse("iteration_complete",
+			fmt.Sprintf("Iteration %d complete. New prompt: %s", i+1, currentPrompt.Input))
 	}
 
 	return bestPrompt, nil

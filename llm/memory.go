@@ -4,12 +4,11 @@ package llm
 import (
 	"context"
 	"fmt"
-	"github.com/teilomillet/gollm/providers"
 	"sync"
 
-	"github.com/teilomillet/gollm/providers"
-
 	"github.com/pkoukk/tiktoken-go"
+
+	"github.com/weave-labs/gollm/providers"
 	"github.com/weave-labs/gollm/types"
 	"github.com/weave-labs/gollm/utils"
 )
@@ -220,8 +219,11 @@ func (l *LLMWithMemory) SupportsStreaming() bool {
 }
 
 // GenerateStream initiates a streaming response from the LLM.
-// Stream initiates a streaming response from the LLM.
-func (l *LLMWithMemory) Stream(ctx context.Context, prompt *Prompt, opts ...StreamOption) (TokenStream, error) {
+func (l *LLMWithMemory) GenerateStream(
+	ctx context.Context,
+	prompt *Prompt,
+	opts ...GenerateOption,
+) (TokenStream, error) {
 	stream, err := l.LLM.GenerateStream(ctx, prompt, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start stream: %w", err)

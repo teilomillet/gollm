@@ -87,7 +87,7 @@ func (po *PromptOptimizer) assessPrompt(ctx context.Context, prompt *llm.Prompt)
 	var assessment PromptAssessment
 	err = json.Unmarshal([]byte(cleanedResponse), &assessment)
 	if err != nil {
-		po.debugManager.LogResponse("Raw response: " + response.AsText())
+		po.debugManager.LogResponse("assessment_parse_error", "Raw response: "+response.AsText())
 		return OptimizationEntry{}, fmt.Errorf("failed to parse assessment response: %w", err)
 	}
 

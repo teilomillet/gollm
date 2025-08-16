@@ -188,7 +188,6 @@ func handleOptimize(
 	promptOptimizer := optimizer.NewPromptOptimizer(
 		llmClient,
 		utils.NewDebugManager(
-			llmClient.GetLogger(),
 			utils.DebugOptions{LogPrompts: true, LogResponses: true}),
 		llmClient.NewPrompt(rawPrompt),
 		optimizeGoal,

@@ -66,7 +66,6 @@ type RequestProvider interface {
 	//   - Serialized JSON request body
 	//   - Any error encountered during preparation
 	PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]any) ([]byte, error)
-}
 
 	// SupportsStructuredResponse indicates whether the provider supports native JSON schema validation.
 	SupportsStructuredResponse() bool
@@ -98,8 +97,8 @@ type ExtendedProvider interface {
 	// This is particularly relevant for providers that support function/tool calling.
 	HandleFunctionCalls(body []byte) ([]byte, error)
 
-	// SupportsJSONSchema indicates whether the provider supports native JSON schema validation.
-	SupportsJSONSchema() bool
+	// SupportsStructuredResponse indicates whether the provider supports native JSON schema validation.
+	SupportsStructuredResponse() bool
 }
 
 // Provider defines the complete interface that all LLM providers must implement.
@@ -107,7 +106,6 @@ type ExtendedProvider interface {
 type Provider interface {
 	BaseProvider
 	RequestProvider
-	StreamingProvider
 	ExtendedProvider
 }
 
@@ -344,11 +342,6 @@ func getStandardConfigs() map[string]ProviderConfig {
 			SupportsStreaming: true,
 		},
 		// Add other provider configurations
-	}
-
-	// Store standard configs
-	for name, config := range standardConfigs {
-		registry.configs[name] = config
 	}
 }
 

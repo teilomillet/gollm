@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/teilomillet/gollm/llm"
+	"github.com/weave-labs/gollm/llm"
 )
 
 // BatchPromptOptimizer handles concurrent optimization of multiple prompts with rate limiting.

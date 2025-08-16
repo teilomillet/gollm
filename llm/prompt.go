@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/teilomillet/gollm/types"
+	"github.com/weave-labs/gollm/types"
 
 	"github.com/invopop/jsonschema"
+
 	"github.com/weave-labs/gollm/utils"
 )
 

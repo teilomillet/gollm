@@ -6,8 +6,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
+
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
 )
 
 func TestOpenRouterProvider(t *testing.T) {

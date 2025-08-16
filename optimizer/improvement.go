@@ -63,7 +63,7 @@ func (po *PromptOptimizer) generateImprovedPrompt(
 	improvePrompt := po.createImprovementPrompt(prevEntry)
 
 	// Log the improvement request for debugging
-	po.debugManager.LogPrompt(improvePrompt.String())
+	po.debugManager.LogPrompt("improvement_request", improvePrompt.String())
 
 	// Generate improvements using LLM
 	response, err := po.llm.Generate(ctx, improvePrompt)
@@ -72,7 +72,7 @@ func (po *PromptOptimizer) generateImprovedPrompt(
 	}
 
 	// Log the raw response for debugging
-	po.debugManager.LogResponse(response.AsText())
+	po.debugManager.LogResponse("improvement_response", response.AsText())
 
 	// Extract and parse JSON response
 	cleanedResponse := cleanJSONResponse(response.AsText())

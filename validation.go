@@ -4,7 +4,9 @@
 package gollm
 
 import (
-	"github.com/teilomillet/gollm/llm"
+	"fmt"
+
+	"github.com/weave-labs/gollm/llm"
 )
 
 // Validate checks if the given struct is valid according to its validation rules.

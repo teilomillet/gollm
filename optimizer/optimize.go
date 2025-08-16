@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/teilomillet/gollm/llm"
-	"github.com/teilomillet/gollm/providers"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/llm"
+	"github.com/weave-labs/gollm/providers"
+	"github.com/weave-labs/gollm/utils"
 )
 
 // OptimizePrompt performs automated optimization of an LLM prompt and generates a response.
@@ -57,7 +57,6 @@ func OptimizePrompt(
 ) (*llm.Prompt, *providers.Response, error) {
 	// Initialize debug manager for logging optimization process
 	debugManager := utils.NewDebugManager(
-		llmInstance.GetLogger(),
 		utils.DebugOptions{LogPrompts: true, LogResponses: true},
 	)
 

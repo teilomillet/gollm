@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/teilomillet/gollm/config"
-	"github.com/teilomillet/gollm/types"
-	"github.com/teilomillet/gollm/utils"
+	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/types"
+	"github.com/weave-labs/gollm/utils"
 )
 
 const (

@@ -584,10 +584,10 @@ func newProviderStream(reader io.ReadCloser, provider providers.Provider, config
 	return &providerStream{
 		decoder:       NewSSEDecoder(reader),
 		provider:      provider,
-		config:        streamConfig,
+		config:        config,
 		buffer:        make([]byte, 0, DefaultStreamBufferSize),
 		currentIndex:  0,
-		retryStrategy: streamConfig.RetryStrategy,
+		retryStrategy: config.RetryStrategy,
 	}
 }
 
