@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/assess"
 )
@@ -49,7 +50,7 @@ func TestCustomConfigExample(t *testing.T) {
 
 		assert.Equal(t, "openai", config.Provider)
 		assert.Equal(t, "gpt-4o-mini", config.Model)
-		assert.Equal(t, float64(0.7), config.Temperature)
+		assert.InEpsilon(t, 0.7, config.Temperature, 0.001)
 		assert.Equal(t, 150, config.MaxTokens)
 		assert.Equal(t, 30*time.Second, config.Timeout)
 		assert.Equal(t, 3, config.MaxRetries)
@@ -77,7 +78,7 @@ func TestCustomConfigExample(t *testing.T) {
 		prompt, err := analysisPrompt.Execute(map[string]any{
 			"Topic": "The widespread adoption of artificial intelligence",
 		})
-		assert.NoError(t, err, "Should execute template without error")
+		require.NoError(t, err, "Should execute template without error")
 		assert.Contains(t, prompt.String(), "artificial intelligence", "Prompt should contain the topic")
 		assert.Contains(t, prompt.String(), "Analysis:", "Prompt should contain the output prefix")
 	})
@@ -142,7 +143,7 @@ func TestCustomConfigErrorHandling(t *testing.T) {
 			gollm.SetProvider("invalid"),
 			gollm.SetModel("invalid"),
 		)
-		assert.Error(t, err, "Should fail with invalid provider")
+		require.Error(t, err, "Should fail with invalid provider")
 	})
 
 	// Test invalid prompt template
@@ -156,6 +157,6 @@ func TestCustomConfigErrorHandling(t *testing.T) {
 		_, err := invalidTemplate.Execute(map[string]any{
 			"Topic": "test",
 		})
-		assert.Error(t, err, "Should fail with invalid template syntax")
+		require.Error(t, err, "Should fail with invalid template syntax")
 	})
 }

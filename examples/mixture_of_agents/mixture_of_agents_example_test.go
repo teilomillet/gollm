@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/assess"
 )
@@ -96,12 +97,8 @@ func TestMixtureOfAgents(t *testing.T) {
 
 		// Create a new MOA instance with both configurations
 		moa, err := gollm.NewMOA(moaConfig, aggregatorOpts...)
-		if !assert.NoError(t, err, "Should create MOA instance") {
-			t.FailNow()
-		}
-		if !assert.NotNil(t, moa, "MOA instance should not be nil") {
-			t.FailNow()
-		}
+		require.NoError(t, err, "Should create MOA instance")
+		assert.NotNil(t, moa, "MOA instance should not be nil")
 		assert.Equal(t, 2, moa.Config.Iterations, "Should have correct number of iterations")
 		assert.Equal(t, 2, moa.Config.MaxParallel, "Should have correct parallel limit")
 		assert.Equal(t, 60*time.Second, moa.Config.AgentTimeout, "Should have correct timeout")
@@ -117,9 +114,7 @@ func TestMixtureOfAgents(t *testing.T) {
 		}
 
 		_, err := gollm.NewMOA(invalidConfig)
-		if !assert.Error(t, err, "Should fail with empty models list") {
-			t.FailNow()
-		}
+		require.Error(t, err, "Should fail with empty models list")
 		assert.Contains(
 			t,
 			err.Error(),

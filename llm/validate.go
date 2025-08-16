@@ -74,8 +74,9 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 			return false
 		}
 		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				// Log the error but don't return it as we're in a defer
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				// Log error if needed, but don't fail validation
+				_ = closeErr
 			}
 		}()
 		return resp.StatusCode == http.StatusOK
@@ -138,7 +139,7 @@ func Validate(s any) error {
 // Example:
 //
 //	func validateModel(fl validator.FieldLevel) bool {
-//	    return strings.HasPrefix(fl.Field().AsText(), "gpt-")
+//	    return strings.HasPrefix(fl.Field().String(), "gpt-")
 //	}
 //
 //	err := RegisterCustomValidation("model", validateModel)

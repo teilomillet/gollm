@@ -143,7 +143,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 
 		age, ok := personData["age"].(float64) // JSON numbers are parsed as float64
 		require.True(t, ok, "Should have an age field of type number")
-		require.Equal(t, float64(25), age)
+		require.InEpsilon(t, 25, age, 0.001)
 	})
 
 	t.Run("Message History with Reasoning", func(t *testing.T) {

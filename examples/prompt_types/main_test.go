@@ -148,11 +148,11 @@ func TestJSONSchemaValidation(t *testing.T) {
 func TestPromptValidation(t *testing.T) {
 	validPrompt := gollm.NewPrompt("Valid prompt", gollm.WithMaxLength(1000))
 	err := validPrompt.Validate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	invalidPrompt := gollm.NewPrompt("", gollm.WithMaxLength(-1))
 	err = invalidPrompt.Validate()
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestChainedPrompts(t *testing.T) {

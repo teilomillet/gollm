@@ -50,7 +50,7 @@ func TestCreateLLM(t *testing.T) {
 		gollm.SetTopP(2.0),
 		gollm.SetMaxTokens(-300),
 	)
-	assert.Error(t, err, "Should fail with invalid settings")
+	require.Error(t, err, "Should fail with invalid settings")
 }
 
 func TestLLMResponseComparison(t *testing.T) {
@@ -120,7 +120,7 @@ func TestLLMErrorHandling(t *testing.T) {
 		gollm.SetModel("gpt-4o-mini"),
 		gollm.SetAPIKey(""),
 	)
-	assert.Error(t, err, "Should fail with empty API key")
+	require.Error(t, err, "Should fail with empty API key")
 
 	// Test with invalid API key
 	_, err = gollm.NewLLM(
@@ -128,7 +128,7 @@ func TestLLMErrorHandling(t *testing.T) {
 		gollm.SetModel("gpt-4o-mini"),
 		gollm.SetAPIKey("invalid-key"),
 	)
-	assert.Error(t, err, "Should fail with invalid API key")
+	require.Error(t, err, "Should fail with invalid API key")
 
 	// Test with invalid temperature
 	apiKey := os.Getenv("OPENAI_API_KEY")
@@ -139,6 +139,6 @@ func TestLLMErrorHandling(t *testing.T) {
 			gollm.SetAPIKey(apiKey),
 			gollm.SetTemperature(-1.0),
 		)
-		assert.Error(t, err, "Should fail with invalid temperature")
+		require.Error(t, err, "Should fail with invalid temperature")
 	}
 }

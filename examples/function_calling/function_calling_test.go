@@ -15,6 +15,131 @@ import (
 	"github.com/teilomillet/gollm/assess"
 )
 
+// validateSingleFunctionCall validates a single function call response
+func validateSingleFunctionCall(response string, expectedName string, expectedLocation string) error {
+	functionCalls, err := providers.ExtractFunctionCalls(response)
+	if err != nil {
+		return fmt.Errorf("failed to extract function calls: %w", err)
+	}
+
+	if len(functionCalls) != 1 {
+		return fmt.Errorf("expected 1 function call, got %d", len(functionCalls))
+	}
+
+	call := functionCalls[0]
+	if call["name"] != expectedName {
+		return fmt.Errorf("expected function name '%s', got '%s'", expectedName, call["name"])
+	}
+
+	args, ok := call["arguments"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("expected arguments to be a map, got %T", call["arguments"])
+	}
+
+	location, ok := args["location"].(string)
+	if !ok {
+		return fmt.Errorf("expected location to be a string, got %T", args["location"])
+	}
+
+	if !strings.HasPrefix(strings.ToLower(location), strings.ToLower(expectedLocation)) {
+		return fmt.Errorf("location should start with '%s', got '%s'", expectedLocation, location)
+	}
+
+	return nil
+}
+
+// validateMultipleFunctionCalls validates multiple function calls
+func validateMultipleFunctionCalls(response string) error {
+	functionCalls, err := providers.ExtractFunctionCalls(response)
+	if err != nil {
+		return fmt.Errorf("failed to extract function calls: %w", err)
+	}
+
+	if len(functionCalls) != 2 {
+		return fmt.Errorf("expected 2 function calls, got %d", len(functionCalls))
+	}
+
+	foundWeather := false
+	foundTime := false
+	for _, call := range functionCalls {
+		switch call["name"] {
+		case "get_weather":
+			foundWeather = true
+			if err := validateWeatherCall(call); err != nil {
+				return err
+			}
+		case "get_time":
+			foundTime = true
+			if err := validateTimeCall(call); err != nil {
+				return err
+			}
+		}
+	}
+
+	if !foundWeather || !foundTime {
+		return fmt.Errorf("missing required function calls: weather=%v, time=%v", foundWeather, foundTime)
+	}
+
+	return nil
+}
+
+// validateWeatherCall validates a weather function call
+func validateWeatherCall(call map[string]any) error {
+	args, ok := call["arguments"].(map[string]any)
+	if !ok {
+		return errors.New("expected weather arguments to be a map")
+	}
+	location, ok := args["location"].(string)
+	if !ok || !strings.HasPrefix(strings.ToLower(location), "new york") {
+		return fmt.Errorf("invalid weather location: %v", args["location"])
+	}
+	return nil
+}
+
+// validateTimeCall validates a time function call
+func validateTimeCall(call map[string]any) error {
+	args, ok := call["arguments"].(map[string]any)
+	if !ok {
+		return errors.New("expected time arguments to be a map")
+	}
+	timezone, ok := args["timezone"].(string)
+	if !ok || !strings.Contains(timezone, "New_York") {
+		return fmt.Errorf("invalid timezone: %v", args["timezone"])
+	}
+	return nil
+}
+
+// validateOptionalParam validates optional parameter handling
+func validateOptionalParam(response string) error {
+	functionCalls, err := providers.ExtractFunctionCalls(response)
+	if err != nil {
+		return fmt.Errorf("failed to extract function calls: %w", err)
+	}
+
+	if len(functionCalls) != 1 {
+		return fmt.Errorf("expected 1 function call, got %d", len(functionCalls))
+	}
+
+	call := functionCalls[0]
+	args, ok := call["arguments"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("expected arguments to be a map, got %T", call["arguments"])
+	}
+
+	location, ok := args["location"].(string)
+	if !ok || !strings.Contains(strings.ToLower(location), "london") {
+		return fmt.Errorf("invalid location: %v", args["location"])
+	}
+
+	if unit, ok := args["unit"].(string); ok {
+		if unit != "celsius" && unit != "fahrenheit" {
+			return fmt.Errorf("if unit is provided, it must be celsius or fahrenheit, got: %s", unit)
+		}
+	}
+
+	return nil
+}
+
 func TestFunctionCalling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping function calling test in short mode")
@@ -122,42 +247,15 @@ func TestFunctionCalling(t *testing.T) {
 		// Test single function call generation
 		runner.AddCase("single_function_call", "What's the weather like in New York?").
 			WithTimeout(30*time.Second).
-			WithOption("tools", []gollm.Tool{{
-				Type:     "function",
-				Function: getWeatherFunction,
-			}}).
+			WithOption("tools", []gollm.Tool{
+				{
+					Type:     "function",
+					Function: getWeatherFunction,
+				},
+			}).
 			WithOption("tool_choice", "auto").
 			Validate(func(response string) error {
-				// The validation logic is the same as before
-				functionCalls, err := providers.ExtractFunctionCalls(response)
-				if err != nil {
-					return fmt.Errorf("failed to extract function calls: %w", err)
-				}
-
-				if len(functionCalls) != 1 {
-					return fmt.Errorf("expected 1 function call, got %d", len(functionCalls))
-				}
-
-				call := functionCalls[0]
-				if call["name"] != "get_weather" {
-					return fmt.Errorf("expected function name 'get_weather', got '%s'", call["name"])
-				}
-
-				args, ok := call["arguments"].(map[string]any)
-				if !ok {
-					return fmt.Errorf("expected arguments to be a map, got %T", call["arguments"])
-				}
-
-				location, ok := args["location"].(string)
-				if !ok {
-					return fmt.Errorf("expected location to be a string, got %T", args["location"])
-				}
-
-				if !strings.HasPrefix(strings.ToLower(location), "new york") {
-					return fmt.Errorf("location should start with 'New York', got '%s'", location)
-				}
-
-				return nil
+				return validateSingleFunctionCall(response, "get_weather", "new york")
 			})
 
 		// Test multiple function calls
@@ -168,59 +266,17 @@ func TestFunctionCalling(t *testing.T) {
 				{Type: "function", Function: getTimeFunction},
 			}).
 			WithOption("tool_choice", "auto").
-			Validate(func(response string) error {
-				// Validation logic remains the same
-				functionCalls, err := providers.ExtractFunctionCalls(response)
-				if err != nil {
-					return fmt.Errorf("failed to extract function calls: %w", err)
-				}
-
-				if len(functionCalls) != 2 {
-					return fmt.Errorf("expected 2 function calls, got %d", len(functionCalls))
-				}
-
-				// Check that we have both types of function calls
-				foundWeather := false
-				foundTime := false
-				for _, call := range functionCalls {
-					switch call["name"] {
-					case "get_weather":
-						foundWeather = true
-						args, ok := call["arguments"].(map[string]any)
-						if !ok {
-							return errors.New("expected weather arguments to be a map")
-						}
-						location, ok := args["location"].(string)
-						if !ok || !strings.HasPrefix(strings.ToLower(location), "new york") {
-							return fmt.Errorf("invalid weather location: %v", args["location"])
-						}
-					case "get_time":
-						foundTime = true
-						args, ok := call["arguments"].(map[string]any)
-						if !ok {
-							return errors.New("expected time arguments to be a map")
-						}
-						timezone, ok := args["timezone"].(string)
-						if !ok || !strings.Contains(timezone, "New_York") {
-							return fmt.Errorf("invalid timezone: %v", args["timezone"])
-						}
-					}
-				}
-
-				if !foundWeather || !foundTime {
-					return fmt.Errorf("missing required function calls: weather=%v, time=%v", foundWeather, foundTime)
-				}
-
-				return nil
-			})
+			Validate(validateMultipleFunctionCalls)
 
 		// Test missing required parameter
 		runner.AddCase("missing_required_param", "What's the weather like?").
 			WithTimeout(30*time.Second).
-			WithOption("tools", []gollm.Tool{{
-				Type:     "function",
-				Function: getWeatherFunction,
-			}}).
+			WithOption("tools", []gollm.Tool{
+				{
+					Type:     "function",
+					Function: getWeatherFunction,
+				},
+			}).
 			WithOption("tool_choice", "auto").
 			Validate(func(response string) error {
 				// Validation logic remains the same
@@ -248,43 +304,14 @@ func TestFunctionCalling(t *testing.T) {
 		// Test optional parameter handling
 		runner.AddCase("optional_param_handling", "What's the weather like in London?").
 			WithTimeout(30*time.Second).
-			WithOption("tools", []gollm.Tool{{
-				Type:     "function",
-				Function: getWeatherWithOptionalFunction,
-			}}).
+			WithOption("tools", []gollm.Tool{
+				{
+					Type:     "function",
+					Function: getWeatherWithOptionalFunction,
+				},
+			}).
 			WithOption("tool_choice", "auto").
-			Validate(func(response string) error {
-				// Validation logic remains the same
-				functionCalls, err := providers.ExtractFunctionCalls(response)
-				if err != nil {
-					return fmt.Errorf("failed to extract function calls: %w", err)
-				}
-
-				if len(functionCalls) != 1 {
-					return fmt.Errorf("expected 1 function call, got %d", len(functionCalls))
-				}
-
-				call := functionCalls[0]
-				args, ok := call["arguments"].(map[string]any)
-				if !ok {
-					return fmt.Errorf("expected arguments to be a map, got %T", call["arguments"])
-				}
-
-				// Check that location is present and correct
-				location, ok := args["location"].(string)
-				if !ok || !strings.Contains(strings.ToLower(location), "london") {
-					return fmt.Errorf("invalid location: %v", args["location"])
-				}
-
-				// Optional unit parameter might or might not be present
-				if unit, ok := args["unit"].(string); ok {
-					if unit != "celsius" && unit != "fahrenheit" {
-						return fmt.Errorf("if unit is provided, it must be celsius or fahrenheit, got: %s", unit)
-					}
-				}
-
-				return nil
-			})
+			Validate(validateOptionalParam)
 	}
 
 	// Provider-specific test cases
@@ -292,10 +319,12 @@ func TestFunctionCalling(t *testing.T) {
 	// OpenAI-specific test for forced tool use
 	testOpenAI.AddCase("forced_tool_use", "Tell me about the weather.").
 		WithTimeout(30*time.Second).
-		WithOption("tools", []gollm.Tool{{
-			Type:     "function",
-			Function: getWeatherFunction,
-		}}).
+		WithOption("tools", []gollm.Tool{
+			{
+				Type:     "function",
+				Function: getWeatherFunction,
+			},
+		}).
 		WithOption("tool_choice", "required"). // OpenAI uses "required" as a simple string value
 		Validate(func(response string) error {
 			functionCalls, err := providers.ExtractFunctionCalls(response)
@@ -320,10 +349,12 @@ func TestFunctionCalling(t *testing.T) {
 	// Anthropic-specific test for forced tool use
 	testAnthropic.AddCase("forced_tool_use", "Tell me about the weather.").
 		WithTimeout(30*time.Second).
-		WithOption("tools", []gollm.Tool{{
-			Type:     "function",
-			Function: getWeatherFunction,
-		}}).
+		WithOption("tools", []gollm.Tool{
+			{
+				Type:     "function",
+				Function: getWeatherFunction,
+			},
+		}).
 		WithOption("tool_choice", "tool"). // Anthropic uses "tool" as a string value
 		Validate(func(response string) error {
 			functionCalls, err := providers.ExtractFunctionCalls(response)
@@ -348,10 +379,12 @@ func TestFunctionCalling(t *testing.T) {
 	// OpenAI-specific test for JSON schema output
 	testOpenAI.AddCase("json_schema_output", "Summarize: The weather is sunny and warm today.").
 		WithTimeout(30*time.Second).
-		WithOption("tools", []gollm.Tool{{
-			Type:     "function",
-			Function: recordSummaryFunction,
-		}}).
+		WithOption("tools", []gollm.Tool{
+			{
+				Type:     "function",
+				Function: recordSummaryFunction,
+			},
+		}).
 		WithOption("tool_choice", map[string]any{
 			"type": "function",
 			"function": map[string]any{
@@ -400,10 +433,12 @@ func TestFunctionCalling(t *testing.T) {
 	// Anthropic-specific test for JSON schema output
 	testAnthropic.AddCase("json_schema_output", "Summarize: The weather is sunny and warm today.").
 		WithTimeout(30*time.Second).
-		WithOption("tools", []gollm.Tool{{
-			Type:     "function",
-			Function: recordSummaryFunction,
-		}}).
+		WithOption("tools", []gollm.Tool{
+			{
+				Type:     "function",
+				Function: recordSummaryFunction,
+			},
+		}).
 		WithOption("tool_choice", "tool"). // Use simple string value for Anthropic
 		Validate(func(response string) error {
 			// Validation logic remains the same

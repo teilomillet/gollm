@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/providers"
@@ -109,7 +110,7 @@ func TestStructuredOutput(t *testing.T) {
 		gollm.SetAPIKey("test-key"),
 		gollm.WithProviderRegistry(registry),
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	prompt := gollm.NewPrompt("List the top 3 benefits of exercise",
 		gollm.WithOutput("JSON array of benefits"),
@@ -117,7 +118,7 @@ func TestStructuredOutput(t *testing.T) {
 	)
 
 	response, err := llm.Generate(ctx, prompt)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedJSON, response)
 
 	// Verify that all expected mock calls were made
@@ -146,7 +147,7 @@ func TestJSONSchemaValidation(t *testing.T) {
 		gollm.SetModel("mock-model"),
 		gollm.SetAPIKey("test-key"),
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	prompt := gollm.NewPrompt(
 		"Generate a user profile",
@@ -157,7 +158,7 @@ func TestJSONSchemaValidation(t *testing.T) {
 	)
 
 	response, err := llm.Generate(ctx, prompt, llm.WithStructuredResponseSchema(UserProfile{}))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedJSON, response)
 
 	// Verify that all expected mock calls were made

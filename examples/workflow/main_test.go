@@ -34,7 +34,7 @@ func TestWorkflowConfiguration(t *testing.T) {
 		gollm.SetAPIKey("invalid-key"),
 		gollm.SetMaxTokens(500),
 	)
-	assert.Error(t, err, "Should fail with invalid API key")
+	require.Error(t, err, "Should fail with invalid API key")
 }
 
 func TestResearchPhase(t *testing.T) {
@@ -166,7 +166,7 @@ func TestWorkflowErrorHandling(t *testing.T) {
 		gollm.SetAPIKey(""),
 		gollm.SetMaxTokens(500),
 	)
-	assert.Error(t, err, "Should fail with empty API key")
+	require.Error(t, err, "Should fail with empty API key")
 }
 
 func TestCompleteWorkflow(t *testing.T) {

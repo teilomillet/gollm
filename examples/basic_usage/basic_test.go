@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/assess"
 )
@@ -124,22 +125,22 @@ func TestJSONSchemaValidation(t *testing.T) {
 		gollm.SetProvider("openai"),
 		gollm.SetModel("gpt-4o-mini"),
 	)
-	assert.NoError(t, err, "Should create LLM instance")
+	require.NoError(t, err, "Should create LLM instance")
 
 	// Test JSON Schema generation
 	schema, err := llm.GetPromptJSONSchema()
-	assert.NoError(t, err, "Should get JSON schema")
+	require.NoError(t, err, "Should get JSON schema")
 	assert.NotEmpty(t, schema, "JSON schema should not be empty")
 
 	// Test valid prompt
 	validPrompt := gollm.NewPrompt("Test prompt")
 	err = validPrompt.Validate()
-	assert.NoError(t, err, "Valid prompt should pass validation")
+	require.NoError(t, err, "Valid prompt should pass validation")
 
 	// Test invalid prompt
 	invalidPrompt := gollm.NewPrompt("")
 	err = invalidPrompt.Validate()
-	assert.Error(t, err, "Empty prompt should fail validation")
+	require.Error(t, err, "Empty prompt should fail validation")
 }
 
 func TestCustomConfigExample(t *testing.T) {

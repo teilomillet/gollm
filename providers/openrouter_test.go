@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/types"
 )
@@ -60,7 +61,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		provider.SetDefaultOptions(cfg)
 
 		// Check options were set correctly
-		assert.Equal(t, float64(0.8), provider.options["temperature"])
+		assert.InEpsilon(t, 0.8, provider.options["temperature"], 0.001)
 		assert.Equal(t, 500, provider.options["max_tokens"])
 		assert.Equal(t, 42, provider.options["seed"])
 	})
@@ -77,19 +78,19 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequest(prompt, options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Parse the request to verify structure
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify model
 		assert.Equal(t, model, req["model"])
 
 		// Verify options
-		assert.Equal(t, float64(0.7), req["temperature"])
-		assert.Equal(t, float64(100), req["max_tokens"])
+		assert.InEpsilon(t, 0.7, req["temperature"], 0.001)
+		assert.InEpsilon(t, 100, req["max_tokens"], 0.001)
 
 		// Verify messages format
 		messages, ok := req["messages"].([]any)
@@ -108,11 +109,11 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check fallback models were set correctly
 		models, ok := req["models"].([]any)
@@ -133,11 +134,11 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check model was set to auto router
 		assert.Equal(t, "openrouter/auto", req["model"])
@@ -159,11 +160,11 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check provider preferences were set correctly
 		provider, ok := req["provider"].(map[string]any)
@@ -196,11 +197,11 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequest("test prompt", options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check tools were set correctly
 		reqTools, ok := req["tools"].([]any)
@@ -222,11 +223,11 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequestWithSchema("test prompt", nil, schema)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check response format was set correctly
 		responseFormat, ok := req["response_format"].(map[string]any)
@@ -244,11 +245,11 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareRequestWithMessages(messages, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check messages were formatted correctly
 		reqMessages, ok := req["messages"].([]any)
@@ -284,18 +285,18 @@ func TestOpenRouterProvider(t *testing.T) {
 		}
 
 		body, err := provider.PrepareCompletionRequest(prompt, options)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var req map[string]any
 		err = json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check prompt was set correctly
 		assert.Equal(t, prompt, req["prompt"])
 
 		// Check options were set correctly
-		assert.Equal(t, float64(0.8), req["temperature"])
-		assert.Equal(t, float64(200), req["max_tokens"])
+		assert.InEpsilon(t, 0.8, req["temperature"], 0.001)
+		assert.InEpsilon(t, 200, req["max_tokens"], 0.001)
 	})
 
 	t.Run("ParseResponse handles chat completion response", func(t *testing.T) {
@@ -315,7 +316,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		}`
 
 		response, err := provider.ParseResponse([]byte(responseBody))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "This is a test response", response)
 	})
 
@@ -329,7 +330,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		}`
 
 		response, err := provider.ParseResponse([]byte(responseBody))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "This is a test text completion", response)
 	})
 
@@ -349,7 +350,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		}`
 
 		content, err := provider.ParseStreamResponse([]byte(streamChunk))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "Hello", content)
 	})
 
@@ -368,7 +369,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		}`
 
 		content, err := provider.ParseStreamResponse([]byte(streamChunk))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Empty(t, content)
 	})
 
@@ -398,7 +399,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		}`
 
 		result, err := provider.HandleFunctionCalls([]byte(responseBody))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, result)
 
 		// Check that the original response was returned

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm"
 )
 
@@ -27,7 +28,7 @@ func TestChatbotMemory(t *testing.T) {
 		gollm.SetMaxRetries(3),
 		gollm.SetRetryDelay(5*time.Second),
 	)
-	assert.NoError(t, err, "Should create LLM instance")
+	require.NoError(t, err, "Should create LLM instance")
 
 	ctx := context.Background()
 
@@ -36,13 +37,13 @@ func TestChatbotMemory(t *testing.T) {
 		// First message about a specific topic
 		prompt1 := gollm.NewPrompt("What is the capital of France?")
 		response1, err := llm.Generate(ctx, prompt1)
-		assert.NoError(t, err, "Should generate first response")
+		require.NoError(t, err, "Should generate first response")
 		assert.Contains(t, strings.ToLower(response1.AsText()), "paris", "Response should mention Paris")
 
 		// Follow-up question referring to the previous context
 		prompt2 := gollm.NewPrompt("What is the population of that city?")
 		response2, err := llm.Generate(ctx, prompt2)
-		assert.NoError(t, err, "Should generate second response")
+		require.NoError(t, err, "Should generate second response")
 		assert.Contains(
 			t,
 			strings.ToLower(response2.AsText()),
@@ -59,7 +60,7 @@ func TestChatbotMemory(t *testing.T) {
 	// 		// After clearing memory, the context should be lost
 	// 		prompt := gollm.NewPrompt("What was the city we were talking about?")
 	// 		response, err := llm.Generate(ctx, prompt)
-	// 		assert.NoError(t, err, "Should generate response after clearing memory")
+	// 		require.NoError(t, err, "Should generate response after clearing memory")
 	// 		assert.NotContains(
 	// 			t,
 	// 			strings.ToLower(response.AsText()),
@@ -78,7 +79,7 @@ func TestChatbotErrorHandling(t *testing.T) {
 			gollm.SetAPIKey("invalid-key"),
 			gollm.SetMaxTokens(500),
 		)
-		assert.Error(t, err, "Should fail with invalid API key")
+		require.Error(t, err, "Should fail with invalid API key")
 		assert.Contains(t, err.Error(), "APIKeys", "Error should mention API key validation")
 	})
 
@@ -91,12 +92,12 @@ func TestChatbotErrorHandling(t *testing.T) {
 			gollm.SetAPIKey(os.Getenv("OPENAI_API_KEY")),
 			gollm.SetMemory(4000),
 		)
-		assert.NoError(t, err, "Should create LLM instance")
+		require.NoError(t, err, "Should create LLM instance")
 
 		ctx := context.Background()
 		prompt := gollm.NewPrompt("")
 		_, err = llm.Generate(ctx, prompt)
-		assert.Error(t, err, "Should fail with empty prompt")
+		require.Error(t, err, "Should fail with empty prompt")
 	})
 }
 
@@ -113,7 +114,7 @@ func TestChatbotTokenLimit(t *testing.T) {
 		gollm.SetMemory(1000), // Small memory limit
 		gollm.SetLogLevel(gollm.LogLevelInfo),
 	)
-	assert.NoError(t, err, "Should create LLM instance")
+	require.NoError(t, err, "Should create LLM instance")
 
 	ctx := context.Background()
 
@@ -128,7 +129,7 @@ func TestChatbotTokenLimit(t *testing.T) {
 	for _, promptText := range prompts {
 		prompt := gollm.NewPrompt(promptText)
 		_, err := llm.Generate(ctx, prompt)
-		assert.NoError(t, err, "Should generate response")
+		require.NoError(t, err, "Should generate response")
 	}
 
 	// Verify that older messages are truncated

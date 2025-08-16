@@ -59,7 +59,7 @@ func TestGenericProviderBasics(t *testing.T) {
 
 		provider.SetDefaultOptions(cfg)
 
-		assert.Equal(t, 0.7, provider.options["temperature"])
+		assert.InEpsilon(t, 0.7, provider.options["temperature"], 0.001)
 		assert.Equal(t, 500, provider.options["max_tokens"])
 		assert.Equal(t, 42, provider.options["seed"])
 	})
@@ -67,7 +67,7 @@ func TestGenericProviderBasics(t *testing.T) {
 	t.Run("SetOption updates options", func(t *testing.T) {
 		provider.SetOption("presence_penalty", 0.2)
 
-		assert.Equal(t, 0.2, provider.options["presence_penalty"])
+		assert.InEpsilon(t, 0.2, provider.options["presence_penalty"], 0.001)
 	})
 
 	t.Run("SetEndpoint overrides the endpoint", func(t *testing.T) {
@@ -183,7 +183,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
-		assert.Equal(t, 0.8, request["temperature"])
+		assert.InEpsilon(t, 0.8, request["temperature"], 0.001)
 	})
 
 	t.Run("Options can be overridden in request", func(t *testing.T) {
@@ -200,7 +200,7 @@ func TestGenericProviderRequestFormatting(t *testing.T) {
 		err = json.Unmarshal(body, &request)
 		require.NoError(t, err)
 
-		assert.Equal(t, 0.5, request["temperature"])
+		assert.InEpsilon(t, 0.5, request["temperature"], 0.001)
 	})
 }
 

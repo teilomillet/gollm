@@ -137,11 +137,11 @@ func TestQuestionAnswerErrorHandling(t *testing.T) {
 		gollm.SetModel("gpt-4o-mini"),
 		gollm.SetAPIKey("test-key"),
 	)
-	assert.Error(t, err, "Should error with invalid provider")
+	require.Error(t, err, "Should error with invalid provider")
 
 	// Test with empty context
 	response1, err := presets.QuestionAnswer(ctx, llm, "What is the meaning of life?")
-	assert.NoError(t, err, "Should work without context")
+	require.NoError(t, err, "Should work without context")
 	assert.NotEmpty(t, response1)
 
 	// Test with multiple examples
@@ -153,7 +153,7 @@ func TestQuestionAnswerErrorHandling(t *testing.T) {
 			"Example 3: Final test",
 		),
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, response2)
 
 	// Test with canceled context
@@ -162,7 +162,7 @@ func TestQuestionAnswerErrorHandling(t *testing.T) {
 	_, err = presets.QuestionAnswer(cancelCtx, llm, "What is AI?",
 		gollm.WithContext("AI is artificial intelligence"),
 	)
-	assert.Error(t, err, "Should error with canceled context")
+	require.Error(t, err, "Should error with canceled context")
 
 	// Test with multiple directives
 	response4, err := presets.QuestionAnswer(ctx, llm, "What is AI?",
@@ -173,7 +173,7 @@ func TestQuestionAnswerErrorHandling(t *testing.T) {
 			"Be concise",
 		),
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, response4)
 	assert.NotEqual(t, response2, response4, "Different prompts should yield different responses")
 }

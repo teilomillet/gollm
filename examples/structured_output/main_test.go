@@ -126,21 +126,21 @@ func TestStructuredOutputValidation(t *testing.T) {
 		"Just a random text without any relevant information.",
 		gollm.WithDirectives("Do not include markdown formatting"),
 	)
-	assert.Error(t, err, "Should error with insufficient information")
+	require.Error(t, err, "Should error with insufficient information")
 
 	// Test with invalid age
 	text := `Invalid Person is a -5 year old student who likes reading.`
 	_, err = presets.ExtractStructuredData[TestPersonInfo](ctx, llm, text,
 		gollm.WithDirectives("Do not include markdown formatting"),
 	)
-	assert.Error(t, err, "Should error with invalid age")
+	require.Error(t, err, "Should error with invalid age")
 
 	// Test with too many hobbies
 	text = `Bob likes too many things: reading, writing, arithmetic, cooking, baking, gaming, swimming, running, cycling, and yoga.`
 	_, err = presets.ExtractStructuredData[TestPersonInfo](ctx, llm, text,
 		gollm.WithDirectives("Do not include markdown formatting"),
 	)
-	assert.Error(t, err, "Should error with too many hobbies")
+	require.Error(t, err, "Should error with too many hobbies")
 }
 
 func TestJSONSchemaGeneration(t *testing.T) {
@@ -167,19 +167,19 @@ func TestStructuredOutputErrorHandling(t *testing.T) {
 
 	// Test with empty context
 	_, err := presets.ExtractStructuredData[TestPersonInfo](context.TODO(), llm, "some text")
-	assert.Error(t, err, "Should error with empty context")
+	require.Error(t, err, "Should error with empty context")
 
 	// Test with nil LLM
 	_, err = presets.ExtractStructuredData[TestPersonInfo](ctx, nil, "some text")
-	assert.Error(t, err, "Should error with nil LLM")
+	require.Error(t, err, "Should error with nil LLM")
 
 	// Test with empty text
 	_, err = presets.ExtractStructuredData[TestPersonInfo](ctx, llm, "")
-	assert.Error(t, err, "Should error with empty text")
+	require.Error(t, err, "Should error with empty text")
 
 	// Test with canceled context
 	cancelCtx, cancel := context.WithCancel(ctx)
 	cancel()
 	_, err = presets.ExtractStructuredData[TestPersonInfo](cancelCtx, llm, "some text")
-	assert.Error(t, err, "Should error with canceled context")
+	require.Error(t, err, "Should error with canceled context")
 }

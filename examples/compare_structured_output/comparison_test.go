@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/presets"
 )
@@ -104,9 +105,9 @@ func TestComplexPersonValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateComplexPerson(tt.person)
 			if tt.wantErr {
-				assert.Error(t, err, "validateComplexPerson() should return error")
+				require.Error(t, err, "validateComplexPerson() should return error")
 			} else {
-				assert.NoError(t, err, "validateComplexPerson() should not return error")
+				require.NoError(t, err, "validateComplexPerson() should not return error")
 			}
 		})
 	}
@@ -114,13 +115,13 @@ func TestComplexPersonValidation(t *testing.T) {
 
 func TestJSONSchemaGeneration(t *testing.T) {
 	schema, err := gollm.GenerateJSONSchema(ComplexPerson{})
-	assert.NoError(t, err, "Should generate JSON schema without error")
+	require.NoError(t, err, "Should generate JSON schema without error")
 	assert.NotEmpty(t, schema, "Generated schema should not be empty")
 
 	// Parse the schema to verify its structure
 	var schemaMap map[string]any
 	err = json.Unmarshal(schema, &schemaMap)
-	assert.NoError(t, err, "Should parse schema as JSON")
+	require.NoError(t, err, "Should parse schema as JSON")
 
 	// Check required fields
 	required, ok := schemaMap["required"].([]any)
@@ -173,7 +174,7 @@ func TestCompareModels(t *testing.T) {
 
 	// Generate JSON schema
 	schema, err := gollm.GenerateJSONSchema(ComplexPerson{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Create prompt
 	promptText := "Generate information about a fictional person.\nCreate a fictional person with the following attributes: name, age, occupation, city, country, favorite color, hobbies (1-5), education, pet name, and lucky number (1-100).\nEnsure all fields are filled and adhere to the specified constraints.\nReturn the data as a JSON object that adheres to this schema:\n" + string(
@@ -182,7 +183,7 @@ func TestCompareModels(t *testing.T) {
 
 	// Compare models
 	results, err := presets.CompareModels(ctx, promptText, validateComplexPerson, configs...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, results)
 
 	// Test analysis
@@ -205,7 +206,7 @@ func TestCompareModelsErrorHandling(t *testing.T) {
 		gollm.SetLogLevel(gollm.LogLevelDebug)(config)
 
 		_, err := presets.CompareModels[ComplexPerson](ctx, "test prompt", validateComplexPerson, config)
-		assert.Error(t, err, "Should fail with invalid configuration")
+		require.Error(t, err, "Should fail with invalid configuration")
 		assert.Contains(t, err.Error(), "failed to generate")
 	})
 
@@ -221,7 +222,7 @@ func TestCompareModelsErrorHandling(t *testing.T) {
 		}
 
 		_, err := presets.CompareModels[ComplexPerson](ctx, "", validateComplexPerson, config)
-		assert.Error(t, err, "Should fail with empty prompt")
+		require.Error(t, err, "Should fail with empty prompt")
 		assert.Contains(t, err.Error(), "prompt cannot be empty")
 	})
 
@@ -237,7 +238,7 @@ func TestCompareModelsErrorHandling(t *testing.T) {
 		}
 
 		_, err := presets.CompareModels[ComplexPerson](ctx, "test prompt", nil, config)
-		assert.Error(t, err, "Should fail with nil validator")
+		require.Error(t, err, "Should fail with nil validator")
 		assert.Contains(t, err.Error(), "validator function cannot be nil")
 	})
 }

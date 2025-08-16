@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/presets"
 )
@@ -105,9 +106,9 @@ func TestMovieReviewValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := gollm.Validate(&tt.review)
 			if tt.wantErr {
-				assert.Error(t, err, "Validation should fail")
+				require.Error(t, err, "Validation should fail")
 			} else {
-				assert.NoError(t, err, "Validation should pass")
+				require.NoError(t, err, "Validation should pass")
 			}
 		})
 	}
@@ -132,7 +133,7 @@ func TestExtractReview(t *testing.T) {
 		gollm.SetMaxTokens(2048),
 		gollm.SetLogLevel(gollm.LogLevelWarn),
 	)
-	assert.NoError(t, err, "Should create LLM instance")
+	require.NoError(t, err, "Should create LLM instance")
 
 	ctx := context.Background()
 
@@ -152,12 +153,12 @@ func TestExtractReview(t *testing.T) {
 			),
 			gollm.WithOutput("JSON object only"),
 		)
-		assert.NoError(t, err, "Should extract review without validation")
+		require.NoError(t, err, "Should extract review without validation")
 		assert.NotNil(t, extracted, "Review should not be nil")
 		assert.Equal(t, "Inception", extracted.Title, "Should extract correct title")
 		assert.Equal(t, "Christopher Nolan", extracted.Director, "Should extract correct director")
-		assert.Equal(t, 2010, extracted.Year, "Should extract correct year")
-		assert.Equal(t, 9.5, extracted.Rating, "Should extract correct rating")
+		assert.InEpsilon(t, 2010, extracted.Year, 0.001, "Should extract correct year")
+		assert.InEpsilon(t, 9.5, extracted.Rating, 0.001, "Should extract correct rating")
 		assert.True(t, containsSciFi(extracted.Genres), "Should extract genres")
 		assert.NotEmpty(t, extracted.Summary, "Should extract summary")
 	})
@@ -178,18 +179,18 @@ func TestExtractReview(t *testing.T) {
 			),
 			gollm.WithOutput("JSON object only"),
 		)
-		assert.NoError(t, err, "Should extract review with validation")
+		require.NoError(t, err, "Should extract review with validation")
 		assert.NotNil(t, extracted, "Review should not be nil")
 		assert.Equal(t, "Inception", extracted.Title, "Should extract correct title")
 		assert.Equal(t, "Christopher Nolan", extracted.Director, "Should extract correct director")
-		assert.Equal(t, 2010, extracted.Year, "Should extract correct year")
-		assert.Equal(t, 9.5, extracted.Rating, "Should extract correct rating")
+		assert.InEpsilon(t, 2010, extracted.Year, 0.001, "Should extract correct year")
+		assert.InEpsilon(t, 9.5, extracted.Rating, 0.001, "Should extract correct rating")
 		assert.True(t, containsSciFi(extracted.Genres), "Should extract genres")
 		assert.NotEmpty(t, extracted.Summary, "Should extract summary")
 
 		// Validate the extracted review
 		err = gollm.Validate(extracted)
-		assert.NoError(t, err, "Extracted review should pass validation")
+		require.NoError(t, err, "Extracted review should pass validation")
 	})
 
 	// Test concurrent extraction
@@ -250,16 +251,16 @@ func TestExtractReview(t *testing.T) {
 			}
 		}
 
-		assert.NoError(t, err1, "Should extract unvalidated review without error")
-		assert.NoError(t, err2, "Should extract validated review without error")
+		require.NoError(t, err1, "Should extract unvalidated review without error")
+		require.NoError(t, err2, "Should extract validated review without error")
 		assert.NotNil(t, extracted1, "Unvalidated review should not be nil")
 		assert.NotNil(t, extracted2, "Validated review should not be nil")
 
 		// Verify extracted values
 		assert.Equal(t, "Inception", review1.Title, "Should extract correct title in concurrent test")
 		assert.Equal(t, "Christopher Nolan", review1.Director, "Should extract correct director in concurrent test")
-		assert.Equal(t, 2010, review1.Year, "Should extract correct year in concurrent test")
-		assert.Equal(t, 9.5, review1.Rating, "Should extract correct rating in concurrent test")
+		assert.InEpsilon(t, 2010, review1.Year, 0.001, "Should extract correct year in concurrent test")
+		assert.InEpsilon(t, 9.5, review1.Rating, 0.001, "Should extract correct rating in concurrent test")
 		assert.True(
 			t,
 			containsSciFi(review1.Genres),
@@ -269,8 +270,8 @@ func TestExtractReview(t *testing.T) {
 
 		assert.Equal(t, "Inception", review2.Title, "Should extract correct title in concurrent test")
 		assert.Equal(t, "Christopher Nolan", review2.Director, "Should extract correct director in concurrent test")
-		assert.Equal(t, 2010, review2.Year, "Should extract correct year in concurrent test")
-		assert.Equal(t, 9.5, review2.Rating, "Should extract correct rating in concurrent test")
+		assert.InEpsilon(t, 2010, review2.Year, 0.001, "Should extract correct year in concurrent test")
+		assert.InEpsilon(t, 9.5, review2.Rating, 0.001, "Should extract correct rating in concurrent test")
 		assert.True(
 			t,
 			containsSciFi(review2.Genres),
@@ -291,7 +292,7 @@ func TestExtractReview(t *testing.T) {
 			),
 			gollm.WithOutput("JSON object only"),
 		)
-		assert.Error(t, err, "Should fail with empty text")
+		require.Error(t, err, "Should fail with empty text")
 
 		// Test with invalid text
 		_, err = presets.ExtractStructuredData[MovieReview](ctx, llm, "Not a movie review",
@@ -303,7 +304,7 @@ func TestExtractReview(t *testing.T) {
 			),
 			gollm.WithOutput("JSON object only"),
 		)
-		assert.Error(t, err, "Should fail with invalid text")
+		require.Error(t, err, "Should fail with invalid text")
 
 		// Test with context.TODO
 		_, err = presets.ExtractStructuredData[MovieReview](context.TODO(), llm, "Some text",
@@ -315,6 +316,6 @@ func TestExtractReview(t *testing.T) {
 			),
 			gollm.WithOutput("JSON object only"),
 		)
-		assert.Error(t, err, "Should fail with nil context")
+		require.Error(t, err, "Should fail with nil context")
 	})
 }

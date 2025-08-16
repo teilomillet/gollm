@@ -76,7 +76,7 @@ func TestProviderErrorHandling(t *testing.T) {
 		gollm.SetAPIKey("invalid-key"),
 		gollm.SetMaxTokens(500),
 	)
-	assert.Error(t, err, "Should fail with invalid API key")
+	require.Error(t, err, "Should fail with invalid API key")
 	assert.Contains(t, err.Error(), "APIKeys", "Error should mention API key validation")
 
 	// Test with invalid provider
@@ -85,7 +85,7 @@ func TestProviderErrorHandling(t *testing.T) {
 		gollm.SetModel("gpt-4o-mini"),
 		gollm.SetAPIKey("test-key"),
 	)
-	assert.Error(t, err, "Should error with invalid provider")
+	require.Error(t, err, "Should error with invalid provider")
 }
 
 func TestProviderConcurrentRequests(t *testing.T) {

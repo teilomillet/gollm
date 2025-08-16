@@ -10,6 +10,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm"
 	"github.com/teilomillet/gollm/optimizer"
 )
@@ -36,7 +37,7 @@ func TestBatchPromptOptimizer(t *testing.T) {
 		gollm.SetRetryDelay(10*time.Second), // Shorter retry delay for OpenAI
 		gollm.SetAPIKey(apiKey),             // OpenAI API key
 	)
-	assert.NoError(t, err, "Should create LLM instance")
+	require.NoError(t, err, "Should create LLM instance")
 
 	// Create optimizer with conservative rate limit
 	batchOptimizer := optimizer.NewBatchPromptOptimizer(llm)
