@@ -2,6 +2,7 @@
 package providers
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -534,11 +535,11 @@ func (p *OpenRouterProvider) PrepareStreamRequest(prompt string, options map[str
 // ParseStreamResponse processes a chunk from a streaming OpenRouter response.
 func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	// Skip empty chunks
-	if len(chunk) == 0 {
-		return nil, errors.New("skip resp")
+	if len(bytes.TrimSpace(chunk)) == 0 {
+		return nil, errors.New("empty chunk")
 	}
 	// Handle "[DONE]" marker
-	if string(chunk) == "[DONE]" {
+	if bytes.Equal(bytes.TrimSpace(chunk), []byte("[DONE]")) {
 		return nil, io.EOF
 	}
 
@@ -599,7 +600,7 @@ func (p *OpenRouterProvider) ParseStreamResponse(chunk []byte) (*Response, error
 
 	// Check if we have at least one choice with content
 	if len(resp.Choices) == 0 || resp.Choices[0].Delta.Content == "" {
-		return nil, errors.New("skip resp")
+		return nil, errors.New("skip token")
 	}
 
 	// Handle tool calls in streaming mode (log only)

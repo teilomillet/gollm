@@ -10,8 +10,8 @@ import (
 	"github.com/teilomillet/gollm"
 )
 
-// main is the entry point for the basic usage example.
-func main() {
+// RunBasicUsage demonstrates basic usage of the gollm package.
+func RunBasicUsage() {
 	log.Println("Starting the LLM basic usage example...")
 
 	// Load API key from environment variable

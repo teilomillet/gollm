@@ -204,7 +204,7 @@ func CompareModels[T any](
 			results[index].Error = err
 			results[index].Attempts = attempt
 
-			debugLog(remainingConfig, "Raw response received: %s", response)
+			debugLog(remainingConfig, "Raw response received: %v", response)
 
 			cleanedResponse := cleanResponse(response.AsText())
 

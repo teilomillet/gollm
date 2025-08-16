@@ -237,7 +237,9 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]any
 
 	// Add other options
 	for k, v := range options {
-		if k != anthropicKeySystemPrompt && k != keyMaxTokens && k != anthropicKeyTools && k != anthropicKeyToolChoice && k != anthropicKeyEnableCaching {
+		if k != anthropicKeySystemPrompt && k != keyMaxTokens && k != anthropicKeyTools &&
+			k != anthropicKeyToolChoice &&
+			k != anthropicKeyEnableCaching {
 			requestBody[k] = v
 		}
 	}
@@ -693,7 +695,9 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(
 
 	// Add other options
 	for k, v := range options {
-		if k != anthropicKeySystemPrompt && k != keyMaxTokens && k != anthropicKeyTools && k != anthropicKeyToolChoice && k != anthropicKeyEnableCaching &&
+		if k != anthropicKeySystemPrompt && k != keyMaxTokens && k != anthropicKeyTools &&
+			k != anthropicKeyToolChoice &&
+			k != anthropicKeyEnableCaching &&
 			k != anthropicKeyStructuredMessages {
 			requestBody[k] = v
 		}

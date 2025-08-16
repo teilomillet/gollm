@@ -73,48 +73,16 @@ func main() {
 	rawPrompt := strings.Join(flag.Args(), " ")
 	ctx := context.Background()
 
-	var response string
-	var fullPrompt string
-
-	switch *promptType {
-	case "qa":
-		response, err = presets.QuestionAnswer(ctx, llmClient, rawPrompt)
-	case "summarize":
-		response, err = presets.Summarize(ctx, llmClient, rawPrompt)
-	case "optimize":
-		promptOptimizer := optimizer.NewPromptOptimizer(
-			llmClient,
-			utils.NewDebugManager(
-				llmClient.GetLogger(),
-				utils.DebugOptions{LogPrompts: true, LogResponses: true}),
-			llmClient.NewPrompt(rawPrompt),
-			*optimizeGoal,
-			optimizer.WithIterations(*optimizeIterations),
-			optimizer.WithMemorySize(*optimizeMemory),
-		)
-		optimizedPrompt, err := promptOptimizer.OptimizePrompt(ctx)
-		if err == nil {
-			response = optimizedPrompt.Input
-			fullPrompt = fmt.Sprintf(
-				"Initial Prompt: %s\nOptimization Goal: %s\nMemory Size: %d",
-				rawPrompt,
-				*optimizeGoal,
-				*optimizeMemory,
-			)
-		}
-	default:
-		prompt := gollm.NewPrompt(rawPrompt)
-		if *outputFormat == "json" {
-			prompt.Apply(gollm.WithOutput("Please provide your response in JSON format."))
-		}
-
-		providerResponse, err := llmClient.Generate(ctx, prompt)
-		if err == nil {
-			response = providerResponse.AsText()
-			fullPrompt = prompt.String()
-		}
-	}
-
+	response, fullPrompt, err := generateResponse(
+		ctx,
+		llmClient,
+		*promptType,
+		rawPrompt,
+		*outputFormat,
+		*optimizeGoal,
+		*optimizeIterations,
+		*optimizeMemory,
+	)
 	if err != nil {
 		_, fmtErr := fmt.Fprintf(os.Stderr, "Error generating response: %v\n", err)
 		if fmtErr != nil {
@@ -124,6 +92,74 @@ func main() {
 	}
 
 	printResponse(*verbose, *promptType, fullPrompt, rawPrompt, response, *outputFormat)
+}
+
+func generateResponse(
+	ctx context.Context,
+	llmClient gollm.LLM,
+	promptType, rawPrompt, outputFormat, optimizeGoal string,
+	optimizeIterations, optimizeMemory int,
+) (string, string, error) {
+	switch promptType {
+	case "qa":
+		resp, err := presets.QuestionAnswer(ctx, llmClient, rawPrompt)
+		if err != nil {
+			return "", "", fmt.Errorf("question-answer: %w", err)
+		}
+		return resp, "", nil
+	case "summarize":
+		resp, err := presets.Summarize(ctx, llmClient, rawPrompt)
+		if err != nil {
+			return "", "", fmt.Errorf("summarize: %w", err)
+		}
+		return resp, "", nil
+	case "optimize":
+		return handleOptimize(ctx, llmClient, rawPrompt, optimizeGoal, optimizeIterations, optimizeMemory)
+	default:
+		return handleRaw(ctx, llmClient, rawPrompt, outputFormat)
+	}
+}
+
+func handleOptimize(
+	ctx context.Context,
+	llmClient gollm.LLM,
+	rawPrompt, optimizeGoal string,
+	optimizeIterations, optimizeMemory int,
+) (string, string, error) {
+	promptOptimizer := optimizer.NewPromptOptimizer(
+		llmClient,
+		utils.NewDebugManager(
+			llmClient.GetLogger(),
+			utils.DebugOptions{LogPrompts: true, LogResponses: true}),
+		llmClient.NewPrompt(rawPrompt),
+		optimizeGoal,
+		optimizer.WithIterations(optimizeIterations),
+		optimizer.WithMemorySize(optimizeMemory),
+	)
+	optimizedPrompt, err := promptOptimizer.OptimizePrompt(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("optimize prompt: %w", err)
+	}
+	fullPrompt := fmt.Sprintf(
+		"Initial Prompt: %s\nOptimization Goal: %s\nMemory Size: %d",
+		rawPrompt,
+		optimizeGoal,
+		optimizeMemory,
+	)
+	return optimizedPrompt.Input, fullPrompt, nil
+}
+
+func handleRaw(ctx context.Context, llmClient gollm.LLM, rawPrompt, outputFormat string) (string, string, error) {
+	prompt := gollm.NewPrompt(rawPrompt)
+	if outputFormat == "json" {
+		prompt.Apply(gollm.WithOutput("Please provide your response in JSON format."))
+	}
+
+	providerResponse, err := llmClient.Generate(ctx, prompt)
+	if err != nil {
+		return "", "", fmt.Errorf("generate: %w", err)
+	}
+	return providerResponse.AsText(), prompt.String(), nil
 }
 
 func prepareConfigOptions(
@@ -172,26 +208,29 @@ func printResponse(verbose bool, promptType, fullPrompt, rawPrompt, response, ou
 		log.Printf("Prompt Type: %s\nFull Prompt:\n%s\n\nResponse:\n---------\n", promptType, fullPrompt)
 	}
 
-	if outputFormat == "json" {
-		var jsonResponse any
-		err := json.Unmarshal([]byte(response), &jsonResponse)
-		if err != nil {
-			_, fmtErr := fmt.Fprintf(os.Stderr, "Error parsing JSON response: %v\n", err)
-			if fmtErr != nil {
-				return
-			}
-			log.Println(response) // Print raw response if JSON parsing fails
-		} else {
-			jsonPretty, err := json.MarshalIndent(jsonResponse, "", "  ")
-			if err != nil {
-				log.Printf("Warning: Failed to format JSON: %v", err)
-				jsonPretty = []byte(response)
-			}
-			log.Println(string(jsonPretty))
-		}
-	} else {
+	if outputFormat != "json" {
 		log.Println(response)
+		return
 	}
+	printJSON(response)
+}
+
+func printJSON(response string) {
+	var jsonResponse any
+	if err := json.Unmarshal([]byte(response), &jsonResponse); err != nil {
+		_, fmtErr := fmt.Fprintf(os.Stderr, "Error parsing JSON response: %v\n", err)
+		if fmtErr != nil {
+			return
+		}
+		log.Println(response) // Print raw response if JSON parsing fails
+		return
+	}
+	jsonPretty, err := json.MarshalIndent(jsonResponse, "", "  ")
+	if err != nil {
+		log.Printf("Warning: Failed to format JSON: %v", err)
+		jsonPretty = []byte(response)
+	}
+	log.Println(string(jsonPretty))
 }
 
 func getLogLevel(level string) gollm.LogLevel {

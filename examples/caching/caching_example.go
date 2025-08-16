@@ -1,3 +1,4 @@
+// Package caching contains example tests demonstrating caching behavior.
 package caching
 
 import (
