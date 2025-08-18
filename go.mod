@@ -8,6 +8,7 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/go-playground/validator/v10 v10.25.0
 	github.com/invopop/jsonschema v0.13.0
+	github.com/modelcontextprotocol/go-sdk v0.2.0
 	github.com/pkoukk/tiktoken-go v0.1.7
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/time v0.11.0

@@ -1,6 +1,10 @@
 package llm
 
-import "github.com/invopop/jsonschema"
+import (
+	"fmt"
+
+	"github.com/modelcontextprotocol/go-sdk/jsonschema"
+)
 
 // GenerateOption is a function type for configuring generation behavior.
 type GenerateOption func(*GenerateConfig)
@@ -9,7 +13,12 @@ type GenerateOption func(*GenerateConfig)
 // The generic type parameter T should be a struct type describing the expected JSON structure.
 func WithStructuredResponseSchema[T any]() GenerateOption {
 	return func(cfg *GenerateConfig) {
-		cfg.StructuredResponseSchema = jsonschema.Reflect(*new(T))
+		schema, err := jsonschema.For[T]()
+		if err != nil {
+			panic(fmt.Errorf("failed to get schema for type %T: %w", cfg, err))
+		}
+
+		cfg.StructuredResponseSchema = schema
 	}
 }
 
@@ -18,7 +27,7 @@ func WithStructuredResponseSchema[T any]() GenerateOption {
 // instance).
 func WithStructuredResponse(schema any) GenerateOption {
 	return func(cfg *GenerateConfig) {
-		cfg.StructuredResponseSchema = jsonschema.Reflect(schema)
+		cfg.StructuredResponseType = schema
 	}
 }
 
@@ -40,5 +49,6 @@ func WithRetryStrategy(strategy RetryStrategy) GenerateOption {
 type GenerateConfig struct {
 	RetryStrategy            RetryStrategy
 	StructuredResponseSchema *jsonschema.Schema
+	StructuredResponseType   any
 	StreamBufferSize         int
 }

@@ -18,7 +18,6 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// JSON schema type constants
 const (
 	typeObject  = "object"
 	typeString  = "string"
