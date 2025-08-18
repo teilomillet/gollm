@@ -41,20 +41,20 @@ type Weakness struct {
 type Suggestion struct {
 	Description    string  `json:"description"`
 	Reasoning      string  `json:"reasoning"`
-	ExpectedImpact float64 `json:"expectedImpact" validate:"required,min=0,max=20"`
+	ExpectedImpact float64 `json:"expected_impact" validate:"required,min=0,max=20"`
 }
 
 // PromptAssessment provides a comprehensive evaluation of a prompt's quality
 // including metrics, strengths, weaknesses, and suggestions for improvement.
 type PromptAssessment struct {
-	OverallGrade      string       `json:"overallGrade" validate:"required,validGrade"`
+	OverallGrade      string       `json:"overall_grade" validate:"required,validGrade"`
 	Metrics           []Metric     `json:"metrics" validate:"required,min=1"`
 	Strengths         []Strength   `json:"strengths" validate:"required,min=1"`
 	Weaknesses        []Weakness   `json:"weaknesses" validate:"required,min=1"`
 	Suggestions       []Suggestion `json:"suggestions" validate:"required,min=1"`
-	OverallScore      float64      `json:"overallScore" validate:"required,min=0,max=20"`
-	EfficiencyScore   float64      `json:"efficiencyScore" validate:"required,min=0,max=20"`
-	AlignmentWithGoal float64      `json:"alignmentWithGoal" validate:"required,min=0,max=20"`
+	OverallScore      float64      `json:"overall_score" validate:"required,min=0,max=20"`
+	EfficiencyScore   float64      `json:"efficiency_score" validate:"required,min=0,max=20"`
+	AlignmentWithGoal float64      `json:"alignment_with_goal" validate:"required,min=0,max=20"`
 }
 
 // OptimizationEntry represents a single step in the optimization process,

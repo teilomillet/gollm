@@ -3,18 +3,21 @@ package providers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
-
-	"github.com/weave-labs/gollm/internal/models"
 
 	"github.com/weave-labs/gollm/config"
 	"github.com/weave-labs/gollm/internal/logging"
+)
+
+// Common parameter keys for Ollama
+const (
+	ollamaKeyModel    = "model"
+	ollamaKeyPrompt   = "prompt"
+	ollamaKeyStream   = "stream"
+	ollamaKeyMessages = "messages"
 )
 
 // OllamaProvider implements the Provider interface for Ollama's API.
@@ -53,12 +56,6 @@ func NewOllamaProvider(_ string, model string, extraHeaders map[string]string) *
 	}
 }
 
-// SetLogger configures the logger for the Ollama provider.
-// This is used for debugging and monitoring API interactions.
-func (p *OllamaProvider) SetLogger(logger logging.Logger) {
-	p.logger = logger
-}
-
 // Name returns the identifier for this provider ("ollama").
 func (p *OllamaProvider) Name() string {
 	return "ollama"
@@ -68,6 +65,41 @@ func (p *OllamaProvider) Name() string {
 // This is typically "http://localhost:11434/api/generate".
 func (p *OllamaProvider) Endpoint() string {
 	return p.endpoint + "/api/generate"
+}
+
+// Headers returns the HTTP headers required for Ollama API requests.
+// This includes content type and any custom headers.
+func (p *OllamaProvider) Headers() map[string]string {
+	return map[string]string{
+		"Content-Type": "application/json",
+	}
+}
+
+// SetExtraHeaders configures additional HTTP headers for API requests.
+// This allows for custom headers needed for specific features or requirements.
+func (p *OllamaProvider) SetExtraHeaders(extraHeaders map[string]string) {
+	p.extraHeaders = extraHeaders
+}
+
+// SetDefaultOptions configures standard options from the global configuration.
+// This includes temperature and other generation parameters.
+func (p *OllamaProvider) SetDefaultOptions(cfg *config.Config) {
+	p.SetOption("temperature", cfg.Temperature)
+	p.SetOption("num_predict", cfg.MaxTokens)
+	if cfg.Seed != nil {
+		p.SetOption("seed", *cfg.Seed)
+	}
+	if cfg.OllamaEndpoint != "" {
+		p.endpoint = cfg.OllamaEndpoint
+	}
+	p.SetOption("top_p", cfg.TopP)
+	p.SetOption("min_p", cfg.MinP)
+	p.SetOption("repeat_penalty", cfg.RepeatPenalty)
+	p.SetOption("repeat_last_n", cfg.RepeatLastN)
+	p.SetOption("mirostat", cfg.Mirostat)
+	p.SetOption("mirostat_eta", cfg.MirostatEta)
+	p.SetOption("mirostat_tau", cfg.MirostatTau)
+	p.SetOption("tfs_z", cfg.TfsZ)
 }
 
 // SetOption sets a model-specific option for the Ollama provider.
@@ -84,57 +116,42 @@ func (p *OllamaProvider) SetOption(key string, value any) {
 	}
 }
 
-// SetDefaultOptions configures standard options from the global configuration.
-// This includes temperature and other generation parameters.
-func (p *OllamaProvider) SetDefaultOptions(cfg *config.Config) {
-	p.SetOption("temperature", cfg.Temperature)
-	p.SetOption("num_predict", cfg.MaxTokens)
-	if cfg.Seed != nil {
-		p.SetOption("seed", *cfg.Seed)
-	}
-	if cfg.OllamaEndpoint != "" {
-		p.SetEndpoint(cfg.OllamaEndpoint)
-	}
-	p.SetOption("top_p", cfg.TopP)
-	p.SetOption("min_p", cfg.MinP)
-	p.SetOption("repeat_penalty", cfg.RepeatPenalty)
-	p.SetOption("repeat_last_n", cfg.RepeatLastN)
-	p.SetOption("mirostat", cfg.Mirostat)
-	p.SetOption("mirostat_eta", cfg.MirostatEta)
-	p.SetOption("mirostat_tau", cfg.MirostatTau)
-	p.SetOption("tfs_z", cfg.TfsZ)
-}
-
-// SupportsJSONSchema indicates whether this provider supports JSON schema validation.
-// Currently, Ollama does not natively support JSON schema validation.
-func (p *OllamaProvider) SupportsStructuredResponse() bool {
-	return false
-}
-
-// Headers returns the HTTP headers required for Ollama API requests.
-// This includes content type and any custom headers.
-func (p *OllamaProvider) Headers() map[string]string {
-	return map[string]string{
-		"Content-Type": "application/json",
-	}
+// SetLogger configures the logger for the Ollama provider.
+// This is used for debugging and monitoring API interactions.
+func (p *OllamaProvider) SetLogger(logger logging.Logger) {
+	p.logger = logger
 }
 
 // PrepareRequest creates the request body for an Ollama API call.
-// It formats the prompt and options according to Ollama's API requirements.
-//
-// Parameters:
-//   - prompt: The input text or conversation
-//   - options: Additional parameters for the request
-//
-// Returns:
-//   - Serialized JSON request body
-//   - Any error encountered during preparation
-func (p *OllamaProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
+// It formats the request according to Ollama's API requirements.
+func (p *OllamaProvider) PrepareRequest(req *Request, options map[string]any) ([]byte, error) {
 	requestBody := map[string]any{
-		"model":  p.model,
-		"prompt": prompt,
+		ollamaKeyModel: p.model,
 	}
 
+	// Convert messages to a single prompt for Ollama
+	if len(req.Messages) > 0 {
+		var prompt strings.Builder
+
+		// Add system prompt if present
+		if req.SystemPrompt != "" {
+			prompt.WriteString("System: ")
+			prompt.WriteString(req.SystemPrompt)
+			prompt.WriteString("\n\n")
+		}
+
+		// Add all messages
+		for _, msg := range req.Messages {
+			prompt.WriteString(msg.Role)
+			prompt.WriteString(": ")
+			prompt.WriteString(msg.Content)
+			prompt.WriteString("\n\n")
+		}
+
+		requestBody[ollamaKeyPrompt] = strings.TrimSpace(prompt.String())
+	}
+
+	// Add remaining options
 	for k, v := range options {
 		requestBody[k] = v
 	}
@@ -146,13 +163,11 @@ func (p *OllamaProvider) PrepareRequest(prompt string, options map[string]any) (
 	return data, nil
 }
 
-// PrepareRequestWithSchema creates a request with JSON schema validation.
-// Since Ollama doesn't support schema validation natively, this falls back to
-// standard request preparation.
-func (p *OllamaProvider) PrepareRequestWithSchema(prompt string, options map[string]any, _ any) ([]byte, error) {
-	// Ollama doesn't support JSON schema validation natively
-	// We'll just use the regular PrepareRequest method
-	return p.PrepareRequest(prompt, options)
+// PrepareStreamRequest prepares a request body for streaming
+func (p *OllamaProvider) PrepareStreamRequest(req *Request, options map[string]any) ([]byte, error) {
+	// Ollama doesn't support structured response natively; proceed with standard streaming
+	options[ollamaKeyStream] = true
+	return p.PrepareRequest(req, options)
 }
 
 // ParseResponse extracts the generated text from the Ollama API response.
@@ -200,110 +215,9 @@ func (p *OllamaProvider) ParseResponse(body []byte) (*Response, error) {
 	resp := &Response{Content: Text{Value: fullText.String()}}
 	// Attach usage if we captured any token counts
 	if promptEvalCount > 0 || evalCount > 0 {
-		resp.Usage = NewUsage(promptEvalCount, 0, evalCount, 0)
+		resp.Usage = NewUsage(promptEvalCount, 0, evalCount, 0, 0)
 	}
 	return resp, nil
-}
-
-// HandleFunctionCalls processes function calling capabilities.
-// Since Ollama doesn't support function calling natively, this returns nil.
-func (p *OllamaProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	response := string(body)
-	functionCalls, err := ExtractFunctionCalls(response)
-	if err != nil {
-		return nil, fmt.Errorf("error extracting function calls: %w", err)
-	}
-
-	if len(functionCalls) == 0 {
-		return nil, nil // No function calls found
-	}
-
-	data, err := json.Marshal(functionCalls)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
-	}
-	return data, nil
-}
-
-// SetExtraHeaders configures additional HTTP headers for API requests.
-// This allows for custom headers needed for specific features or requirements.
-func (p *OllamaProvider) SetExtraHeaders(extraHeaders map[string]string) {
-	p.extraHeaders = extraHeaders
-}
-
-// SetEndpoint configures the base URL for the Ollama API.
-// By default, this points to the local Ollama instance.
-func (p *OllamaProvider) SetEndpoint(endpoint string) {
-	p.endpoint = endpoint
-}
-
-// Generate sends a completion request to the Ollama API and returns the generated text.
-// It handles the full request lifecycle including context management and error handling.
-//
-// Parameters:
-//   - ctx: Context for request cancellation and timeouts
-//   - prompt: The input text to generate from
-//
-// Returns:
-//   - Generated text
-//   - Original prompt
-//   - Any error encountered
-func (p *OllamaProvider) Generate(ctx context.Context, prompt string) (*Response, string, error) {
-	reqBody, err := p.PrepareRequest(prompt, p.options)
-	if err != nil {
-		return nil, "", err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.Endpoint(), bytes.NewReader(reqBody))
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	for k, v := range p.Headers() {
-		req.Header.Set(k, v)
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			p.logger.Error("Failed to close response body", "error", err)
-		}
-	}()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to read response: %w", err)
-	}
-
-	result, err := p.ParseResponse(body)
-	if err != nil {
-		return nil, "", err
-	}
-
-	return result, prompt, nil
-}
-
-// SetDebugLevel sets the logging level for the provider.
-// This controls the verbosity of debug output.
-func (p *OllamaProvider) SetDebugLevel(level logging.LogLevel) {
-	if p.logger != nil {
-		p.logger.SetLevel(level)
-	}
-}
-
-// SupportsStreaming returns whether the provider supports streaming responses
-func (p *OllamaProvider) SupportsStreaming() bool {
-	return true
-}
-
-// PrepareStreamRequest prepares a request body for streaming
-func (p *OllamaProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
-	options["stream"] = true
-	return p.PrepareRequest(prompt, options)
 }
 
 // ParseStreamResponse parses a single chunk from a streaming response
@@ -321,7 +235,7 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	if response.Done {
 		usage := (*Usage)(nil)
 		if response.PromptEvalCount > 0 || response.EvalCount > 0 {
-			usage = NewUsage(response.PromptEvalCount, 0, response.EvalCount, 0)
+			usage = NewUsage(response.PromptEvalCount, 0, response.EvalCount, 0, 0)
 		}
 		return &Response{Usage: usage}, nil
 	}
@@ -331,39 +245,19 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	return &Response{Content: Text{Value: response.Response}}, nil
 }
 
-// PrepareRequestWithMessages creates a request body using structured message objects
-// rather than a flattened prompt string.
-//
-// Parameters:
-//   - messages: Slice of MemoryMessage objects representing the conversation
-//   - options: Additional options for the request
-//
-// Returns:
-//   - Serialized JSON request body
-//   - Any error encountered during preparation
-func (p *OllamaProvider) PrepareRequestWithMessages(
-	messages []models.MemoryMessage,
-	options map[string]any,
-) ([]byte, error) {
-	// Ollama doesn't natively support structured messages like Anthropic/OpenAI
-	// Convert to flattened format
-	var flattenedPrompt strings.Builder
+// SupportsStreaming returns whether the provider supports streaming responses
+func (p *OllamaProvider) SupportsStreaming() bool {
+	return true
+}
 
-	// Add system prompt if present
-	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		flattenedPrompt.WriteString("System: ")
-		flattenedPrompt.WriteString(systemPrompt)
-		flattenedPrompt.WriteString("\n\n")
-	}
+// SupportsStructuredResponse indicates whether this provider supports JSON schema validation.
+// Currently, Ollama does not natively support JSON schema validation.
+func (p *OllamaProvider) SupportsStructuredResponse() bool {
+	return false
+}
 
-	// Add all messages in sequence
-	for _, msg := range messages {
-		flattenedPrompt.WriteString(msg.Role)
-		flattenedPrompt.WriteString(": ")
-		flattenedPrompt.WriteString(msg.Content)
-		flattenedPrompt.WriteString("\n\n")
-	}
-
-	// Use regular prompt preparation with flattened text
-	return p.PrepareRequest(flattenedPrompt.String(), options)
+// SupportsFunctionCalling indicates if the provider supports function calling.
+// Ollama does not support function calling natively.
+func (p *OllamaProvider) SupportsFunctionCalling() bool {
+	return false
 }

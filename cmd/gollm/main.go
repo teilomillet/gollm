@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/weave-labs/gollm/llm"
+
 	"github.com/weave-labs/gollm"
 	"github.com/weave-labs/gollm/internal/debug"
 	"github.com/weave-labs/gollm/optimizer"
@@ -188,7 +190,7 @@ func handleOptimize(
 	promptOptimizer := optimizer.NewPromptOptimizer(
 		llmClient,
 		debug.NewDebugManager(true, "./debug_output"),
-		llmClient.NewPrompt(rawPrompt),
+		llm.NewPrompt(rawPrompt),
 		optimizeGoal,
 		optimizer.WithIterations(optimizeIterations),
 		optimizer.WithMemorySize(optimizeMemory),

@@ -1,4 +1,6 @@
 // Package llm provides a unified interface for interacting with various Language Learning Model providers.
+//
+//nolint:gochecknoglobals // This needs to be refactored, but not today.
 package llm
 
 import (

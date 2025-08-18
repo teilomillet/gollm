@@ -13,13 +13,14 @@ const (
 
 	// KeyToolChoice is the common key for tool choice configuration
 	KeyToolChoice = "tool_choice"
+
+	// KeyStructuredResponseSchema is the key to pass a JSON schema for structured responses
+	KeyStructuredResponseSchema = "structured_response_schema"
 )
 
 // Provider-specific constants
 const (
 	AnthropicSystemPromptMaxParts = 3    // Maximum parts for splitting system prompts
-	AnthropicDefaultMaxTokens     = 1024 // Default max tokens for Anthropic requests
 	OpenRouterCachingThreshold    = 1000 // Minimum message length for prompt caching
 	ResponseParserRetryAttempts   = 5    // Retry attempts for response parsing
-	RandomStringLength            = 32   // Length for random string generation
 )

@@ -3,11 +3,13 @@ package llm
 import (
 	"encoding/json"
 	"fmt"
+
 	"strings"
 
 	"github.com/invopop/jsonschema"
 
 	"github.com/weave-labs/gollm/internal/models"
+	"github.com/weave-labs/gollm/providers"
 )
 
 // CacheType defines how prompts and responses should be cached in the system.
@@ -31,6 +33,37 @@ type PromptMessage struct {
 	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
 }
 
+func (pm *PromptMessage) ToMessage() providers.Message {
+	msg := providers.Message{
+		Role:    pm.Role,
+		Content: pm.Content,
+		Name:    pm.Name,
+	}
+	if len(pm.ToolCalls) > 0 {
+		var toolCalls []providers.ToolCall
+		for _, tc := range pm.ToolCalls {
+			toolCalls = append(toolCalls, providers.ToolCall{
+				ID:   tc.ID,
+				Type: tc.Type,
+				Function: providers.FunctionCall{
+					Name:      tc.Function.Name,
+					Arguments: tc.Function.Arguments,
+				},
+			})
+		}
+		msg.ToolCalls = toolCalls
+	}
+	return msg
+}
+
+func ToMessages(pm []PromptMessage) []providers.Message {
+	messages := make([]providers.Message, 0, len(pm))
+	for i := range pm {
+		messages = append(messages, pm[i].ToMessage())
+	}
+	return messages
+}
+
 // ToolCall represents a request from the LLM to use a specific tool.
 // It includes the tool's identifier, type, and any arguments needed for execution.
 type ToolCall struct {
@@ -50,13 +83,13 @@ type Prompt struct {
 	Input           string          `json:"input" jsonschema:"required,description=The main input text for the LLM" validate:"required"`
 	Output          string          `json:"output,omitempty" jsonschema:"description=Specification for the expected output format"`
 	Context         string          `json:"context,omitempty" jsonschema:"description=Additional context for the LLM"`
-	SystemPrompt    string          `json:"systemPrompt,omitempty" jsonschema:"description=System prompt for the LLM"`
-	SystemCacheType CacheType       `json:"systemCacheType,omitempty" jsonschema:"description=Cache type for the system prompt"`
+	SystemPrompt    string          `json:"system_prompt,omitempty" jsonschema:"description=System prompt for the LLM"`
+	SystemCacheType CacheType       `json:"system_cache_type,omitempty" jsonschema:"description=Cache type for the system prompt"`
 	Directives      []string        `json:"directives,omitempty" jsonschema:"description=List of directives to guide the LLM"`
 	Examples        []string        `json:"examples,omitempty" jsonschema:"description=List of examples to guide the LLM"`
 	Messages        []PromptMessage `json:"messages,omitempty" jsonschema:"description=List of messages for the conversation"`
 	Tools           []models.Tool   `json:"tools,omitempty" jsonschema:"description=Available tools for the LLM to use"`
-	MaxLength       int             `json:"maxLength,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
+	MaxLength       int             `json:"max_length,omitempty" jsonschema:"minimum=1,description=Maximum length of the response in words" validate:"omitempty,min=1"`
 }
 
 // PromptOption is a function type that modifies a Prompt.

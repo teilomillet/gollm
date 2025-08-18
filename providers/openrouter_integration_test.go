@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/weave-labs/gollm/internal/models"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/weave-labs/gollm/internal/logging"
@@ -33,11 +31,18 @@ func TestOpenRouterIntegration(t *testing.T) {
 		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil)
 		provider.SetLogger(logger)
 
-		// Create a simple prompt
-		prompt := "What is the capital of France? Answer in one word."
+		// Create a simple request with message
+		req := &Request{
+			Messages: []Message{
+				{
+					Role:    "user",
+					Content: "What is the capital of France? Answer in one word.",
+				},
+			},
+		}
 
 		// Prepare the request
-		requestBody, err := provider.PrepareRequest(prompt, map[string]any{
+		requestBody, err := provider.PrepareRequest(req, map[string]any{
 			"temperature": 0.0, // Use 0 temperature for deterministic results
 			"max_tokens":  10,  // Short response
 		})
@@ -53,7 +58,7 @@ func TestOpenRouterIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Validate the response
-		require.Contains(t, response, "Paris")
+		require.Contains(t, response.AsText(), "Paris")
 		t.Logf("Response: %s", response.AsText())
 	})
 
@@ -62,8 +67,18 @@ func TestOpenRouterIntegration(t *testing.T) {
 		provider := NewOpenRouterProvider(apiKey, "invalid-model", nil)
 		provider.SetLogger(logger)
 
+		// Create a request with message
+		req := &Request{
+			Messages: []Message{
+				{
+					Role:    "user",
+					Content: "What is 2+2?",
+				},
+			},
+		}
+
 		// Prepare the request with fallbacks
-		requestBody, err := provider.PrepareRequest("What is 2+2?", map[string]any{
+		requestBody, err := provider.PrepareRequest(req, map[string]any{
 			"temperature":     0.0,
 			"max_tokens":      10,
 			"fallback_models": []string{"anthropic/claude-3-haiku", "openai/gpt-3.5-turbo"},
@@ -114,15 +129,22 @@ func TestOpenRouterIntegration(t *testing.T) {
 			"required": []string{"name", "age"},
 		}
 
-		// Prepare the request with schema
-		requestBody, err := provider.PrepareRequestWithSchema(
-			"Create a JSON object for a person named Alex who is 25 years old.",
-			map[string]any{
-				"temperature": 0.0,
-				"max_tokens":  100,
+		// Create a request with structured response schema
+		req := &Request{
+			Messages: []Message{
+				{
+					Role:    "user",
+					Content: "Create a JSON object for a person named Alex who is 25 years old.",
+				},
 			},
-			schema,
-		)
+			ResponseSchema: schema,
+		}
+
+		// Prepare the request with schema
+		requestBody, err := provider.PrepareRequest(req, map[string]any{
+			"temperature": 0.0,
+			"max_tokens":  100,
+		})
 		require.NoError(t, err)
 
 		// Make the actual API call
@@ -153,14 +175,22 @@ func TestOpenRouterIntegration(t *testing.T) {
 		provider := NewOpenRouterProvider(apiKey, "anthropic/claude-3-haiku", nil)
 		provider.SetLogger(logger)
 
-		// Create a conversation history
-		messages := []models.MemoryMessage{
-			{Role: "system", Content: "You are a math tutor that explains step by step."},
-			{Role: "user", Content: "What is 17 × 6?"},
+		// Create a request with message history
+		req := &Request{
+			Messages: []Message{
+				{
+					Role:    "system",
+					Content: "You are a math tutor that explains step by step.",
+				},
+				{
+					Role:    "user",
+					Content: "What is 17 × 6?",
+				},
+			},
 		}
 
 		// Prepare the request with message history and reasoning tokens
-		requestBody, err := provider.PrepareRequestWithMessages(messages, map[string]any{
+		requestBody, err := provider.PrepareRequest(req, map[string]any{
 			"temperature": 0.0,
 			"max_tokens":  200,
 			"transforms":  []string{"reasoning"},
@@ -209,11 +239,18 @@ func TestOpenRouterIntegration(t *testing.T) {
 			},
 		}
 
-		// Create a prompt that should trigger tool calling
-		prompt := "What's the weather in Tokyo today?"
+		// Create a request that should trigger tool calling
+		req := &Request{
+			Messages: []Message{
+				{
+					Role:    "user",
+					Content: "What's the weather in Tokyo today?",
+				},
+			},
+		}
 
 		// Prepare the request with tools
-		requestBody, err := provider.PrepareRequest(prompt, map[string]any{
+		requestBody, err := provider.PrepareRequest(req, map[string]any{
 			"temperature": 0.0,
 			"max_tokens":  100,
 			"tools":       tools,
@@ -226,14 +263,14 @@ func TestOpenRouterIntegration(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("Response body: %s", string(respBody))
 
-		// Process function calls
-		toolCallResp, err := provider.HandleFunctionCalls(respBody)
+		// Parse the response to check for tool calls
+		response, err := provider.ParseResponse(respBody)
 		require.NoError(t, err)
-		require.NotNil(t, toolCallResp, "Should detect a tool call")
+		require.NotNil(t, response, "Should get a response")
 
 		// Verify that we get a tool call for weather in Tokyo
 		var parsed map[string]any
-		err = json.Unmarshal(toolCallResp, &parsed)
+		err = json.Unmarshal(respBody, &parsed)
 		require.NoError(t, err)
 
 		// Extract the tool call details

@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/weave-labs/gollm/internal/models"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -72,14 +70,21 @@ func TestOpenRouterProvider(t *testing.T) {
 		// Reset options
 		provider.options = make(map[string]any)
 
-		// Test with a basic prompt
-		prompt := "Hello, world!"
+		// Test with a basic request
+		request := &Request{
+			Messages: []Message{
+				{
+					Role:    "user",
+					Content: "Hello, world!",
+				},
+			},
+		}
 		options := map[string]any{
 			"temperature": 0.7,
 			"max_tokens":  100,
 		}
 
-		body, err := provider.PrepareRequest(prompt, options)
+		body, err := provider.PrepareRequest(request, options)
 		require.NoError(t, err)
 
 		// Parse the request to verify structure
@@ -106,11 +111,19 @@ func TestOpenRouterProvider(t *testing.T) {
 	})
 
 	t.Run("PrepareRequest handles fallback models", func(t *testing.T) {
+		request := &Request{
+			Messages: []Message{
+				{
+					Role:    "user",
+					Content: "test prompt",
+				},
+			},
+		}
 		options := map[string]any{
 			"fallback_models": []string{"openai/gpt-4o", "mistral/mistral-large"},
 		}
 
-		body, err := provider.PrepareRequest("test prompt", options)
+		body, err := provider.PrepareRequest(request, options)
 		require.NoError(t, err)
 
 		var req map[string]any
@@ -131,11 +144,19 @@ func TestOpenRouterProvider(t *testing.T) {
 	})
 
 	t.Run("PrepareRequest handles auto routing", func(t *testing.T) {
+		request := &Request{
+			Messages: []Message{
+				{
+					Role:    "user",
+					Content: "test prompt",
+				},
+			},
+		}
 		options := map[string]any{
 			"auto_route": true,
 		}
 
-		body, err := provider.PrepareRequest("test prompt", options)
+		body, err := provider.PrepareRequest(request, options)
 		require.NoError(t, err)
 
 		var req map[string]any
@@ -157,11 +178,19 @@ func TestOpenRouterProvider(t *testing.T) {
 			},
 		}
 
+		request := &Request{
+			Messages: []Message{
+				{
+					Role:    "user",
+					Content: "test prompt",
+				},
+			},
+		}
 		options := map[string]any{
 			"provider_preferences": providerPrefs,
 		}
 
-		body, err := provider.PrepareRequest("test prompt", options)
+		body, err := provider.PrepareRequest(request, options)
 		require.NoError(t, err)
 
 		var req map[string]any
@@ -193,12 +222,20 @@ func TestOpenRouterProvider(t *testing.T) {
 			},
 		}
 
+		request := &Request{
+			Messages: []Message{
+				{
+					Role:    "user",
+					Content: "test prompt",
+				},
+			},
+		}
 		options := map[string]any{
 			"tools":       tools,
 			"tool_choice": "auto",
 		}
 
-		body, err := provider.PrepareRequest("test prompt", options)
+		body, err := provider.PrepareRequest(request, options)
 		require.NoError(t, err)
 
 		var req map[string]any
@@ -214,7 +251,7 @@ func TestOpenRouterProvider(t *testing.T) {
 		assert.Equal(t, "auto", req["tool_choice"])
 	})
 
-	t.Run("PrepareRequestWithSchema includes JSON schema", func(t *testing.T) {
+	t.Run("PrepareRequest includes JSON schema for structured response", func(t *testing.T) {
 		schema := map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -224,7 +261,17 @@ func TestOpenRouterProvider(t *testing.T) {
 			},
 		}
 
-		body, err := provider.PrepareRequestWithSchema("test prompt", nil, schema)
+		request := &Request{
+			Messages: []Message{
+				{
+					Role:    "user",
+					Content: "test prompt",
+				},
+			},
+			ResponseSchema: schema,
+		}
+
+		body, err := provider.PrepareRequest(request, nil)
 		require.NoError(t, err)
 
 		var req map[string]any
@@ -238,15 +285,17 @@ func TestOpenRouterProvider(t *testing.T) {
 		assert.Equal(t, schema, responseFormat["schema"])
 	})
 
-	t.Run("PrepareRequestWithMessages formats messages correctly", func(t *testing.T) {
-		messages := []models.MemoryMessage{
-			{Role: "system", Content: "You are a helpful assistant"},
-			{Role: "user", Content: "Hello, world!"},
-			{Role: "assistant", Content: "How can I help you?"},
-			{Role: "user", Content: "Tell me a joke"},
+	t.Run("PrepareRequest formats multiple messages correctly", func(t *testing.T) {
+		request := &Request{
+			Messages: []Message{
+				{Role: "system", Content: "You are a helpful assistant"},
+				{Role: "user", Content: "Hello, world!"},
+				{Role: "assistant", Content: "How can I help you?"},
+				{Role: "user", Content: "Tell me a joke"},
+			},
 		}
 
-		body, err := provider.PrepareRequestWithMessages(messages, nil)
+		body, err := provider.PrepareRequest(request, nil)
 		require.NoError(t, err)
 
 		var req map[string]any
@@ -319,7 +368,7 @@ func TestOpenRouterProvider(t *testing.T) {
 
 		response, err := provider.ParseResponse([]byte(responseBody))
 		require.NoError(t, err)
-		assert.Equal(t, "This is a test response", response)
+		assert.Equal(t, "This is a test response", response.AsText())
 	})
 
 	t.Run("ParseResponse handles text completion response", func(t *testing.T) {
@@ -333,7 +382,7 @@ func TestOpenRouterProvider(t *testing.T) {
 
 		response, err := provider.ParseResponse([]byte(responseBody))
 		require.NoError(t, err)
-		assert.Equal(t, "This is a test text completion", response)
+		assert.Equal(t, "This is a test text completion", response.AsText())
 	})
 
 	t.Run("ParseStreamResponse handles streaming response", func(t *testing.T) {
@@ -351,9 +400,9 @@ func TestOpenRouterProvider(t *testing.T) {
 			"model": "anthropic/claude-3-5-sonnet"
 		}`
 
-		content, err := provider.ParseStreamResponse([]byte(streamChunk))
+		response, err := provider.ParseStreamResponse([]byte(streamChunk))
 		require.NoError(t, err)
-		assert.Equal(t, "Hello", content)
+		assert.Equal(t, "Hello", response.AsText())
 	})
 
 	t.Run("ParseStreamResponse handles empty delta", func(t *testing.T) {
@@ -370,43 +419,10 @@ func TestOpenRouterProvider(t *testing.T) {
 			"model": "anthropic/claude-3-5-sonnet"
 		}`
 
-		content, err := provider.ParseStreamResponse([]byte(streamChunk))
-		require.NoError(t, err)
-		assert.Empty(t, content)
-	})
-
-	t.Run("HandleFunctionCalls identifies and returns function calls", func(t *testing.T) {
-		responseBody := `{
-			"id": "gen-123",
-			"choices": [
-				{
-					"message": {
-						"content": null,
-						"role": "assistant",
-						"tool_calls": [
-							{
-								"id": "call_123",
-								"type": "function",
-								"function": {
-									"name": "get_weather",
-									"arguments": "{\"location\":\"San Francisco\",\"unit\":\"celsius\"}"
-								}
-							}
-						]
-					},
-					"finish_reason": "tool_calls"
-				}
-			],
-			"model": "openai/gpt-4o"
-		}`
-
-		result, err := provider.HandleFunctionCalls([]byte(responseBody))
-		require.NoError(t, err)
-		assert.NotNil(t, result)
-
-		// Check that the original response was returned
-		assert.Contains(t, string(result), "get_weather")
-		assert.Contains(t, string(result), "San Francisco")
+		_, err := provider.ParseStreamResponse([]byte(streamChunk))
+		// This should return an error with "skip token" for empty content
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "skip token")
 	})
 
 	t.Run("SetExtraHeaders adds custom headers", func(t *testing.T) {

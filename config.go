@@ -1,6 +1,8 @@
 // Package gollm provides a high-level interface for interacting with various Language Learning Models (LLMs).
 // This file re-exports configuration types and functions from the config package to provide
 // a clean, centralized API for configuring LLM interactions.
+//
+//nolint:gochecknoglobals // These are re-exports to simplify the API surface.
 package gollm
 
 import (

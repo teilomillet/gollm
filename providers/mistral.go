@@ -2,15 +2,30 @@
 package providers
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
-
-	"github.com/weave-labs/gollm/internal/models"
 
 	"github.com/weave-labs/gollm/config"
 	"github.com/weave-labs/gollm/internal/logging"
+)
+
+// Common parameter keys
+const (
+	mistralKeyMaxTokens      = "max_tokens"
+	mistralKeyStream         = "stream"
+	mistralKeyModel          = "model"
+	mistralKeyMessages       = "messages"
+	mistralKeySystemPrompt   = "system_prompt"
+	mistralKeyTools          = "tools"
+	mistralKeyToolChoice     = "tool_choice"
+	mistralKeyResponseFormat = "response_format"
+	mistralKeyStrict         = "strict"
+	mistralKeyTemperature    = "temperature"
+	mistralKeySeed           = "seed"
 )
 
 // MistralProvider implements the Provider interface for Mistral AI's API.
@@ -66,10 +81,10 @@ func (p *MistralProvider) SetOption(key string, value any) {
 // SetDefaultOptions configures standard options from the global configuration.
 // This includes temperature, max tokens, and sampling parameters.
 func (p *MistralProvider) SetDefaultOptions(cfg *config.Config) {
-	p.SetOption("temperature", cfg.Temperature)
-	p.SetOption("max_tokens", cfg.MaxTokens)
+	p.SetOption(mistralKeyTemperature, cfg.Temperature)
+	p.SetOption(mistralKeyMaxTokens, cfg.MaxTokens)
 	if cfg.Seed != nil {
-		p.SetOption("seed", *cfg.Seed)
+		p.SetOption(mistralKeySeed, *cfg.Seed)
 	}
 }
 
@@ -84,10 +99,35 @@ func (p *MistralProvider) Endpoint() string {
 	return "https://api.mistral.ai/v1/chat/completions"
 }
 
-// SupportsJSONSchema indicates that Mistral supports structured output
+// SupportsStructuredResponse indicates that Mistral supports structured output
 // through its system prompts and response formatting capabilities.
+// All models support structured output except codestral-mamba.
 func (p *MistralProvider) SupportsStructuredResponse() bool {
+	return p.model != "codestral-mamba"
+}
+
+// SupportsStreaming returns whether the provider supports streaming responses.
+// All Mistral models support streaming.
+func (p *MistralProvider) SupportsStreaming() bool {
 	return true
+}
+
+// SupportsFunctionCalling indicates if the provider supports function calling.
+// Only specific models support function calling.
+func (p *MistralProvider) SupportsFunctionCalling() bool {
+	supportedModels := map[string]bool{
+		"mistral-large-latest":  true,
+		"mistral-medium-latest": true,
+		"mistral-small-latest":  true,
+		"devstral-small-latest": true,
+		"codestral-latest":      true,
+		"ministral-8b-latest":   true,
+		"ministral-3b-latest":   true,
+		"pixtral-12b-latest":    true,
+		"pixtral-large-latest":  true,
+		"open-mistral-nemo":     true,
+	}
+	return supportedModels[p.model]
 }
 
 // Headers returns the required HTTP headers for Mistral API requests.
@@ -108,79 +148,26 @@ func (p *MistralProvider) Headers() map[string]string {
 	return headers
 }
 
-// PrepareRequest creates the request body for a Mistral API call.
-// It handles:
-//   - Message formatting
-//   - System prompts
-//   - Response formatting
-//   - Model-specific options
-//
-// Parameters:
-//   - prompt: The input text or conversation
-//   - options: Additional parameters for the request
-//
-// Returns:
-//   - Serialized JSON request body
-//   - Any error encountered during preparation
-func (p *MistralProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
-	requestBody := map[string]any{
-		"model": p.model,
-		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
-		},
+// PrepareRequest creates the request body for a Mistral API call using the new Request structure.
+func (p *MistralProvider) PrepareRequest(req *Request, options map[string]any) ([]byte, error) {
+	requestBody := p.initializeRequestBody()
+
+	// Add system prompt if present
+	systemPrompt := p.extractSystemPromptFromRequest(req, options)
+	if systemPrompt != "" {
+		p.addSystemPromptToRequestBody(requestBody, systemPrompt)
 	}
 
-	// First, add the default options
-	for k, v := range p.options {
-		requestBody[k] = v
+	// Add messages
+	p.addMessagesToRequestBody(requestBody, req.Messages)
+
+	// Add structured response if supported
+	if req.ResponseSchema != nil && p.SupportsStructuredResponse() {
+		p.addStructuredResponseToRequest(requestBody, req.ResponseSchema)
 	}
 
-	// Then, add any additional options (which may override defaults)
-	for k, v := range options {
-		requestBody[k] = v
-	}
-
-	data, err := json.Marshal(requestBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body: %w", err)
-	}
-	return data, nil
-}
-
-// PrepareRequestWithSchema creates a request that includes structured output formatting.
-// This uses Mistral's system prompts to enforce response structure.
-//
-// Parameters:
-//   - prompt: The input text or conversation
-//   - options: Additional request parameters
-//   - schema: JSON schema for response validation
-//
-// Returns:
-//   - Serialized JSON request body
-//   - Any error encountered during preparation
-func (p *MistralProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
-	requestBody := map[string]any{
-		"model": p.model,
-		"messages": []map[string]string{
-			{"role": "user", "content": prompt},
-		},
-		"response_format": map[string]any{
-			"type":   "json_schema",
-			"schema": schema,
-		},
-	}
-
-	// Add any additional options
-	for k, v := range options {
-		requestBody[k] = v
-	}
-
-	// Add strict option if provided
-	if strict, ok := options["strict"].(bool); ok && strict {
-		if responseFormat, ok := requestBody["response_format"].(map[string]any); ok {
-			responseFormat["strict"] = true
-		}
-	}
+	// Add remaining options
+	p.addRemainingOptions(requestBody, options)
 
 	data, err := json.Marshal(requestBody)
 	if err != nil {
@@ -246,45 +233,52 @@ func (p *MistralProvider) ParseResponse(body []byte) (*Response, error) {
 	return &Response{Content: Text{Value: finalResponse.String()}}, nil
 }
 
-// HandleFunctionCalls processes structured output in the response.
-// This supports Mistral's response formatting capabilities.
-func (p *MistralProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	response := string(body)
-	functionCalls, err := ExtractFunctionCalls(response)
-	if err != nil {
-		return nil, fmt.Errorf("error extracting function calls: %w", err)
-	}
-
-	if len(functionCalls) == 0 {
-		return nil, nil // No function calls found
-	}
-
-	data, err := json.Marshal(functionCalls)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
-	}
-	return data, nil
-}
-
 // SetExtraHeaders configures additional HTTP headers for API requests.
 // This allows for custom headers needed for specific features or requirements.
 func (p *MistralProvider) SetExtraHeaders(extraHeaders map[string]string) {
 	p.extraHeaders = extraHeaders
 }
 
-// SupportsStreaming returns whether the provider supports streaming responses
-func (p *MistralProvider) SupportsStreaming() bool {
-	return true
-}
+// PrepareStreamRequest creates a request body for streaming API calls
+func (p *MistralProvider) PrepareStreamRequest(req *Request, options map[string]any) ([]byte, error) {
+	requestBody := p.initializeRequestBody()
+	requestBody[mistralKeyStream] = true
 
-// PrepareStreamRequest prepares a request body for streaming
-func (p *MistralProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
-	options["stream"] = true
-	return p.PrepareRequest(prompt, options)
+	// Add system prompt if present
+	systemPrompt := p.extractSystemPromptFromRequest(req, options)
+	if systemPrompt != "" {
+		p.addSystemPromptToRequestBody(requestBody, systemPrompt)
+	}
+
+	// Add messages
+	p.addMessagesToRequestBody(requestBody, req.Messages)
+
+	// Add structured response if supported
+	if req.ResponseSchema != nil && p.SupportsStructuredResponse() {
+		p.addStructuredResponseToRequest(requestBody, req.ResponseSchema)
+	}
+
+	// Add remaining options
+	p.addRemainingOptions(requestBody, options)
+
+	data, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return data, nil
 }
 
 // ParseStreamResponse parses a single chunk from a streaming response
 func (p *MistralProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
+	// Skip empty lines
+	if len(bytes.TrimSpace(chunk)) == 0 {
+		return nil, errors.New("empty chunk")
+	}
+	// [DONE] guard
+	if bytes.Equal(bytes.TrimSpace(chunk), []byte("[DONE]")) {
+		return nil, io.EOF
+	}
+
 	var response struct {
 		Choices []struct {
 			Delta struct {
@@ -292,60 +286,98 @@ func (p *MistralProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 			} `json:"delta"`
 		} `json:"choices"`
 	}
+
 	if err := json.Unmarshal(chunk, &response); err != nil {
 		return nil, fmt.Errorf("malformed response: %w", err)
 	}
+
 	if len(response.Choices) == 0 || response.Choices[0].Delta.Content == "" {
-		return nil, errors.New("skip resp")
+		return nil, errors.New("skip token")
 	}
+
 	return &Response{Content: Text{Value: response.Choices[0].Delta.Content}}, nil
 }
 
-// PrepareRequestWithMessages creates a request using structured message objects.
-func (p *MistralProvider) PrepareRequestWithMessages(
-	messages []models.MemoryMessage,
-	options map[string]any,
-) ([]byte, error) {
-	request := map[string]any{
-		"model":    p.model,
-		"messages": []map[string]any{},
+// initializeRequestBody creates the base request structure
+func (p *MistralProvider) initializeRequestBody() map[string]any {
+	return map[string]any{
+		mistralKeyModel:     p.model,
+		mistralKeyMaxTokens: p.options[mistralKeyMaxTokens],
+		mistralKeyMessages:  []map[string]any{},
+	}
+}
+
+// extractSystemPromptFromRequest gets system prompt from request or options
+func (p *MistralProvider) extractSystemPromptFromRequest(req *Request, options map[string]any) string {
+	// Priority: Request.SystemPrompt > options["system_prompt"]
+	if req.SystemPrompt != "" {
+		return req.SystemPrompt
+	}
+	if sp, ok := options[mistralKeySystemPrompt].(string); ok && sp != "" {
+		return sp
+	}
+	return ""
+}
+
+// addSystemPromptToRequestBody adds the system prompt to the request
+func (p *MistralProvider) addSystemPromptToRequestBody(requestBody map[string]any, systemPrompt string) {
+	if systemPrompt == "" {
+		return
 	}
 
-	// Add system prompt if present
-	if systemPrompt, ok := options[KeySystemPrompt].(string); ok && systemPrompt != "" {
-		if messagesArray, ok := request["messages"].([]map[string]any); ok {
-			request["messages"] = append(messagesArray, map[string]any{
-				"role":    "system",
-				"content": systemPrompt,
-			})
+	if messagesArray, ok := requestBody[mistralKeyMessages].([]map[string]any); ok {
+		systemMessage := map[string]any{
+			"role":    "system",
+			"content": systemPrompt,
 		}
+		requestBody[mistralKeyMessages] = append(messagesArray, systemMessage)
 	}
+}
 
-	// Convert memory messages to Mistral format
-	for _, msg := range messages {
-		if messagesArray, ok := request["messages"].([]map[string]any); ok {
-			request["messages"] = append(messagesArray, map[string]any{
+// addMessagesToRequestBody converts Request messages to Mistral format
+func (p *MistralProvider) addMessagesToRequestBody(requestBody map[string]any, messages []Message) {
+	if messagesArray, ok := requestBody[mistralKeyMessages].([]map[string]any); ok {
+		for _, msg := range messages {
+			mistralMessage := map[string]any{
 				"role":    msg.Role,
 				"content": msg.Content,
-			})
+			}
+			if msg.Name != "" {
+				mistralMessage["name"] = msg.Name
+			}
+			if len(msg.ToolCalls) > 0 {
+				mistralMessage["tool_calls"] = msg.ToolCalls
+			}
+			if msg.ToolCallID != "" {
+				mistralMessage["tool_call_id"] = msg.ToolCallID
+			}
+			messagesArray = append(messagesArray, mistralMessage)
 		}
+		requestBody[mistralKeyMessages] = messagesArray
 	}
+}
 
-	// Add other options
+// addStructuredResponseToRequest adds structured response schema to the request
+func (p *MistralProvider) addStructuredResponseToRequest(requestBody map[string]any, schema any) {
+	requestBody[mistralKeyResponseFormat] = map[string]any{
+		"type":   "json_schema",
+		"schema": schema,
+	}
+}
+
+// addRemainingOptions adds provider options and additional options to the request
+func (p *MistralProvider) addRemainingOptions(requestBody map[string]any, options map[string]any) {
+	// Add provider options first
 	for k, v := range p.options {
-		if k != "messages" && k != KeySystemPrompt {
-			request[k] = v
-		}
-	}
-	for k, v := range options {
-		if k != "messages" && k != KeySystemPrompt && k != KeyStructuredMessages {
-			request[k] = v
+		if k != mistralKeyMaxTokens { // Already added in initialize
+			requestBody[k] = v
 		}
 	}
 
-	data, err := json.Marshal(request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	// Add additional options (may override provider options)
+	for k, v := range options {
+		if k != mistralKeySystemPrompt { // Already handled
+			requestBody[k] = v
+		}
 	}
-	return data, nil
 }

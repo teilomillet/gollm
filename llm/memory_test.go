@@ -5,8 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/weave-labs/gollm/internal/models"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -16,7 +14,7 @@ import (
 
 // MockProvider implements a simple mock provider for testing
 type MockProvider struct {
-	messages   []models.MemoryMessage
+	messages   []MemoryMessage
 	flattened  string
 	structured bool
 	logger     logging.Logger
@@ -41,7 +39,7 @@ func (p *MockProvider) PrepareRequest(prompt string, options map[string]any) ([]
 }
 
 func (p *MockProvider) PrepareRequestWithMessages(
-	messages []models.MemoryMessage,
+	messages []MemoryMessage,
 	options map[string]any,
 ) ([]byte, error) {
 	p.messages = messages
@@ -99,7 +97,7 @@ func (l *MockLLM) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 	// Get the structured messages that were set with SetOption
 	structuredMsgs, ok := l.provider.options["structured_messages"]
 	if ok {
-		if messages, ok := structuredMsgs.([]models.MemoryMessage); ok {
+		if messages, ok := structuredMsgs.([]MemoryMessage); ok {
 			if _, err := l.provider.PrepareRequestWithMessages(messages, nil); err != nil {
 				return "", err
 			}
@@ -128,7 +126,7 @@ func (l *MockLLM) GenerateStream(ctx context.Context, prompt *Prompt, opts ...Ge
 func (l *MockLLM) SupportsStreaming() bool { return false }
 func (l *MockLLM) SetOption(key string, value any) {
 	if key == "structured_messages" {
-		if messages, ok := value.([]models.MemoryMessage); ok {
+		if messages, ok := value.([]MemoryMessage); ok {
 			l.provider.options = map[string]any{
 				"structured_messages": messages,
 			}
@@ -154,7 +152,7 @@ func TestStructuredMessageStorage(t *testing.T) {
 	memory.Add("user", "Hello, how are you?")
 
 	// Add structured message with cache control
-	structuredMsg := models.MemoryMessage{
+	structuredMsg := MemoryMessage{
 		Role:         "user",
 		Content:      "This has cache control",
 		CacheControl: "ephemeral",

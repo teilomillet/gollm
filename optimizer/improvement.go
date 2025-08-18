@@ -78,12 +78,12 @@ func (po *PromptOptimizer) generateImprovedPrompt(
 	cleanedResponse := cleanJSONResponse(response.AsText())
 
 	var improvedPrompts struct {
-		IncrementalImprovement llm.Prompt `json:"incrementalImprovement"`
-		BoldRedesign           llm.Prompt `json:"boldRedesign"`
+		IncrementalImprovement llm.Prompt `json:"incremental_improvement"`
+		BoldRedesign           llm.Prompt `json:"bold_redesign"`
 		ExpectedImpact         struct {
 			Incremental float64 `json:"incremental"`
 			Bold        float64 `json:"bold"`
-		} `json:"expectedImpact"`
+		} `json:"expected_impact"`
 	}
 
 	err = json.Unmarshal([]byte(cleanedResponse), &improvedPrompts)

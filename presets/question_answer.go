@@ -9,35 +9,6 @@ import (
 	"github.com/weave-labs/gollm"
 )
 
-// QuestionAnswerTemplate defines a structured prompt template for question answering.
-// It guides the LLM to provide clear, concise, and relevant answers while maintaining
-// a consistent output format.
-//
-// The template includes:
-// - Clear question presentation
-// - Directive for concise answers
-// - Structured output format
-//
-// Example generated prompt:
-//
-//	Answer the following question:
-//
-//	What are the main challenges in quantum computing?
-//
-//	Directives:
-//	- Provide a clear and concise answer
-//
-//	Answer:
-var QuestionAnswerTemplate = gollm.NewPromptTemplate(
-	"QuestionAnswer",
-	"Answer the given question",
-	"Answer the following question:\n\n{{.Question}}",
-	gollm.WithPromptOptions(
-		gollm.WithDirectives("Provide a clear and concise answer"),
-		gollm.WithOutput("Answer:"),
-	),
-)
-
 // QuestionAnswer performs question answering with support for context, examples,
 // and custom directives. It enhances answer quality by allowing additional
 // context and guidance through prompt options.
@@ -103,10 +74,20 @@ var QuestionAnswerTemplate = gollm.NewPromptTemplate(
 //	4. Cost and Complexity: Quantum computers require extremely precise
 //	   control systems and specialized operating conditions.
 func QuestionAnswer(ctx context.Context, l gollm.LLM, question string, opts ...gollm.PromptOption) (string, error) {
+	questionAnswerTemplate := gollm.NewPromptTemplate(
+		"QuestionAnswer",
+		"Answer the given question",
+		"Answer the following question:\n\n{{.Question}}",
+		gollm.WithPromptOptions(
+			gollm.WithDirectives("Provide a clear and concise answer"),
+			gollm.WithOutput("Answer:"),
+		),
+	)
+
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	prompt, err := QuestionAnswerTemplate.Execute(map[string]any{
+	prompt, err := questionAnswerTemplate.Execute(map[string]any{
 		"Question": question,
 	})
 	if err != nil {

@@ -13,6 +13,7 @@ import (
 	"github.com/weave-labs/gollm/llm"
 )
 
+//nolint:gochecknoglobals // This is too weird the mess with right now.
 var registerValidationOnce sync.Once
 
 // registerValidationFunctions registers custom validation functions for the optimizer package.

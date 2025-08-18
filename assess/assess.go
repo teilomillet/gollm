@@ -428,7 +428,7 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 	ctx, cancel := context.WithTimeout(ctx, tc.Timeout)
 	defer cancel()
 
-	prompt := client.NewPrompt(tc.Input)
+	prompt := llm.NewPrompt(tc.Input)
 	if tc.SystemPrompt != "" {
 		prompt.SystemPrompt = tc.SystemPrompt
 	}

@@ -61,6 +61,8 @@ type MemoryOption struct {
 //   - LLM_MIROSTAT_ETA: Mirostat learning rate
 //   - LLM_MIROSTAT_TAU: Mirostat target entropy
 //   - LLM_TFS_Z: Tail-free sampling parameter
+//
+//nolint:tagliatelle // Config struct is used for environment variable parsing and should not be tagged
 type Config struct {
 	TfsZ                  *float64 `env:"LLM_TFS_Z" envDefault:"1"`
 	MirostatTau           *float64 `env:"LLM_MIROSTAT_TAU" envDefault:"5.0"`
@@ -79,7 +81,7 @@ type Config struct {
 	SystemPromptCacheType string
 	OllamaEndpoint        string           `env:"OLLAMA_ENDPOINT" envDefault:"http://localhost:11434"`
 	FrequencyPenalty      float64          `env:"LLM_FREQUENCY_PENALTY" envDefault:"0.0"`
-	LogLevel              logging.LogLevel `env:"LLM_LOG_LEVEL" envDefault:"WARN"`
+	LogLevel              logging.LogLevel `env:"LLM_LOG_LEVEL" envDefault:"2"`
 	RetryDelay            time.Duration    `env:"LLM_RETRY_DELAY" envDefault:"2s"`
 	MaxRetries            int              `env:"LLM_MAX_RETRIES" envDefault:"3"`
 	Timeout               time.Duration    `env:"LLM_TIMEOUT" envDefault:"30s"`

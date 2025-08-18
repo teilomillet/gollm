@@ -6,16 +6,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/weave-labs/gollm/internal/models"
-
 	"github.com/pkoukk/tiktoken-go"
 
 	"github.com/weave-labs/gollm/internal/logging"
 	"github.com/weave-labs/gollm/providers"
 )
-
-// MemoryMessage is an alias to the models package
-type MemoryMessage = models.MemoryMessage
 
 // Memory manages conversation history with token-based truncation.
 // It provides thread-safe operations for adding, retrieving, and managing messages
@@ -31,15 +26,6 @@ type Memory struct {
 
 // NewMemory creates a new Memory instance with the specified token limit and model.
 // It initializes the token encoder based on the model and sets up logging.
-//
-// Parameters:
-//   - maxTokens: Maximum number of tokens to keep in memory
-//   - model: Name of the LLM model for token encoding
-//   - logger: Logger for debugging and monitoring
-//
-// Returns:
-//   - Initialized Memory instance
-//   - ErrorTypeProvider if token encoding initialization fails
 func NewMemory(maxTokens int, model string, logger logging.Logger) (*Memory, error) {
 	encoding, err := tiktoken.EncodingForModel(model)
 	if err != nil {
@@ -61,10 +47,6 @@ func NewMemory(maxTokens int, model string, logger logging.Logger) (*Memory, err
 // Add appends a new message to the conversation history.
 // It automatically truncates older messages if the token limit is exceeded.
 // This operation is thread-safe.
-//
-// Parameters:
-//   - role: Role of the message sender
-//   - content: Content of the message
 func (m *Memory) Add(role, content string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -84,9 +66,6 @@ func (m *Memory) Add(role, content string) {
 // This allows adding messages with custom metadata like cache control.
 // It automatically truncates older messages if the token limit is exceeded.
 // This operation is thread-safe.
-//
-// Parameters:
-//   - message: The MemoryMessage to add
 func (m *Memory) AddStructured(message MemoryMessage) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -184,12 +163,6 @@ type LLMWithMemory struct {
 	useStructuredMessages bool    // Whether to use structured messages with the provider
 }
 
-// NewPrompt creates a new prompt instance.
-// It delegates to the underlying LLM's NewPrompt method.
-func (l *LLMWithMemory) NewPrompt(input string) *Prompt {
-	return l.LLM.NewPrompt(input)
-}
-
 // GetLogger returns the logger from the wrapped LLM instance.
 func (l *LLMWithMemory) GetLogger() logging.Logger {
 	return l.LLM.GetLogger()
@@ -210,11 +183,6 @@ func (l *LLMWithMemory) SetOption(key string, value any) {
 	l.LLM.SetOption(key, value)
 }
 
-// SupportsStreaming checks if the provider supports streaming responses.
-func (l *LLMWithMemory) SupportsStreaming() bool {
-	return l.LLM.SupportsStreaming()
-}
-
 // GenerateStream initiates a streaming response from the LLM.
 func (l *LLMWithMemory) GenerateStream(
 	ctx context.Context,
@@ -229,23 +197,9 @@ func (l *LLMWithMemory) GenerateStream(
 	return stream, nil
 }
 
-// SupportsStructuredResponse checks if the provider supports JSON schema validation.
-func (l *LLMWithMemory) SupportsStructuredResponse() bool {
-	return l.LLM.SupportsStructuredResponse()
-}
-
 // NewLLMWithMemory creates a new LLM instance with memory.
 // It initializes a memory store with the specified token limit and configures
 // the conversation context for the wrapped LLM.
-//
-// Parameters:
-//   - llm: Base LLM instance to wrap
-//   - maxTokens: Maximum number of tokens to keep in memory
-//   - model: Model name for token counting purposes
-//
-// Returns:
-//   - LLM instance with memory capabilities
-//   - ErrorTypeProvider if memory initialization fails
 func NewLLMWithMemory(llm LLM, maxTokens int, model string) (*LLMWithMemory, error) {
 	logger := llm.GetLogger()
 	memory, err := NewMemory(maxTokens, model, logger)
@@ -262,15 +216,6 @@ func NewLLMWithMemory(llm LLM, maxTokens int, model string) (*LLMWithMemory, err
 
 // Generate produces text based on the given prompt and conversation history.
 // It automatically adds the prompt and response to memory for future context.
-//
-// Parameters:
-//   - ctx: Context for the request
-//   - prompt: The input prompt
-//   - opts: Optional generation parameters
-//
-// Returns:
-//   - Generated text response
-//   - Error types as per the base LLM's Generate method
 func (l *LLMWithMemory) Generate(
 	ctx context.Context,
 	prompt *Prompt,
@@ -351,7 +296,7 @@ func (l *LLMWithMemory) ClearMemory() {
 //
 // Returns:
 //   - Slice of MemoryMessage containing the conversation history
-func (l *LLMWithMemory) GetMemory() []models.MemoryMessage {
+func (l *LLMWithMemory) GetMemory() []MemoryMessage {
 	return l.memory.GetMessages()
 }
 
@@ -369,10 +314,21 @@ func (l *LLMWithMemory) AddToMemory(role, content string) {
 //   - content: Message content
 //   - cacheControl: Caching strategy ("ephemeral", "persistent", etc.)
 func (l *LLMWithMemory) AddStructuredMessage(role, content, cacheControl string) {
-	message := models.MemoryMessage{
+	message := MemoryMessage{
 		Role:         role,
 		Content:      content,
 		CacheControl: cacheControl,
 	}
 	l.memory.AddStructured(message)
+}
+
+// MemoryMessage represents a single message in the conversation history.
+// It includes the role of the speaker, the content of the message,
+// and the number of tokens in the message for efficient memory management.
+type MemoryMessage struct {
+	Metadata     map[string]any
+	Role         string
+	Content      string
+	CacheControl string
+	Tokens       int
 }

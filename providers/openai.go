@@ -1,4 +1,3 @@
-// Package providers implements LLM provider interfaces and implementations.
 package providers
 
 import (
@@ -16,8 +15,13 @@ import (
 )
 
 const (
-	openAIKeyMaxTokens  = "max_tokens"
-	openAIKeyToolChoice = "tool_choice"
+	openAIKeyMaxTokens           = "max_tokens"
+	openAIKeyToolChoice          = "tool_choice"
+	openAIKeySystemPrompt        = "system_prompt"
+	openAIKeyTools               = "tools"
+	openAIKeyStructuredMessages  = "structured_messages"
+	openAIKeyMaxCompletionTokens = "max_completion_tokens"
+	openAIKeyStream              = "stream"
 )
 
 // OpenAIProvider implements the Provider interface for OpenAI's API.
@@ -33,14 +37,6 @@ type OpenAIProvider struct {
 
 // NewOpenAIProvider creates a new OpenAI provider instance.
 // It initializes the provider with the given API key, model, and optional headers.
-//
-// Parameters:
-//   - apiKey: OpenAI API key for authentication
-//   - model: The model to use (e.g., "gpt-4", "gpt-3.5-turbo")
-//   - extraHeaders: Additional HTTP headers for requests
-//
-// Returns:
-//   - A configured OpenAI Provider instance
 func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) *OpenAIProvider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
@@ -58,21 +54,6 @@ func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) *Op
 // This is used for debugging and monitoring API interactions.
 func (p *OpenAIProvider) SetLogger(logger logging.Logger) {
 	p.logger = logger
-}
-
-// needsMaxCompletionTokens checks if the model requires max_completion_tokens instead of max_tokens
-func (p *OpenAIProvider) needsMaxCompletionTokens() bool {
-	// Check for models that start with "o"
-	if strings.HasPrefix(p.model, "o") {
-		return true
-	}
-
-	// Check for gpt-4o and similar models
-	if strings.Contains(p.model, "4o") || strings.Contains(p.model, "-o") {
-		return true
-	}
-
-	return false
 }
 
 // SetOption sets a specific option for the OpenAI provider.
@@ -135,7 +116,7 @@ func (p *OpenAIProvider) Endpoint() string {
 	return "https://api.openai.com/v1/chat/completions"
 }
 
-// SupportsJSONSchema indicates that OpenAI supports native JSON schema validation
+// SupportsStructuredResponse indicates that OpenAI supports native JSON schema validation
 // through its function calling and JSON mode capabilities.
 func (p *OpenAIProvider) SupportsStructuredResponse() bool {
 	return true
@@ -160,347 +141,39 @@ func (p *OpenAIProvider) Headers() map[string]string {
 	return headers
 }
 
-// PrepareRequest creates the request body for an OpenAI API call.
-// It handles:
-//   - Message formatting
-//   - System messages
-//   - Function/tool definitions
-//   - Model-specific options
-//
-// Parameters:
-//   - prompt: The input text or conversation
-//   - options: Additional parameters for the request
-//
-// Returns:
-//   - Serialized JSON request body
-//   - Any error encountered during preparation
-func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]any) ([]byte, error) {
-	request := p.initializeOpenAIRequest()
+// PrepareRequest creates the request body for an OpenAI API call
+func (p *OpenAIProvider) PrepareRequest(req *Request, options map[string]any) ([]byte, error) {
+	requestBody := p.initializeOpenAIRequest()
 
-	// Add system and user messages
-	p.addSystemPromptAsMessage(request, options)
-	p.addUserPromptMessage(request, prompt)
+	// Handle system prompt from Request or options
+	systemPrompt := p.extractSystemPromptFromRequest(req, options)
+	if systemPrompt != "" {
+		p.addSystemPromptToRequestBody(requestBody, systemPrompt)
+	}
 
-	// Handle tools and tool choice
-	p.addToolConfiguration(request, options)
+	// Add messages from the Request
+	p.addMessagesToRequestBody(requestBody, req.Messages, options)
 
-	// Merge and handle options
-	mergedOptions := p.mergeProviderAndRequestOptions(options)
-	p.handleTokenParameters(mergedOptions)
-	p.applyOptionsToRequest(request, mergedOptions)
+	// Handle tools if present in options
+	p.handleToolsForRequest(requestBody, options)
 
-	data, err := json.Marshal(request)
+	// Handle structured response schema
+	if req.ResponseSchema != nil && p.SupportsStructuredResponse() {
+		p.addStructuredResponseToRequest(requestBody, req.ResponseSchema)
+	}
+
+	// Add remaining options
+	p.addRemainingOptions(requestBody, options)
+
+	data, err := json.Marshal(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 	return data, nil
 }
 
-// initializeOpenAIRequest creates the base request structure
-func (p *OpenAIProvider) initializeOpenAIRequest() map[string]any {
-	return map[string]any{
-		"model":    p.model,
-		"messages": []map[string]any{},
-	}
-}
-
-// addSystemPromptAsMessage adds system prompt as developer message
-func (p *OpenAIProvider) addSystemPromptAsMessage(request map[string]any, options map[string]any) {
-	systemPrompt, ok := options["system_prompt"].(string)
-	if !ok || systemPrompt == "" {
-		return
-	}
-
-	if messages, ok := request["messages"].([]map[string]any); ok {
-		request["messages"] = append(messages, map[string]any{
-			"role":    "developer",
-			"content": systemPrompt,
-		})
-	}
-}
-
-// addUserPromptMessage adds the user's prompt as a message
-func (p *OpenAIProvider) addUserPromptMessage(request map[string]any, prompt string) {
-	if messages, ok := request["messages"].([]map[string]any); ok {
-		request["messages"] = append(messages, map[string]any{
-			"role":    "user",
-			"content": prompt,
-		})
-	}
-}
-
-// addToolConfiguration adds tools and tool choice to request
-func (p *OpenAIProvider) addToolConfiguration(request map[string]any, options map[string]any) {
-	// Handle tool_choice
-	if toolChoice, ok := options[openAIKeyToolChoice].(string); ok {
-		request[openAIKeyToolChoice] = toolChoice
-	}
-
-	// Handle tools
-	tools, ok := options[KeyTools].([]models.Tool)
-	if !ok || len(tools) == 0 {
-		return
-	}
-
-	openAITools := p.convertToolsToOpenAIFormat(tools)
-	request[KeyTools] = openAITools
-}
-
-// convertToolsToOpenAIFormat converts tools to OpenAI format
-func (p *OpenAIProvider) convertToolsToOpenAIFormat(tools []models.Tool) []map[string]any {
-	openAITools := make([]map[string]any, len(tools))
-	for i, tool := range tools {
-		openAITools[i] = map[string]any{
-			"type": "function",
-			"function": map[string]any{
-				"name":        tool.Function.Name,
-				"description": tool.Function.Description,
-				"parameters":  tool.Function.Parameters,
-			},
-			"strict": true,
-		}
-	}
-	return openAITools
-}
-
-// mergeProviderAndRequestOptions merges provider and request options
-func (p *OpenAIProvider) mergeProviderAndRequestOptions(options map[string]any) map[string]any {
-	mergedOptions := make(map[string]any)
-
-	// First add options from provider (p.options)
-	for k, v := range p.options {
-		if !p.isHandledOpenAIOption(k) {
-			mergedOptions[k] = v
-		}
-	}
-
-	// Then add options from the function parameters (may override provider options)
-	for k, v := range options {
-		if !p.isHandledOpenAIOption(k) {
-			mergedOptions[k] = v
-		}
-	}
-
-	return mergedOptions
-}
-
-// isHandledOpenAIOption checks if an option is already handled
-func (p *OpenAIProvider) isHandledOpenAIOption(key string) bool {
-	return key == KeyTools || key == openAIKeyToolChoice || key == KeySystemPrompt
-}
-
-// applyOptionsToRequest adds merged options to the request
-func (p *OpenAIProvider) applyOptionsToRequest(request map[string]any, mergedOptions map[string]any) {
-	for k, v := range mergedOptions {
-		request[k] = v
-	}
-}
-
-// parseSchema converts various schema formats to a map structure
-func (p *OpenAIProvider) parseSchema(schema any) (any, error) {
-	var schemaObj any
-	switch s := schema.(type) {
-	case string:
-		if err := json.Unmarshal([]byte(s), &schemaObj); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal schema string: %w", err)
-		}
-	case []byte:
-		if err := json.Unmarshal(s, &schemaObj); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal schema bytes: %w", err)
-		}
-	case map[string]any:
-		schemaObj = s
-	default:
-		// Try to marshal and unmarshal to ensure we have a proper object
-		schemaBytes, err := json.Marshal(schema)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal schema: %w", err)
-		}
-		if err := json.Unmarshal(schemaBytes, &schemaObj); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal schema: %w", err)
-		}
-	}
-	return schemaObj, nil
-}
-
-// buildSchemaRequest builds a request with JSON schema response format
-func (p *OpenAIProvider) buildSchemaRequest(prompt string, cleanSchema any, options map[string]any) map[string]any {
-	request := map[string]any{
-		"model": p.model,
-		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
-		},
-		"response_format": map[string]any{
-			"type": "json_schema",
-			"json_schema": map[string]any{
-				"name":   "structured_response",
-				"schema": cleanSchema,
-				"strict": true,
-			},
-		},
-	}
-
-	// Handle system prompt as system message
-	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		if messages, ok := request["messages"].([]map[string]any); ok {
-			request["messages"] = append([]map[string]any{
-				{"role": "system", "content": systemPrompt},
-			}, messages...)
-		}
-	}
-
-	return request
-}
-
-// mergeOptionsForSchema merges provider options with request options for schema requests
-func (p *OpenAIProvider) mergeOptionsForSchema(options map[string]any) map[string]any {
-	mergedOptions := make(map[string]any)
-
-	// First add options from provider (p.options)
-	for k, v := range p.options {
-		if k != "system_prompt" {
-			mergedOptions[k] = v
-		}
-	}
-
-	// Then add options from the function parameters (may override provider options)
-	for k, v := range options {
-		if k != "system_prompt" {
-			mergedOptions[k] = v
-		}
-	}
-
-	return mergedOptions
-}
-
-// PrepareRequestWithSchema creates a request that includes JSON schema validation.
-// This uses OpenAI's function calling feature to enforce response structure.
-//
-// Parameters:
-//   - prompt: The input text or conversation
-//   - options: Additional request parameters
-//   - schema: JSON schema for response validation
-//
-// Returns:
-//   - Serialized JSON request body
-//   - Any error encountered during preparation
-func (p *OpenAIProvider) PrepareRequestWithSchema(prompt string, options map[string]any, schema any) ([]byte, error) {
-	p.logger.Debug("Preparing request with schema", "prompt", prompt, "schema", schema)
-
-	// Parse and clean the schema
-	schemaObj, err := p.parseSchema(schema)
-	if err != nil {
-		return nil, err
-	}
-
-	// Clean the schema for OpenAI by removing unsupported validation rules
-	cleanSchema := cleanSchemaForOpenAI(schemaObj)
-
-	// Debug log the cleaned schema
-	if cleanSchemaJSON, err := json.MarshalIndent(cleanSchema, "", "  "); err == nil {
-		p.logger.Debug("Cleaned schema for OpenAI", "schema", string(cleanSchemaJSON))
-	}
-
-	// Build the request with schema
-	request := p.buildSchemaRequest(prompt, cleanSchema, options)
-
-	// Merge and process options
-	mergedOptions := p.mergeOptionsForSchema(options)
-	p.handleTokenParameters(mergedOptions)
-
-	// Add merged options to the request
-	for k, v := range mergedOptions {
-		request[k] = v
-	}
-
-	reqJSON, err := json.Marshal(request)
-	if err != nil {
-		p.logger.Error("Failed to marshal request with schema", "error", err)
-		return nil, fmt.Errorf("failed to marshal request with schema: %w", err)
-	}
-
-	p.logger.Debug("Full request to OpenAI", "request", string(reqJSON))
-	return reqJSON, nil
-}
-
-// cleanSchemaForOpenAI removes validation rules that OpenAI doesn't support
-func cleanSchemaForOpenAI(schema any) any {
-	schemaMap, ok := schema.(map[string]any)
-	if !ok {
-		return schema
-	}
-
-	result := cleanSchemaMap(schemaMap)
-
-	// Add additionalProperties: false at each object level
-	if schemaMap["type"] == "object" {
-		result["additionalProperties"] = false
-	}
-
-	return result
-}
-
-// cleanSchemaMap processes a schema map and cleans its properties
-func cleanSchemaMap(schemaMap map[string]any) map[string]any {
-	result := make(map[string]any)
-
-	for k, v := range schemaMap {
-		if !isAllowedSchemaKey(k) {
-			continue
-		}
-
-		result[k] = processSchemaValue(k, v)
-	}
-
-	return result
-}
-
-// isAllowedSchemaKey checks if a schema key is allowed for OpenAI
-func isAllowedSchemaKey(key string) bool {
-	switch key {
-	case "type", "properties", "required", "items":
-		return true
-	default:
-		return false
-	}
-}
-
-// processSchemaValue processes a schema value based on its key
-func processSchemaValue(key string, value any) any {
-	switch key {
-	case "properties":
-		return cleanProperties(value)
-	case "items":
-		return cleanSchemaForOpenAI(value)
-	default:
-		return value
-	}
-}
-
-// cleanProperties cleans a properties map
-func cleanProperties(value any) map[string]any {
-	props := make(map[string]any)
-	propsMap, ok := value.(map[string]any)
-	if !ok {
-		return props
-	}
-
-	for propName, propSchema := range propsMap {
-		props[propName] = cleanSchemaForOpenAI(propSchema)
-	}
-
-	return props
-}
-
 // ParseResponse extracts the generated text from the OpenAI API response.
 // It handles various response formats and error cases.
-//
-// Parameters:
-//   - body: Raw API response body
-//
-// Returns:
-//   - Generated text content
-//   - Any error encountered during parsing
 func (p *OpenAIProvider) ParseResponse(body []byte) (*Response, error) {
 	response := openAIResponse{}
 
@@ -520,6 +193,7 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (*Response, error) {
 			response.Usage.PromptTokensDetails.CacheTokens,
 			response.Usage.CompletionTokens,
 			0,
+			0, // ReasoningTokens
 		)
 	}
 
@@ -556,27 +230,6 @@ func (p *OpenAIProvider) ParseResponse(body []byte) (*Response, error) {
 	return nil, errors.New("no content or tool calls in response")
 }
 
-// HandleFunctionCalls processes function calling in the response.
-// This supports OpenAI's function calling and JSON mode features.
-func (p *OpenAIProvider) HandleFunctionCalls(body []byte) ([]byte, error) {
-	response := string(body)
-	functionCalls, err := ExtractFunctionCalls(response)
-	if err != nil {
-		return nil, fmt.Errorf("error extracting function calls: %w", err)
-	}
-
-	if len(functionCalls) == 0 {
-		return nil, errors.New("no function calls found in response")
-	}
-
-	p.logger.Debug("Function calls to handle", "calls", functionCalls)
-	data, err := json.Marshal(functionCalls)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal function calls: %w", err)
-	}
-	return data, nil
-}
-
 // SetExtraHeaders configures additional HTTP headers for API requests.
 // This allows for custom headers needed for specific features or requirements.
 func (p *OpenAIProvider) SetExtraHeaders(extraHeaders map[string]string) {
@@ -589,58 +242,40 @@ func (p *OpenAIProvider) SupportsStreaming() bool {
 	return true
 }
 
+// SupportsFunctionCalling indicates if the provider supports function calling
+func (p *OpenAIProvider) SupportsFunctionCalling() bool {
+	return true
+}
+
 // PrepareStreamRequest creates a request body for streaming API calls
-func (p *OpenAIProvider) PrepareStreamRequest(prompt string, options map[string]any) ([]byte, error) {
-	// Start with regular request preparation
-	requestBody := map[string]any{
-		"model": p.model,
-		"messages": []map[string]string{
-			{"role": "user", "content": prompt},
-		},
-		"stream": true,
-		"stream_options": []map[string]bool{
-			{"include_usage": true},
-		},
+func (p *OpenAIProvider) PrepareStreamRequest(req *Request, options map[string]any) ([]byte, error) {
+	if !p.SupportsStreaming() {
+		return nil, errors.New("streaming is not supported by this provider")
 	}
 
-	// Create a merged copy of options to handle token parameters properly
-	mergedOptions := make(map[string]any)
+	requestBody := p.initializeOpenAIRequest()
+	requestBody[openAIKeyStream] = true
+	requestBody["stream_options"] = map[string]bool{"include_usage": true}
 
-	// First add options from provider (p.options)
-	for k, v := range p.options {
-		if k != "stream" { // Don't override stream setting
-			mergedOptions[k] = v
-		}
+	// Handle system prompt from Request or options
+	systemPrompt := p.extractSystemPromptFromRequest(req, options)
+	if systemPrompt != "" {
+		p.addSystemPromptToRequestBody(requestBody, systemPrompt)
 	}
 
-	// Then add options from the function parameters (may override provider options)
-	for k, v := range options {
-		if k != "stream" { // Don't override stream setting
-			mergedOptions[k] = v
-		}
+	// Add messages from the Request
+	p.addMessagesToRequestBody(requestBody, req.Messages, options)
+
+	// Handle tools if present in options
+	p.handleToolsForRequest(requestBody, options)
+
+	// Handle structured response schema
+	if req.ResponseSchema != nil && p.SupportsStructuredResponse() {
+		p.addStructuredResponseToRequest(requestBody, req.ResponseSchema)
 	}
 
-	// Handle max_tokens/max_completion_tokens conflict
-	// For models that need max_completion_tokens, ensure we use that and not max_tokens
-	if p.needsMaxCompletionTokens() {
-		if _, hasMaxTokens := mergedOptions[openAIKeyMaxTokens]; hasMaxTokens {
-			// Move max_tokens value to max_completion_tokens
-			mergedOptions["max_completion_tokens"] = mergedOptions[openAIKeyMaxTokens]
-			delete(mergedOptions, openAIKeyMaxTokens)
-		}
-	} else {
-		// For other models, ensure we use max_tokens and not max_completion_tokens
-		if _, hasMaxCompletionTokens := mergedOptions["max_completion_tokens"]; hasMaxCompletionTokens {
-			// Move max_completion_tokens value to max_tokens
-			mergedOptions[openAIKeyMaxTokens] = mergedOptions["max_completion_tokens"]
-			delete(mergedOptions, "max_completion_tokens")
-		}
-	}
-
-	// Add merged options to the request
-	for k, v := range mergedOptions {
-		requestBody[k] = v
-	}
+	// Add remaining options
+	p.addRemainingOptions(requestBody, options)
 
 	data, err := json.Marshal(requestBody)
 	if err != nil {
@@ -690,6 +325,7 @@ func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 			response.Usage.PromptTokensDetails.CacheTokens,
 			response.Usage.CompletionTokens,
 			0,
+			0, // ReasoningTokens
 		)
 	}
 
@@ -701,74 +337,190 @@ func (p *OpenAIProvider) ParseStreamResponse(chunk []byte) (*Response, error) {
 	}, nil
 }
 
-// PrepareRequestWithMessages creates a request body using structured message objects
-// rather than a flattened prompt string. This enables more efficient caching and
-// better preserves conversation structure for the OpenAI API.
-//
-// Parameters:
-//   - messages: Slice of MemoryMessage objects representing the conversation
-//   - options: Additional options for the request
-//
-// Returns:
-//   - Serialized JSON request body
-//   - Any error encountered during preparation
+// needsMaxCompletionTokens checks if the model requires max_completion_tokens instead of max_tokens
+func (p *OpenAIProvider) needsMaxCompletionTokens() bool {
+	if strings.HasPrefix(p.model, "o") {
+		return true
+	}
 
-// addSystemPromptToRequest adds the system prompt to the request if present
-func (p *OpenAIProvider) addSystemPromptToRequest(request map[string]any, options map[string]any) {
-	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		if messagesArray, ok := request["messages"].([]map[string]any); ok {
-			request["messages"] = append(messagesArray, map[string]any{
-				"role":    "system",
-				"content": systemPrompt,
-			})
-		}
+	if strings.Contains(p.model, "4o") || strings.Contains(p.model, "-o") {
+		return true
+	}
+
+	return false
+}
+
+// initializeOpenAIRequest creates the base request structure
+func (p *OpenAIProvider) initializeOpenAIRequest() map[string]any {
+	return map[string]any{
+		"model":    p.model,
+		"messages": []map[string]any{},
 	}
 }
 
-// addMemoryMessagesToRequest converts MemoryMessage objects to OpenAI format and adds them to request
-func (p *OpenAIProvider) addMemoryMessagesToRequest(request map[string]any, messages []models.MemoryMessage) {
-	for _, msg := range messages {
-		message := map[string]any{
-			"role":    msg.Role,
-			"content": msg.Content,
-		}
+// extractSystemPromptFromRequest gets system prompt from request or options
+func (p *OpenAIProvider) extractSystemPromptFromRequest(req *Request, options map[string]any) string {
+	// Priority: Request.SystemPrompt > options["system_prompt"]
+	if req.SystemPrompt != "" {
+		return req.SystemPrompt
+	}
+	if sp, ok := options[openAIKeySystemPrompt].(string); ok && sp != "" {
+		return sp
+	}
+	return ""
+}
 
-		// Add metadata if present
-		if len(msg.Metadata) > 0 {
-			for k, v := range msg.Metadata {
-				message[k] = v
-			}
-		}
+// addSystemPromptToRequestBody adds the system prompt to the request
+func (p *OpenAIProvider) addSystemPromptToRequestBody(requestBody map[string]any, systemPrompt string) {
+	if systemPrompt == "" {
+		return
+	}
 
-		if messagesArray, ok := request["messages"].([]map[string]any); ok {
-			request["messages"] = append(messagesArray, message)
+	if messages, ok := requestBody["messages"].([]map[string]any); ok {
+		systemMessage := map[string]any{
+			"role":    "system",
+			"content": systemPrompt,
 		}
+		requestBody["messages"] = append([]map[string]any{systemMessage}, messages...)
 	}
 }
 
-// addToolsToRequest handles tool configuration for the request
-func (p *OpenAIProvider) addToolsToRequest(request map[string]any, options map[string]any) {
-	// Handle tool_choice
-	if toolChoice, ok := options[openAIKeyToolChoice].(string); ok {
-		request[openAIKeyToolChoice] = toolChoice
+// addMessagesToRequestBody converts and adds messages to the request
+func (p *OpenAIProvider) addMessagesToRequestBody(
+	requestBody map[string]any,
+	messages []Message,
+	options map[string]any,
+) {
+	if len(messages) == 0 {
+		return
 	}
 
-	// Handle tools
-	if tools, ok := options[KeyTools].([]models.Tool); ok && len(tools) > 0 {
-		openAITools := make([]map[string]any, len(tools))
-		for i, tool := range tools {
-			openAITools[i] = map[string]any{
-				"type": "function",
+	openAIMessages := make([]map[string]any, 0, len(messages))
+	for i := range messages {
+		openAIMsg := p.convertMessageToOpenAIFormat(&messages[i], options)
+		openAIMessages = append(openAIMessages, openAIMsg)
+	}
+
+	if existingMessages, ok := requestBody["messages"].([]map[string]any); ok {
+		requestBody["messages"] = append(existingMessages, openAIMessages...)
+	} else {
+		requestBody["messages"] = openAIMessages
+	}
+}
+
+// convertMessageToOpenAIFormat converts a Message to OpenAI's format
+func (p *OpenAIProvider) convertMessageToOpenAIFormat(msg *Message, _ map[string]any) map[string]any {
+	openAIMsg := map[string]any{
+		"role":    msg.Role,
+		"content": msg.Content,
+	}
+
+	// Add name if present
+	if msg.Name != "" {
+		openAIMsg["name"] = msg.Name
+	}
+
+	// Add tool_call_id if present
+	if msg.ToolCallID != "" {
+		openAIMsg["tool_call_id"] = msg.ToolCallID
+	}
+
+	// Handle tool calls if present
+	if len(msg.ToolCalls) > 0 {
+		openAIToolCalls := make([]map[string]any, len(msg.ToolCalls))
+		for i, toolCall := range msg.ToolCalls {
+			openAIToolCalls[i] = map[string]any{
+				"id":   toolCall.ID,
+				"type": toolCall.Type,
 				"function": map[string]any{
-					"name":        tool.Function.Name,
-					"description": tool.Function.Description,
-					"parameters":  tool.Function.Parameters,
+					"name":      toolCall.Function.Name,
+					"arguments": string(toolCall.Function.Arguments),
 				},
-				"strict": true,
 			}
 		}
-		request[KeyTools] = openAITools
+		openAIMsg["tool_calls"] = openAIToolCalls
 	}
+
+	return openAIMsg
+}
+
+// handleToolsForRequest processes tools and adds them to the request
+func (p *OpenAIProvider) handleToolsForRequest(requestBody map[string]any, options map[string]any) {
+	tools, ok := options[openAIKeyTools].([]models.Tool)
+	if !ok || len(tools) == 0 {
+		return
+	}
+
+	// Convert tools to OpenAI format
+	openAITools := make([]map[string]any, len(tools))
+	for i, tool := range tools {
+		openAITools[i] = map[string]any{
+			"type": "function",
+			"function": map[string]any{
+				"name":        tool.Function.Name,
+				"description": tool.Function.Description,
+				"parameters":  tool.Function.Parameters,
+			},
+			"strict": true,
+		}
+	}
+
+	requestBody["tools"] = openAITools
+
+	// Handle tool_choice if specified
+	if toolChoice, ok := options[openAIKeyToolChoice].(string); ok {
+		requestBody["tool_choice"] = toolChoice
+	}
+}
+
+// addStructuredResponseToRequest adds structured response schema to the request
+func (p *OpenAIProvider) addStructuredResponseToRequest(requestBody map[string]any, schema any) {
+	// For OpenAI, we use response_format with JSON schema
+	requestBody["response_format"] = map[string]any{
+		"type": "json_schema",
+		"json_schema": map[string]any{
+			"name":   "response",
+			"schema": schema,
+			"strict": true,
+		},
+	}
+}
+
+// addRemainingOptions adds any remaining options to the request body
+func (p *OpenAIProvider) addRemainingOptions(requestBody map[string]any, options map[string]any) {
+	// Create merged options excluding handled keys
+	mergedOptions := make(map[string]any)
+
+	// Add provider options first
+	for k, v := range p.options {
+		if !p.isGlobalOption(k) {
+			mergedOptions[k] = v
+		}
+	}
+
+	// Add request options (may override provider options)
+	for k, v := range options {
+		if !p.isGlobalOption(k) {
+			mergedOptions[k] = v
+		}
+	}
+
+	// Handle token parameters
+	p.handleTokenParameters(mergedOptions)
+
+	// Add all merged options to request body
+	for k, v := range mergedOptions {
+		requestBody[k] = v
+	}
+}
+
+// isGlobalOption checks if a key is handled globally and should be excluded from options
+func (p *OpenAIProvider) isGlobalOption(key string) bool {
+	return key == openAIKeySystemPrompt ||
+		key == openAIKeyTools ||
+		key == openAIKeyToolChoice ||
+		key == openAIKeyStructuredMessages ||
+		key == openAIKeyStream
 }
 
 // handleTokenParameters handles max_tokens/max_completion_tokens conflict
@@ -788,68 +540,6 @@ func (p *OpenAIProvider) handleTokenParameters(mergedOptions map[string]any) {
 			delete(mergedOptions, "max_completion_tokens")
 		}
 	}
-}
-
-func (p *OpenAIProvider) PrepareRequestWithMessages(
-	messages []models.MemoryMessage,
-	options map[string]any,
-) ([]byte, error) {
-	request := map[string]any{
-		"model":    p.model,
-		"messages": []map[string]any{},
-	}
-
-	// Build messages array
-	p.addSystemPromptToRequest(request, options)
-	p.addMemoryMessagesToRequest(request, messages)
-
-	// Handle tools and tool choice
-	p.addToolsToRequest(request, options)
-
-	// Create a merged copy of options to handle token parameters properly
-	mergedOptions := make(map[string]any)
-
-	// First add options from provider (p.options)
-	for k, v := range p.options {
-		if k != KeyTools && k != openAIKeyToolChoice && k != KeySystemPrompt && k != KeyStructuredMessages {
-			mergedOptions[k] = v
-		}
-	}
-
-	// Then add options from the function parameters (may override provider options)
-	for k, v := range options {
-		if k != KeyTools && k != openAIKeyToolChoice && k != KeySystemPrompt && k != KeyStructuredMessages {
-			mergedOptions[k] = v
-		}
-	}
-
-	// Handle max_tokens/max_completion_tokens conflict
-	// For models that need max_completion_tokens, ensure we use that and not max_tokens
-	if p.needsMaxCompletionTokens() {
-		if _, hasMaxTokens := mergedOptions[openAIKeyMaxTokens]; hasMaxTokens {
-			// Move max_tokens value to max_completion_tokens
-			mergedOptions["max_completion_tokens"] = mergedOptions[openAIKeyMaxTokens]
-			delete(mergedOptions, openAIKeyMaxTokens)
-		}
-	} else {
-		// For other models, ensure we use max_tokens and not max_completion_tokens
-		if _, hasMaxCompletionTokens := mergedOptions["max_completion_tokens"]; hasMaxCompletionTokens {
-			// Move max_completion_tokens value to max_tokens
-			mergedOptions[openAIKeyMaxTokens] = mergedOptions["max_completion_tokens"]
-			delete(mergedOptions, "max_completion_tokens")
-		}
-	}
-
-	// Add merged options to the request
-	for k, v := range mergedOptions {
-		request[k] = v
-	}
-
-	data, err := json.Marshal(request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-	return data, nil
 }
 
 type openAIResponse struct {

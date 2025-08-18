@@ -1,10 +1,11 @@
 // Package gollm provides prompt handling and manipulation functionality for Language Learning Models.
 // This file contains type definitions, re-exports, and utility functions for working with prompts
 // and their associated components like caching, templates, and message handling.
+//
+//nolint:gochecknoglobals // These are re-exports to simplify the API surface.
 package gollm
 
 import (
-	"github.com/weave-labs/gollm/internal/models"
 	"github.com/weave-labs/gollm/llm"
 	"github.com/weave-labs/gollm/providers"
 )
@@ -25,14 +26,6 @@ type (
 	// It can be a system message, user message, or assistant message.
 	PromptMessage = llm.PromptMessage
 
-	// Function defines a callable function that can be used by the LLM.
-	// It includes metadata like name, description, and parameter schemas.
-	Function = models.Function
-
-	// Tool represents a tool that can be used by the LLM during generation.
-	// Tools are higher-level abstractions over functions that include usage policies.
-	Tool = models.Tool
-
 	// PromptOption defines a function that can modify a prompt's configuration.
 	// These are used to customize prompt behavior in a flexible, chainable way.
 	PromptOption = llm.PromptOption
@@ -44,10 +37,6 @@ type (
 	// ToolCall represents a request from the LLM to use a specific tool.
 	// It includes the tool name and any arguments needed for execution.
 	ToolCall = llm.ToolCall
-
-	// MemoryMessage represents a message stored in the LLM's conversation memory.
-	// These messages provide context for maintaining coherent conversations.
-	MemoryMessage = models.MemoryMessage
 
 	// PromptTemplate defines a reusable template for generating prompts.
 	// Templates can include variables that are filled in at runtime.
@@ -121,4 +110,11 @@ func WithStructuredResponseSchema[T any]() llm.GenerateOption {
 // WithStructuredResponse re-exports the non-generic structured response option.
 func WithStructuredResponse(schema any) llm.GenerateOption {
 	return llm.WithStructuredResponse(schema)
+}
+
+// IsKnownProvider returns true if the given provider name is recognized by the library.
+// A provider is considered known if it has a ProviderConfig registered in the default registry.
+// Note: This does not guarantee the provider can be instantiated (constructor may be missing).
+func IsKnownProvider(name string) bool {
+	return providers.IsKnownProvider(name)
 }

@@ -6,7 +6,6 @@ package llm
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,11 +15,9 @@ import (
 
 	"github.com/weave-labs/gollm/config"
 	"github.com/weave-labs/gollm/internal/logging"
-	"github.com/weave-labs/gollm/internal/models"
 	"github.com/weave-labs/gollm/providers"
 )
 
-// Constants for configuration defaults
 const (
 	DefaultBufferSize      = 100
 	DefaultRetryMultiplier = 10
@@ -37,8 +34,6 @@ type LLM interface {
 	// GenerateStream initiates a streaming response from the LLM.
 	// Returns ErrorTypeUnsupported if the provider doesn't support streaming.
 	GenerateStream(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (TokenStream, error)
-	// SupportsStreaming checks if the provider supports streaming responses.
-	SupportsStreaming() bool
 	// SetOption configures a provider-specific option.
 	// Returns ErrorTypeInvalidInput if the option is not supported.
 	SetOption(key string, value any)
@@ -47,12 +42,8 @@ type LLM interface {
 	// SetEndpoint updates the API endpoint (primarily for local models).
 	// Returns ErrorTypeProvider if the provider doesn't support endpoint configuration.
 	SetEndpoint(endpoint string)
-	// NewPrompt creates a new prompt instance.
-	NewPrompt(input string) *Prompt
 	// GetLogger returns the current logger instance.
 	GetLogger() logging.Logger
-	// SupportsStructuredResponse checks if the provider supports JSON schema validation.
-	SupportsStructuredResponse() bool
 }
 
 // LLMImpl implements the LLM interface and manages interactions with specific providers.
@@ -72,18 +63,9 @@ type LLMImpl struct {
 
 // NewLLM creates a new LLM instance with the specified configuration.
 // It initializes the appropriate provider and sets up logging and HTTP clients.
-//
-// Returns:
-//   - Configured LLM instance
-//   - ErrorTypeProvider if provider initialization fails
-//   - ErrorTypeAuthentication if API key validation fails
 func NewLLM(cfg *config.Config, logger logging.Logger, registry *providers.ProviderRegistry) (*LLMImpl, error) {
 	extraHeaders := make(map[string]string)
-	if cfg.Provider == "anthropic" && cfg.EnableCaching {
-		extraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
-	}
 
-	// Check if API key is empty
 	apiKey := cfg.APIKeys[cfg.Provider]
 	if apiKey == "" {
 		return nil, NewLLMError(ErrorTypeAuthentication, "empty API key", nil)
@@ -110,7 +92,6 @@ func NewLLM(cfg *config.Config, logger logging.Logger, registry *providers.Provi
 }
 
 // SetOption sets a provider-specific option with the given key and value.
-// The option is logged at debug level for troubleshooting.
 func (l *LLMImpl) SetOption(key string, value any) {
 	l.optionsMutex.Lock()
 	defer l.optionsMutex.Unlock()
@@ -137,372 +118,23 @@ func (l *LLMImpl) GetLogger() logging.Logger {
 	return l.logger
 }
 
-// NewPrompt creates a new prompt instance with the given input text.
-func (l *LLMImpl) NewPrompt(prompt string) *Prompt {
-	return &Prompt{Input: prompt}
-}
-
-// SupportsStructuredResponse checks if the current provider supports JSON schema validation.
-func (l *LLMImpl) SupportsStructuredResponse() bool {
-	return l.Provider.SupportsStructuredResponse()
+// SupportsStreaming checks if the provider supports streaming responses.
+func (l *LLMImpl) SupportsStreaming() bool {
+	return l.Provider.SupportsStreaming()
 }
 
 // Generate produces text based on the given prompt and options.
-// It handles retries, logging, and error management.
-//
-// Returns:
-//   - Generated text response
-//   - ErrorTypeRequest for request preparation failures
-//   - ErrorTypeAPI for provider API errors
-//   - ErrorTypeResponse for response processing issues
-//   - ErrorTypeRateLimit if provider rate limit is exceeded
 func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...GenerateOption) (*providers.Response, error) {
 	generateConfig := &GenerateConfig{}
 	for _, opt := range opts {
 		opt(generateConfig)
 	}
 
-	// Set the system prompt in the LLM's options
 	if prompt.SystemPrompt != "" {
 		l.SetOption("system_prompt", prompt.SystemPrompt)
 	}
 
-	// If a Structured Response schema is provided, use the schema-aware generation path
-	if generateConfig.StructuredResponseSchema != nil {
-		return l.generateWithSchema(ctx, prompt, generateConfig.StructuredResponseSchema)
-	}
-
-	return l.generateWithRetries(ctx, prompt)
-}
-
-// generateWithSchema handles generation with structured response schema
-func (l *LLMImpl) generateWithSchema(ctx context.Context, prompt *Prompt, schema any) (*providers.Response, error) {
-	var result *providers.Response
-	var lastErr error
-	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
-		l.logger.Debug(
-			"Generating text (schema)",
-			"provider", l.Provider.Name(),
-			"prompt", prompt.String(),
-			"attempt", attempt+1,
-		)
-		result, _, lastErr = l.attemptGenerateWithSchema(ctx, prompt.String(), schema)
-		if lastErr == nil {
-			return result, nil
-		}
-		l.logger.Warn("Generation attempt with schema failed", "error", lastErr, "attempt", attempt+1)
-		if attempt < l.MaxRetries {
-			l.logger.Debug("Retrying", "delay", l.RetryDelay)
-			if err := l.wait(ctx); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return nil, fmt.Errorf("failed to generate with schema after %d attempts: %w", l.MaxRetries+1, lastErr)
-}
-
-// generateWithRetries handles standard generation with retry logic
-func (l *LLMImpl) generateWithRetries(ctx context.Context, prompt *Prompt) (*providers.Response, error) {
-	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
-		l.logger.Debug(
-			"Generating text",
-			"provider", l.Provider.Name(),
-			"prompt", prompt.String(),
-			"system_prompt", prompt.SystemPrompt,
-			"attempt", attempt+1,
-		)
-		result, err := l.attemptGenerate(ctx, prompt)
-		if err == nil {
-			return result, nil
-		}
-		l.logger.Warn("Generation attempt failed", "error", err, "attempt", attempt+1)
-		if attempt < l.MaxRetries {
-			l.logger.Debug("Retrying", "delay", l.RetryDelay)
-			if err := l.wait(ctx); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return nil, fmt.Errorf("failed to generate after %d attempts", l.MaxRetries+1)
-}
-
-// wait implements a cancellable delay between retry attempts.
-// Returns context.Canceled if the context is cancelled during the wait.
-func (l *LLMImpl) wait(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("context cancelled during retry wait: %w", ctx.Err())
-	case <-time.After(l.RetryDelay):
-		return nil
-	}
-}
-
-// attemptGenerate makes a single attempt to generate text using the provider.
-// It handles request preparation, API communication, and response processing.
-//
-// Returns:
-//   - Generated text response
-//   - ErrorTypeRequest for request preparation failures
-//   - ErrorTypeAPI for provider API errors
-//   - ErrorTypeResponse for response processing issues
-//   - ErrorTypeRateLimit if provider rate limit is exceeded
-func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (*providers.Response, error) {
-	response := &providers.Response{}
-
-	// Prepare options and request body
-	options := l.prepareOptions(prompt)
-	reqBody, err := l.prepareRequestBody(prompt, options)
-	if err != nil {
-		return response, NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
-	}
-
-	// Execute the request and get response
-	return l.executeRequest(ctx, reqBody)
-}
-
-// prepareOptions creates the options map for the request
-func (l *LLMImpl) prepareOptions(prompt *Prompt) map[string]any {
-	options := make(map[string]any)
-
-	// Safely read from the Options map
-	l.optionsMutex.RLock()
-	for k, v := range l.Options {
-		options[k] = v
-	}
-	l.optionsMutex.RUnlock()
-
-	// Add Tools and ToolChoice to options
-	if len(prompt.Tools) > 0 {
-		options["tools"] = prompt.Tools
-	}
-	if len(prompt.ToolChoice) > 0 {
-		options["tool_choice"] = prompt.ToolChoice
-	}
-
-	return options
-}
-
-// prepareRequestBody prepares the request body based on message type
-func (l *LLMImpl) prepareRequestBody(prompt *Prompt, options map[string]any) ([]byte, error) {
-	// Check if we have structured messages
-	l.optionsMutex.RLock()
-	structuredMessages, hasStructuredMessages := l.Options["structured_messages"]
-	l.optionsMutex.RUnlock()
-
-	if !hasStructuredMessages {
-		reqBody, err := l.Provider.PrepareRequest(prompt.String(), options)
-		if err != nil {
-			return nil, fmt.Errorf("provider PrepareRequest failed: %w", err)
-		}
-		return reqBody, nil
-	}
-
-	// Use the structured messages API if the provider supports it
-	if prepareWithMessages, ok := l.Provider.(interface {
-		PrepareRequestWithMessages(messages []models.MemoryMessage, options map[string]any) ([]byte, error)
-	}); ok {
-		// Convert to the expected type
-		messages, ok := structuredMessages.([]models.MemoryMessage)
-		if ok {
-			l.logger.Debug("Using structured messages API", "message_count", len(messages))
-			reqBody, err := prepareWithMessages.PrepareRequestWithMessages(messages, options)
-			if err != nil {
-				return nil, fmt.Errorf("provider PrepareRequestWithMessages failed: %w", err)
-			}
-			return reqBody, nil
-		}
-		l.logger.Warn("Invalid structured_messages format", "type", fmt.Sprintf("%T", structuredMessages))
-	}
-
-	l.logger.Debug("Provider does not support structured messages API", "provider", l.Provider.Name())
-	reqBody, err := l.Provider.PrepareRequest(prompt.String(), options)
-	if err != nil {
-		return nil, fmt.Errorf("provider PrepareRequest failed: %w", err)
-	}
-	return reqBody, nil
-}
-
-// executeRequest sends the HTTP request and processes the response
-func (l *LLMImpl) executeRequest(ctx context.Context, reqBody []byte) (*providers.Response, error) {
-	response := &providers.Response{}
-
-	l.logger.Debug("Full request body", "body", string(reqBody))
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, l.Provider.Endpoint(), bytes.NewReader(reqBody))
-	if err != nil {
-		return response, NewLLMError(ErrorTypeRequest, "failed to create request", err)
-	}
-
-	l.logger.Debug(
-		"Full API request",
-		"method",
-		req.Method,
-		"url",
-		req.URL.String(),
-		"headers",
-		req.Header,
-		"body",
-		string(reqBody),
-	)
-	for k, v := range l.Provider.Headers() {
-		req.Header.Set(k, v)
-		l.logger.Debug("Request header", "provider", l.Provider.Name(), "key", k, "value", v)
-	}
-	resp, err := l.client.Do(req)
-	if err != nil {
-		return response, NewLLMError(ErrorTypeRequest, "failed to send request", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			l.logger.Error("Failed to close response body", "error", err)
-		}
-	}()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return response, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
-	}
-
-	// Log the full API response
-	l.logger.Debug("Full API response", "body", string(body))
-
-	if resp.StatusCode != http.StatusOK {
-		l.logger.Error("API error", "provider", l.Provider.Name(), "status", resp.StatusCode, "body", string(body))
-		return response, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
-	}
-
-	result, err := l.Provider.ParseResponse(body)
-	if err != nil {
-		return response, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
-	}
-
-	l.logger.Debug("Text generated successfully", "result", result)
-	return result, nil
-}
-
-// attemptGenerateWithSchema makes a single attempt to generate text using the provider and a JSON schema.
-// It handles request preparation, API communication, and response processing.
-//
-// Returns:
-//   - Generated text response
-//   - Full prompt used for generation
-//   - ErrorTypeInvalidInput for schema validation failures
-//   - Other error types as per attemptGenerate
-func (l *LLMImpl) attemptGenerateWithSchema(
-	ctx context.Context,
-	prompt string,
-	schema any,
-) (*providers.Response, string, error) {
-	// Prepare request with schema
-	reqBody, fullPrompt, err := l.prepareSchemaRequest(prompt, schema)
-	if err != nil {
-		return nil, fullPrompt, err
-	}
-
-	// Execute the request
-	response, err := l.executeSchemaRequest(ctx, reqBody)
-	if err != nil {
-		return nil, fullPrompt, err
-	}
-
-	// Validate the result against the schema
-	textContent, ok := response.Content.(providers.Text)
-	if !ok {
-		return nil, fullPrompt, NewLLMError(ErrorTypeResponse, "response content is not text", nil)
-	}
-	if err := ValidateAgainstSchema(textContent.Value, schema); err != nil {
-		return nil, fullPrompt, NewLLMError(ErrorTypeResponse, "response does not match schema", err)
-	}
-
-	return response, fullPrompt, nil
-}
-
-// prepareSchemaRequest prepares a request with JSON schema
-func (l *LLMImpl) prepareSchemaRequest(prompt string, schema any) ([]byte, string, error) {
-	l.optionsMutex.RLock()
-	options := make(map[string]any)
-	for k, v := range l.Options {
-		options[k] = v
-	}
-	l.optionsMutex.RUnlock()
-
-	var reqBody []byte
-	var err error
-	var fullPrompt string
-
-	if l.SupportsStructuredResponse() {
-		reqBody, err = l.Provider.PrepareRequestWithSchema(prompt, options, schema)
-		fullPrompt = prompt
-	} else {
-		fullPrompt = l.preparePromptWithSchema(prompt, schema)
-		reqBody, err = l.Provider.PrepareRequest(fullPrompt, options)
-	}
-
-	if err != nil {
-		return nil, fullPrompt, NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
-	}
-
-	l.logger.Debug("Request body", "provider", l.Provider.Name(), "body", string(reqBody))
-	return reqBody, fullPrompt, nil
-}
-
-// executeSchemaRequest executes a request and validates against schema
-func (l *LLMImpl) executeSchemaRequest(ctx context.Context, reqBody []byte) (*providers.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, l.Provider.Endpoint(), bytes.NewReader(reqBody))
-	if err != nil {
-		return nil, NewLLMError(ErrorTypeRequest, "failed to create request", err)
-	}
-
-	for k, v := range l.Provider.Headers() {
-		req.Header.Set(k, v)
-	}
-
-	resp, err := l.client.Do(req)
-	if err != nil {
-		return nil, NewLLMError(ErrorTypeRequest, "failed to send request", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			l.logger.Error("Failed to close response body", "error", err)
-		}
-	}()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		l.logger.Error("API error", "provider", l.Provider.Name(), "status", resp.StatusCode, "body", string(body))
-		return nil, NewLLMError(
-			ErrorTypeAPI,
-			fmt.Sprintf("API error: status code %d", resp.StatusCode),
-			nil,
-		)
-	}
-
-	result, err := l.Provider.ParseResponse(body)
-	if err != nil {
-		return nil, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
-	}
-
-	l.logger.Debug("Text generated successfully", "result", result)
-	return result, nil
-}
-
-// preparePromptWithSchema prepares a prompt with a JSON schema for providers that do not support JSON schema
-// validation.
-// Returns the original prompt if schema marshaling fails (with a warning log).
-func (l *LLMImpl) preparePromptWithSchema(prompt string, schema any) string {
-	schemaJSON, err := json.MarshalIndent(schema, "", "  ")
-	if err != nil {
-		l.logger.Warn("Failed to marshal schema", "error", err)
-		return prompt
-	}
-
-	return fmt.Sprintf(
-		"%s\n\nPlease provide your response in JSON format according to this schema:\n%s",
-		prompt,
-		string(schemaJSON),
-	)
+	return l.generateWithRetries(ctx, prompt, generateConfig.StructuredResponseSchema)
 }
 
 // GenerateStream initiates a streaming response from the LLM.
@@ -511,7 +143,6 @@ func (l *LLMImpl) GenerateStream(ctx context.Context, prompt *Prompt, opts ...Ge
 		return nil, NewLLMError(ErrorTypeUnsupported, "streaming not supported by provider", nil)
 	}
 
-	// Apply stream options
 	generateConfig := &GenerateConfig{
 		StreamBufferSize: DefaultBufferSize,
 		RetryStrategy: &DefaultRetryStrategy{
@@ -532,24 +163,32 @@ func (l *LLMImpl) GenerateStream(ctx context.Context, prompt *Prompt, opts ...Ge
 	l.optionsMutex.RUnlock()
 	options["stream"] = true
 
-	body, err := l.Provider.PrepareStreamRequest(prompt.String(), options)
+	builder := providers.NewRequestBuilder().WithPrompt(prompt.Input)
+
+	if prompt.SystemPrompt != "" {
+		builder.WithSystemPrompt(prompt.SystemPrompt)
+	}
+
+	if generateConfig.StructuredResponseSchema != nil {
+		builder.WithResponseSchema(generateConfig.StructuredResponseSchema)
+	}
+
+	providerReq := builder.Build()
+	body, err := l.Provider.PrepareStreamRequest(providerReq, options)
 	if err != nil {
 		return nil, NewLLMError(ErrorTypeRequest, "failed to prepare stream request", err)
 	}
 
-	// Create request
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, l.Provider.Endpoint(), bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, l.Provider.Endpoint(), bytes.NewReader(body))
 	if err != nil {
 		return nil, NewLLMError(ErrorTypeRequest, "failed to create stream request", err)
 	}
 
-	// Add headers
 	for k, v := range l.Provider.Headers() {
-		req.Header.Set(k, v)
+		httpReq.Header.Set(k, v)
 	}
 
-	// Make request
-	resp, err := l.client.Do(req)
+	resp, err := l.client.Do(httpReq)
 	if err != nil {
 		return nil, NewLLMError(ErrorTypeAPI, "failed to make stream request", err)
 	}
@@ -561,13 +200,155 @@ func (l *LLMImpl) GenerateStream(ctx context.Context, prompt *Prompt, opts ...Ge
 		return nil, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
 	}
 
-	// Create and return stream
 	return newProviderStream(resp.Body, l.Provider, generateConfig), nil
 }
 
-// SupportsStreaming checks if the provider supports streaming responses.
-func (l *LLMImpl) SupportsStreaming() bool {
-	return l.Provider.SupportsStreaming()
+// generateWithRetries handles standard generation with retry logic
+func (l *LLMImpl) generateWithRetries(ctx context.Context, prompt *Prompt, schema any) (*providers.Response, error) {
+	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
+		result, err := l.attemptGenerate(ctx, prompt, schema)
+		if err == nil {
+			return result, nil
+		}
+
+		l.logger.Warn("Generation attempt failed", "error", err, "attempt", attempt+1)
+
+		if attempt < l.MaxRetries {
+			if err := l.wait(ctx); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("failed to generate after %d attempts", l.MaxRetries+1)
+}
+
+// wait implements a cancellable delay between retry attempts.
+// Returns context.Canceled if the context is cancelled during the wait.
+func (l *LLMImpl) wait(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("context cancelled during retry wait: %w", ctx.Err())
+	case <-time.After(l.RetryDelay):
+		return nil
+	}
+}
+
+// attemptGenerate makes a single attempt to generate text using the provider.
+// It handles request preparation, API communication, and response processing.
+func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt, schema any) (*providers.Response, error) {
+	response := &providers.Response{}
+
+	reqBody, err := l.prepareRequestBody(prompt, schema)
+	if err != nil {
+		return response, NewLLMError(ErrorTypeRequest, "failed to prepare request", err)
+	}
+
+	response, err = l.executeRequest(ctx, reqBody)
+	if err != nil {
+		return response, err
+	}
+
+	if schema != nil {
+		textContent, ok := response.Content.(providers.Text)
+		if !ok {
+			return nil, NewLLMError(ErrorTypeResponse, "response content is not text", nil)
+		}
+
+		if err := ValidateAgainstSchema(textContent.Value, schema); err != nil {
+			return nil, NewLLMError(ErrorTypeResponse, "response does not match schema", err)
+		}
+	}
+
+	return response, nil
+}
+
+// prepareOptions creates the options map for the request
+func (l *LLMImpl) prepareOptions(prompt *Prompt) map[string]any {
+	options := make(map[string]any)
+
+	// Safely read from the Options map
+	l.optionsMutex.RLock()
+	for k, v := range l.Options {
+		options[k] = v
+	}
+	l.optionsMutex.RUnlock()
+
+	if len(prompt.Tools) > 0 {
+		options["tools"] = prompt.Tools
+	}
+	if len(prompt.ToolChoice) > 0 {
+		options["tool_choice"] = prompt.ToolChoice
+	}
+
+	return options
+}
+
+// prepareRequestBody prepares the request body using the new provider architecture
+func (l *LLMImpl) prepareRequestBody(prompt *Prompt, schema any) ([]byte, error) {
+	options := l.prepareOptions(prompt)
+
+	builder := providers.NewRequestBuilder()
+	builder.WithSystemPrompt(prompt.SystemPrompt).
+		WithMessages(ToMessages(prompt.Messages)).
+		WithPrompt(prompt.Input)
+
+	if schema != nil {
+		builder.WithResponseSchema(schema)
+	}
+
+	if prompt.SystemPrompt != "" {
+		builder.WithSystemPrompt(prompt.SystemPrompt)
+	}
+
+	req := builder.Build()
+
+	reqBody, err := l.Provider.PrepareRequest(req, options)
+	if err != nil {
+		return nil, fmt.Errorf("provider PrepareRequest failed: %w", err)
+	}
+
+	return reqBody, nil
+}
+
+// executeRequest sends the HTTP request and processes the response
+func (l *LLMImpl) executeRequest(ctx context.Context, reqBody []byte) (*providers.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, l.Provider.Endpoint(), bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, NewLLMError(ErrorTypeRequest, "failed to create request", err)
+	}
+
+	for k, v := range l.Provider.Headers() {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := l.client.Do(req)
+	if err != nil {
+		return nil, NewLLMError(ErrorTypeRequest, "failed to send request", err)
+	}
+
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			l.logger.Error("Failed to close response body", "error", err)
+		}
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, NewLLMError(ErrorTypeResponse, "failed to read response body", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		l.logger.Error("API error", "provider", l.Provider.Name(), "status", resp.StatusCode, "body", string(body))
+		return nil, NewLLMError(ErrorTypeAPI, fmt.Sprintf("API error: status code %d", resp.StatusCode), nil)
+	}
+
+	response, err := l.Provider.ParseResponse(body)
+	if err != nil {
+		return nil, NewLLMError(ErrorTypeResponse, "failed to parse response", err)
+	}
+
+	return response, nil
 }
 
 // providerStream implements TokenStream for a specific provider
