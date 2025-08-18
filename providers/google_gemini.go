@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	"strings"
 
 	"github.com/weave-labs/gollm/internal/models"
@@ -321,38 +322,23 @@ func (p *GeminiProvider) handleToolsForRequest(requestBody map[string]any, optio
 	}
 }
 
-func (p *GeminiProvider) addStructuredResponseToRequest(requestBody map[string]any, schema any) error {
+func (p *GeminiProvider) addStructuredResponseToRequest(requestBody map[string]any, schema *jsonschema.Schema) error {
 	if schema == nil {
 		return nil
 	}
 
-	// Convert schema to JSON if it's not already
-	var schemaMap map[string]any
-	switch s := schema.(type) {
-	case map[string]any:
-		schemaMap = s
-	case string:
-		if err := json.Unmarshal([]byte(s), &schemaMap); err != nil {
-			return fmt.Errorf("failed to unmarshal schema string: %w", err)
-		}
-	default:
-		schemaBytes, err := json.Marshal(schema)
-		if err != nil {
-			return fmt.Errorf("failed to marshal schema: %w", err)
-		}
-		if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
-			return fmt.Errorf("failed to unmarshal schema: %w", err)
-		}
-	}
+	//schemaJSON, err := schema.MarshalJSON()
+	//if err != nil {
+	//	return fmt.Errorf("failed to marshal response schema: %w", err)
+	//}
 
-	// Add generation config with response MIME type and schema
 	if genConfig, ok := requestBody["generationConfig"].(map[string]any); ok {
 		genConfig["responseMimeType"] = "application/json"
-		genConfig["responseSchema"] = schemaMap
+		genConfig["responseSchema"] = schema
 	} else {
 		requestBody["generationConfig"] = map[string]any{
 			"responseMimeType": "application/json",
-			"responseSchema":   schemaMap,
+			"responseSchema":   schema,
 		}
 	}
 
@@ -458,7 +444,7 @@ func (p *GeminiProvider) buildGenerationConfig() map[string]any {
 
 func (p *GeminiProvider) isGlobalOption(key string) bool {
 	switch key {
-	case geminiKeySystemPrompt, geminiKeyTools, geminiKeyToolChoice, geminiKeyStructuredMessages,
+	case geminiKeySystemPrompt, geminiKeyTools, geminiKeyToolChoice, geminiKeyStructuredMessages, "stream",
 		"function_call_mode", geminiKeyTemperature, "top_p", "top_k", "stop_sequences", "max_tokens":
 		return true
 	default:

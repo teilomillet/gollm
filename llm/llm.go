@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	"io"
 	"net/http"
 	"sync"
@@ -134,7 +135,7 @@ func (l *LLMImpl) Generate(ctx context.Context, prompt *Prompt, opts ...Generate
 		l.SetOption("system_prompt", prompt.SystemPrompt)
 	}
 
-	return l.generateWithRetries(ctx, prompt, generateConfig.StructuredResponseSchema)
+	return l.generateWithRetries(ctx, prompt, generateConfig.StructuredResponse)
 }
 
 // GenerateStream initiates a streaming response from the LLM.
@@ -169,8 +170,8 @@ func (l *LLMImpl) GenerateStream(ctx context.Context, prompt *Prompt, opts ...Ge
 		builder.WithSystemPrompt(prompt.SystemPrompt)
 	}
 
-	if generateConfig.StructuredResponseSchema != nil {
-		builder.WithResponseSchema(generateConfig.StructuredResponseSchema)
+	if generateConfig.StructuredResponse != nil {
+		builder.WithResponseSchema(generateConfig.StructuredResponse)
 	}
 
 	providerReq := builder.Build()
@@ -204,7 +205,7 @@ func (l *LLMImpl) GenerateStream(ctx context.Context, prompt *Prompt, opts ...Ge
 }
 
 // generateWithRetries handles standard generation with retry logic
-func (l *LLMImpl) generateWithRetries(ctx context.Context, prompt *Prompt, schema any) (*providers.Response, error) {
+func (l *LLMImpl) generateWithRetries(ctx context.Context, prompt *Prompt, schema *jsonschema.Schema) (*providers.Response, error) {
 	for attempt := 0; attempt <= l.MaxRetries; attempt++ {
 		result, err := l.attemptGenerate(ctx, prompt, schema)
 		if err == nil {
@@ -236,7 +237,7 @@ func (l *LLMImpl) wait(ctx context.Context) error {
 
 // attemptGenerate makes a single attempt to generate text using the provider.
 // It handles request preparation, API communication, and response processing.
-func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt, schema any) (*providers.Response, error) {
+func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt, schema *jsonschema.Schema) (*providers.Response, error) {
 	response := &providers.Response{}
 
 	reqBody, err := l.prepareRequestBody(prompt, schema)
@@ -285,7 +286,7 @@ func (l *LLMImpl) prepareOptions(prompt *Prompt) map[string]any {
 }
 
 // prepareRequestBody prepares the request body using the new provider architecture
-func (l *LLMImpl) prepareRequestBody(prompt *Prompt, schema any) ([]byte, error) {
+func (l *LLMImpl) prepareRequestBody(prompt *Prompt, schema *jsonschema.Schema) ([]byte, error) {
 	options := l.prepareOptions(prompt)
 
 	builder := providers.NewRequestBuilder()

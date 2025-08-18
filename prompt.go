@@ -107,11 +107,6 @@ func WithStructuredResponseSchema[T any]() llm.GenerateOption {
 	return llm.WithStructuredResponse[T]()
 }
 
-// WithStructuredResponse re-exports the non-generic structured response option.
-func WithStructuredResponse(schema any) llm.GenerateOption {
-	return llm.WithStructuredResponseSchema(schema)
-}
-
 // IsKnownProvider returns true if the given provider name is recognized by the library.
 // A provider is considered known if it has a ProviderConfig registered in the default registry.
 // Note: This does not guarantee the provider can be instantiated (constructor may be missing).

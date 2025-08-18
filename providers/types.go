@@ -1,12 +1,15 @@
 package providers
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"github.com/modelcontextprotocol/go-sdk/jsonschema"
+)
 
 // Request represents a unified request structure
 type Request struct {
-	ResponseSchema any       `json:"response_schema,omitempty"`
-	SystemPrompt   string    `json:"system_prompt,omitempty"`
-	Messages       []Message `json:"messages"`
+	ResponseSchema *jsonschema.Schema `json:"response_schema,omitempty"`
+	SystemPrompt   string             `json:"system_prompt,omitempty"`
+	Messages       []Message          `json:"messages"`
 }
 
 // Message represents a single message in the conversation

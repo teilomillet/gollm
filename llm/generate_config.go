@@ -18,16 +18,8 @@ func WithStructuredResponse[T any]() GenerateOption {
 			panic(fmt.Errorf("failed to get schema for type %T: %w", cfg, err))
 		}
 
-		cfg.StructuredResponseSchema = schema
-	}
-}
-
-// WithStructuredResponseSchema configures Generate to produce output conforming to the provided schema value.
-// Use this when you already have a JSON Schema or example instance at runtime (e.g., map[string]any or a struct
-// instance).
-func WithStructuredResponseSchema(schema any) GenerateOption {
-	return func(cfg *GenerateConfig) {
-		cfg.StructuredResponseType = schema
+		cfg.StructuredResponse = schema
+		cfg.StructuredResponseType = *new(T)
 	}
 }
 
@@ -47,8 +39,8 @@ func WithRetryStrategy(strategy RetryStrategy) GenerateOption {
 
 // GenerateConfig holds configuration options for text generation.
 type GenerateConfig struct {
-	RetryStrategy            RetryStrategy
-	StructuredResponseSchema *jsonschema.Schema
-	StructuredResponseType   any
-	StreamBufferSize         int
+	RetryStrategy          RetryStrategy
+	StructuredResponse     *jsonschema.Schema
+	StructuredResponseType any
+	StreamBufferSize       int
 }

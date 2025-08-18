@@ -11,17 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/weave-labs/gollm/internal/models"
-
-	"github.com/invopop/jsonschema"
-
-	"github.com/weave-labs/gollm/providers"
-
+	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	"golang.org/x/time/rate"
 
 	"github.com/weave-labs/gollm"
 	"github.com/weave-labs/gollm/config"
+	"github.com/weave-labs/gollm/internal/models"
 	"github.com/weave-labs/gollm/llm"
+	"github.com/weave-labs/gollm/providers"
 )
 
 // Constants for default values
@@ -70,21 +67,22 @@ type TestProvider struct {
 
 // TestCase represents a single test scenario
 type TestCase struct {
-	Name           string
-	Input          string
-	SystemPrompt   string
-	ExpectedSchema any
-	Timeout        time.Duration
-	Validations    []ValidationFunc
-	options        map[string]any
-	directives     []string
-	context        string
-	maxLength      int
-	examples       []string
-	tools          []models.Tool
-	toolChoice     string
-	messages       []gollm.PromptMessage
-	output         string
+	Name               string
+	Input              string
+	SystemPrompt       string
+	ExpectedSchema     *jsonschema.Schema
+	ExpectedSchemaType any // Used for JSON schema validation
+	Timeout            time.Duration
+	Validations        []ValidationFunc
+	options            map[string]any
+	directives         []string
+	context            string
+	maxLength          int
+	examples           []string
+	tools              []models.Tool
+	toolChoice         string
+	messages           []gollm.PromptMessage
+	output             string
 }
 
 // ValidationFunc is a function type for custom validations
@@ -162,9 +160,16 @@ func (tc *TestCase) WithTimeout(timeout time.Duration) *TestCase {
 	return tc
 }
 
-// ExpectSchema sets the expected schema for validation
-func (tc *TestCase) ExpectSchema(schema any) *TestCase {
+// SetExpectedSchema sets the expected schema for validation
+func SetExpectedSchema[T any](tc *TestCase) *TestCase {
+	schema, err := jsonschema.For[T]()
+	if err != nil {
+		panic(fmt.Errorf("failed to get schema for type %T: %w", tc, err))
+	}
+
 	tc.ExpectedSchema = schema
+	tc.ExpectedSchemaType = *new(T)
+
 	return tc
 }
 
@@ -443,12 +448,7 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 	var response *providers.Response
 	var err error
 
-	if tc.ExpectedSchema != nil {
-		schema := jsonschema.Reflect(tc.ExpectedSchema)
-		response, err = client.Generate(ctx, prompt, gollm.WithStructuredResponse(schema))
-	} else {
-		response, err = client.Generate(ctx, prompt)
-	}
+	response, err = client.Generate(ctx, prompt)
 
 	if err != nil {
 		return "", fmt.Errorf("failed to generate response: %w", err)
@@ -465,7 +465,6 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 }
 
 func (tr *TestRunner) setupClient(provider TestProvider) llm.LLM {
-	// Get API key from environment
 	apiKeyEnv := strings.ToUpper(provider.Name) + "_API_KEY"
 	apiKey := os.Getenv(apiKeyEnv)
 	if apiKey == "" {
@@ -580,12 +579,7 @@ func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM,
 	var response *providers.Response
 	var err error
 
-	if tc.ExpectedSchema != nil {
-		schema := jsonschema.Reflect(tc.ExpectedSchema)
-		response, err = client.Generate(ctx, prompt, gollm.WithStructuredResponse(schema))
-	} else {
-		response, err = client.Generate(ctx, prompt)
-	}
+	response, err = client.Generate(ctx, prompt)
 
 	duration := time.Since(start)
 	tr.metrics.ResponseTimes[provider.Name] = append(tr.metrics.ResponseTimes[provider.Name], duration)

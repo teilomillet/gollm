@@ -1,8 +1,10 @@
 package providers
 
+import "github.com/modelcontextprotocol/go-sdk/jsonschema"
+
 // RequestBuilder helps construct Request objects
 type RequestBuilder struct {
-	responseSchema any
+	responseSchema *jsonschema.Schema
 	systemPrompt   string
 	messages       []Message
 }
@@ -45,7 +47,7 @@ func (rb *RequestBuilder) WithSystemPrompt(prompt string) *RequestBuilder {
 }
 
 // WithResponseSchema sets the structured response schema
-func (rb *RequestBuilder) WithResponseSchema(schema any) *RequestBuilder {
+func (rb *RequestBuilder) WithResponseSchema(schema *jsonschema.Schema) *RequestBuilder {
 	rb.responseSchema = schema
 	return rb
 }
