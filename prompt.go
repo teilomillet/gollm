@@ -104,12 +104,12 @@ var (
 
 // WithStructuredResponseSchema re-exports the llm generic option while preserving the type parameter.
 func WithStructuredResponseSchema[T any]() llm.GenerateOption {
-	return llm.WithStructuredResponseSchema[T]()
+	return llm.WithStructuredResponse[T]()
 }
 
 // WithStructuredResponse re-exports the non-generic structured response option.
 func WithStructuredResponse(schema any) llm.GenerateOption {
-	return llm.WithStructuredResponse(schema)
+	return llm.WithStructuredResponseSchema(schema)
 }
 
 // IsKnownProvider returns true if the given provider name is recognized by the library.

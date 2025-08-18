@@ -9,9 +9,9 @@ import (
 // GenerateOption is a function type for configuring generation behavior.
 type GenerateOption func(*GenerateConfig)
 
-// WithStructuredResponseSchema configures Generate to produce output conforming to the provided schema type.
+// WithStructuredResponse configures Generate to produce output conforming to the provided schema type.
 // The generic type parameter T should be a struct type describing the expected JSON structure.
-func WithStructuredResponseSchema[T any]() GenerateOption {
+func WithStructuredResponse[T any]() GenerateOption {
 	return func(cfg *GenerateConfig) {
 		schema, err := jsonschema.For[T]()
 		if err != nil {
@@ -22,10 +22,10 @@ func WithStructuredResponseSchema[T any]() GenerateOption {
 	}
 }
 
-// WithStructuredResponse configures Generate to produce output conforming to the provided schema value.
+// WithStructuredResponseSchema configures Generate to produce output conforming to the provided schema value.
 // Use this when you already have a JSON Schema or example instance at runtime (e.g., map[string]any or a struct
 // instance).
-func WithStructuredResponse(schema any) GenerateOption {
+func WithStructuredResponseSchema(schema any) GenerateOption {
 	return func(cfg *GenerateConfig) {
 		cfg.StructuredResponseType = schema
 	}
