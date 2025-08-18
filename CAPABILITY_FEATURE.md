@@ -17,11 +17,12 @@ The gollm library needs a capability system that:
 ### Architecture Overview
 
 ```
-Provider (implements existing interface)
-    ├── Embeds: CapabilityResolver (implements Capabilities)
+Provider (implements Provider interface including Capabilities)
+    ├── Composition: capabilities field (CapabilityResolver instance)
     │   ├── Uses: CapabilityRegistry (package-level singleton)
-    │   └── Self-registers capabilities via Register() method
-    └── Core provider functionality
+    │   └── Handles capability logic and registration
+    ├── Delegates: Capabilities interface methods to resolver
+    └── Core provider functionality (Name, Endpoint, PrepareRequest, etc.)
 ```
 
 ### Component Naming
@@ -283,8 +284,8 @@ func GetTypedConfig[T any](
 // capability_resolver.go
 package providers
 
-// CapabilityResolver implements the Capabilities interface
-// This is embedded into provider implementations
+// CapabilityResolver is a helper that handles capability logic for providers.
+// Providers compose this as a field and delegate Capabilities interface methods to it.
 type CapabilityResolver struct {
 	provider ProviderName
 	model    string
@@ -564,7 +565,8 @@ import (
 )
 
 type OpenAIProvider struct {
-	*CapabilityResolver // Embedded, implements Capabilities interface
+	// Composition: use a resolver field instead of embedding
+	capabilities CapabilityResolver
 
 	logger       logging.Logger
 	extraHeaders map[string]string
@@ -580,18 +582,55 @@ func NewOpenAIProvider(apiKey, model string, extraHeaders map[string]string) *Op
 	}
 
 	p := &OpenAIProvider{
-		CapabilityResolver: NewCapabilityResolver(ProviderOpenAI, model),
-		apiKey:             apiKey,
-		model:              model,
-		extraHeaders:       extraHeaders,
-		options:            make(map[string]any),
-		logger:             logging.NewLogger(logging.LogLevelInfo),
+		capabilities: NewCapabilityResolver(ProviderOpenAI, model),
+		apiKey:       apiKey,
+		model:        model,
+		extraHeaders: extraHeaders,
+		options:      make(map[string]any),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	// Self-register capabilities
 	p.Register()
 
 	return p
+}
+
+// Implement Capabilities interface methods by delegating to the resolver
+
+// Register self-registers this provider's capabilities
+func (p *OpenAIProvider) Register() {
+	p.capabilities.Register()
+}
+
+// HasCapability checks if a capability is supported
+func (p *OpenAIProvider) HasCapability(cap Capability) bool {
+	return p.capabilities.HasCapability(cap)
+}
+
+// GetStructuredResponseConfig returns typed structured response config
+func (p *OpenAIProvider) GetStructuredResponseConfig() (StructuredResponseConfig, bool) {
+	return p.capabilities.GetStructuredResponseConfig()
+}
+
+// GetFunctionCallingConfig returns typed function calling config
+func (p *OpenAIProvider) GetFunctionCallingConfig() (FunctionCallingConfig, bool) {
+	return p.capabilities.GetFunctionCallingConfig()
+}
+
+// GetStreamingConfig returns typed streaming config
+func (p *OpenAIProvider) GetStreamingConfig() (StreamingConfig, bool) {
+	return p.capabilities.GetStreamingConfig()
+}
+
+// GetVisionConfig returns typed vision config
+func (p *OpenAIProvider) GetVisionConfig() (VisionConfig, bool) {
+	return p.capabilities.GetVisionConfig()
+}
+
+// GetCachingConfig returns typed caching config
+func (p *OpenAIProvider) GetCachingConfig() (CachingConfig, bool) {
+	return p.capabilities.GetCachingConfig()
 }
 
 // Core provider methods
@@ -662,7 +701,8 @@ import (
 )
 
 type CohereProvider struct {
-	*CapabilityResolver // Embedded, implements Capabilities interface
+	// Composition: use a resolver field instead of embedding
+	capabilities CapabilityResolver
 
 	logger       logging.Logger
 	extraHeaders map[string]string
@@ -678,18 +718,55 @@ func NewCohereProvider(apiKey, model string, extraHeaders map[string]string) *Co
 	}
 
 	p := &CohereProvider{
-		CapabilityResolver: NewCapabilityResolver(ProviderCohere, model),
-		apiKey:             apiKey,
-		model:              model,
-		extraHeaders:       extraHeaders,
-		options:            make(map[string]any),
-		logger:             logging.NewLogger(logging.LogLevelInfo),
+		capabilities: *NewCapabilityResolver(ProviderCohere, model),
+		apiKey:       apiKey,
+		model:        model,
+		extraHeaders: extraHeaders,
+		options:      make(map[string]any),
+		logger:       logging.NewLogger(logging.LogLevelInfo),
 	}
 
 	// Self-register capabilities
 	p.Register()
 
 	return p
+}
+
+// Implement Capabilities interface methods by delegating to the resolver
+
+// Register self-registers this provider's capabilities
+func (p *CohereProvider) Register() {
+	p.capabilities.Register()
+}
+
+// HasCapability checks if a capability is supported
+func (p *CohereProvider) HasCapability(cap Capability) bool {
+	return p.capabilities.HasCapability(cap)
+}
+
+// GetStructuredResponseConfig returns typed structured response config
+func (p *CohereProvider) GetStructuredResponseConfig() (StructuredResponseConfig, bool) {
+	return p.capabilities.GetStructuredResponseConfig()
+}
+
+// GetFunctionCallingConfig returns typed function calling config  
+func (p *CohereProvider) GetFunctionCallingConfig() (FunctionCallingConfig, bool) {
+	return p.capabilities.GetFunctionCallingConfig()
+}
+
+// GetStreamingConfig returns typed streaming config
+func (p *CohereProvider) GetStreamingConfig() (StreamingConfig, bool) {
+	return p.capabilities.GetStreamingConfig()
+}
+
+// GetVisionConfig returns typed vision config
+func (p *CohereProvider) GetVisionConfig() (VisionConfig, bool) {
+	return p.capabilities.GetVisionConfig()
+}
+
+// GetCachingConfig returns typed caching config
+func (p *CohereProvider) GetCachingConfig() (CachingConfig, bool) {
+	return p.capabilities.GetCachingConfig()
 }
 
 func (p *CohereProvider) Name() string {
