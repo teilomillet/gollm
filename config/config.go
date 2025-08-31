@@ -379,9 +379,12 @@ func SetTfsZ(z float64) ConfigOption {
 //	        if config, ok := v.(*Config); ok && config.Provider == "google" {
 //	            return nil // Skip validation for Google
 //	        }
-//	        return llm.Validate(v) // Use default for others
+//	        return defaultValidate(v) // Use default for others
 //	    }),
 //	)
+//
+// NOTE: defaultValidate is unexported; this custom validator must live in
+// the llm package (or duplicate the call to validate.Struct) to compile.
 func SetCustomValidator(fn func(interface{}) error) ConfigOption {
 	return func(c *Config) {
 		// Store the validator function to be applied during config loading

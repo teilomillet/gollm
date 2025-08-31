@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -16,8 +17,18 @@ import (
 // validate is the shared validator instance used across the package.
 var validate *validator.Validate
 
+// custValMu protects access to customValidator
+var custValMu sync.RWMutex
+
 // customValidator holds a custom validation function that can override the default validation
 var customValidator func(interface{}) error
+
+// defaultValidate is the package-internal fallback that bypasses any
+// customValidator hook. It allows custom hooks to invoke the stock
+// rules without risking recursion.
+func defaultValidate(v interface{}) error {
+	return validate.Struct(v)
+}
 
 func init() {
 	validate = validator.New()
@@ -33,6 +44,7 @@ func init() {
 // SetCustomValidator allows callers to override the default validation behavior.
 // This is particularly useful for bypassing API key validation or implementing
 // custom validation logic for specific providers.
+// The hook is process-wide; concurrent updates are safe but affect all goroutines.
 //
 // Parameters:
 //   - fn: A custom validation function that takes an interface{} and returns an error.
@@ -57,9 +69,11 @@ func init() {
 //	        return nil
 //	    }
 //	    // Use default validation for other providers
-//	    return validate.Struct(v)
+//	    return defaultValidate(v)
 //	})
 func SetCustomValidator(fn func(interface{}) error) {
+	custValMu.Lock()
+	defer custValMu.Unlock()
 	customValidator = fn
 }
 
@@ -110,6 +124,7 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 // Validate checks if the given struct is valid according to its validation rules.
 // It uses the go-playground/validator package to perform validation based on struct tags.
 // If a custom validator is set via SetCustomValidator, it will be used instead of the default validation.
+// The hook is process-wide; concurrent updates are safe but affect all goroutines.
 //
 // Parameters:
 //   - s: The struct to validate. Must be a pointer to a struct.
@@ -129,9 +144,12 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 //	    log.Fatal(err)
 //	}
 func Validate(s interface{}) error {
-	// Use custom validator if one is set
-	if customValidator != nil {
-		return customValidator(s)
+	// Use custom validator if one is set (thread-safe read)
+	custValMu.RLock()
+	fn := customValidator
+	custValMu.RUnlock()
+	if fn != nil {
+		return fn(s)
 	}
 	// Fall back to default validation
 	return validate.Struct(s)
