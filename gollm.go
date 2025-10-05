@@ -168,6 +168,7 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 	// Set custom validator if provided in config
 	if cfg.CustomValidator != nil {
 		llm.SetCustomValidator(cfg.CustomValidator)
+		defer llm.SetCustomValidator(nil)
 	}
 
 	// Validate config
