@@ -190,6 +190,7 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"openrouter":    NewOpenRouterProvider,
 		"lambda":        NewLambdaProvider,
 		"bedrock":       NewBedrockProvider,
+		"vllm":          NewVLLMProvider,
 	}
 
 	// Standard provider configurations
@@ -309,6 +310,16 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			Type:              TypeCustom,
 			Endpoint:          "", // Configured dynamically based on region and model
 			AuthHeader:        "", // Uses AWS Signature V4
+			AuthPrefix:        "",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"vllm": {
+			Name:              "vllm",
+			Type:              TypeOpenAI,
+			Endpoint:          "", // Configured by user for local vLLM server
+			AuthHeader:        "", // No authentication required
 			AuthPrefix:        "",
 			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
 			SupportsSchema:    true,

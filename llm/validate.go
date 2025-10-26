@@ -38,9 +38,12 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 	parent := fl.Parent()
 	provider := parent.FieldByName("Provider").String()
 
-	// For local LLM servers, we don't require an API key
-	// Just check if the endpoint is accessible
+	// For local LLM servers, we don't require an API key.
+	// Just check if the endpoint is accessible (or return true for vLLM).
 	switch provider {
+	case "vllm":
+		// vLLM uses OpenAI-compatible API without authentication
+		return true
 	case "ollama":
 		endpoint := parent.FieldByName("OllamaEndpoint").String()
 		if endpoint == "" {
