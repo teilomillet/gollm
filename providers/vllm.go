@@ -6,6 +6,8 @@ import (
 "encoding/json"
 "fmt"
 "io"
+"strings"
+
 
 "github.com/teilomillet/gollm/config"
 "github.com/teilomillet/gollm/types"
@@ -72,8 +74,21 @@ return "vllm"
 }
 
 // Endpoint returns the vLLM API endpoint URL.
+// It normalizes the base URL to ensure proper formatting.
 func (p *VLLMProvider) Endpoint() string {
-return p.baseURL + "/chat/completions"
+baseURL := p.baseURL
+
+// Remove trailing slash if present
+if len(baseURL) > 0 && baseURL[len(baseURL)-1] == '/' {
+baseURL = baseURL[:len(baseURL)-1]
+}
+
+// Ensure base URL ends with /v1 if not already present
+if !strings.HasSuffix(baseURL, "/v1") {
+baseURL = baseURL + "/v1"
+}
+
+return baseURL + "/chat/completions"
 }
 
 // SupportsJSONSchema indicates that vLLM supports JSON schema validation
