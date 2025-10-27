@@ -354,5 +354,11 @@ p.logger.Debug("Using Cohere v2 messages format",
 "message_count", len(cohereMessages))
 }
 
-return json.Marshal(request)
+// Debug: Log the request body
+	requestJSON, _ := json.MarshalIndent(request, "", "  ")
+	p.logger.Info("Cohere API Request Body: %s", string(requestJSON))
+	p.logger.Info("Cohere API Endpoint: %s", p.Endpoint())
+	p.logger.Info("Cohere API Headers: %v", p.Headers())
+	
+	return json.Marshal(request)
 }
