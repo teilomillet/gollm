@@ -356,8 +356,13 @@ request[k] = v
 if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
 // Insert system message at the beginning
 systemMessage := map[string]interface{}{
-"role":    "system",
-"content": systemPrompt,
+"role": "system",
+"content": []map[string]interface{}{
+{
+"type": "text",
+"text": systemPrompt,
+},
+},
 }
 request["messages"] = append([]map[string]interface{}{systemMessage}, cohereMessages...)
 }
