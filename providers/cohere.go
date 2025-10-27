@@ -15,7 +15,7 @@ import (
 // including chat completion and structured output
 type CohereProvider struct {
 apiKey       string            // API key for authentication
-tbaseURL      string            // Base URL for API endpoint
+	baseURL      string            // Base URL for API endpoint
 model        string            // Model identifier (e.g., "command-r-plus-08-2024", "command-r-plus-04-2024")
 extraHeaders map[string]string // Additional HTTP headers
 options      map[string]any    // Model-specific options
@@ -31,24 +31,18 @@ logger       utils.Logger      // Logger instance
 //   - extraHeaders: Additional HTTP headers for requests
 //
 // Returns:
+//   - A configured Cohere Provider instance
 func NewCohereProvider(apiKey, model string, extraHeaders map[string]string) Provider {
-return NewCohereProviderWithURL(apiKey, model, "https://api.cohere.com", extraHeaders)
-}
-
-// NewCohereProviderWithURL creates a new Cohere provider with a custom base URL
-func NewCohereProviderWithURL(apiKey, model, baseURL string, extraHeaders map[string]string) Provider {
 if extraHeaders == nil {
 extraHeaders = make(map[string]string)
 }
 
 return &CohereProvider{
 apiKey:       apiKey,
-baseURL:      baseURL,
 model:        model,
 extraHeaders: extraHeaders,
 options:      make(map[string]any),
 logger:       utils.NewLogger(utils.LogLevelInfo),
-}
 }
 }
 
@@ -90,17 +84,8 @@ return "cohere"
 
 // Endpoint returns the base URL for the Cohere API.
 // This is "https://api.cohere.com/v2/chat".
-// Endpoint returns the base URL for the Cohere API.
-// Uses the configured baseURL and appends the appropriate API version path.
 func (p *CohereProvider) Endpoint() string {
-baseURL := p.baseURL
-
-// Remove trailing slash if present
-if len(baseURL) > 0 && baseURL[len(baseURL)-1] == '/' {
-baseURL = baseURL[:len(baseURL)-1]
-}
-
-return baseURL + "/v2/chat"
+return "https://api.cohere.com/v2/chat"
 }
 
 // SupportsJSONSchema indicates that Cohere supports structured output
