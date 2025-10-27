@@ -83,9 +83,16 @@ return "cohere"
 }
 
 // Endpoint returns the base URL for the Cohere API.
-// This is "https://api.cohere.com/v2/chat".
+// Uses the configured baseURL and appends the appropriate API version path.
 func (p *CohereProvider) Endpoint() string {
-return "https://api.cohere.com/v2/chat"
+	baseURL := p.baseURL
+	
+	// Remove trailing slash if present
+	if len(baseURL) > 0 && baseURL[len(baseURL)-1] == '/' {
+		baseURL = baseURL[:len(baseURL)-1]
+	}
+	
+	return baseURL + "/v2/chat"
 }
 
 // SupportsJSONSchema indicates that Cohere supports structured output
