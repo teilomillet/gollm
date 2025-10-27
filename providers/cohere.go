@@ -32,18 +32,25 @@ logger       utils.Logger      // Logger instance
 //
 // Returns:
 //   - A configured Cohere Provider instance
+//   - A configured Cohere Provider instance
 func NewCohereProvider(apiKey, model string, extraHeaders map[string]string) Provider {
-if extraHeaders == nil {
-extraHeaders = make(map[string]string)
+	return NewCohereProviderWithURL(apiKey, model, "https://api.cohere.com", extraHeaders)
 }
 
-return &CohereProvider{
-apiKey:       apiKey,
-model:        model,
-extraHeaders: extraHeaders,
-options:      make(map[string]any),
-logger:       utils.NewLogger(utils.LogLevelInfo),
-}
+// NewCohereProviderWithURL creates a new Cohere provider with a custom base URL
+func NewCohereProviderWithURL(apiKey, model, baseURL string, extraHeaders map[string]string) Provider {
+	if extraHeaders == nil {
+		extraHeaders = make(map[string]string)
+	}
+
+	return &CohereProvider{
+		apiKey:       apiKey,
+		baseURL:      baseURL,
+		model:        model,
+		extraHeaders: extraHeaders,
+		options:      make(map[string]any),
+		logger:       utils.NewLogger(utils.LogLevelInfo),
+	}
 }
 
 // SetLogger configures the logger for the Cohere provider.
