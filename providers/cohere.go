@@ -143,7 +143,15 @@ func (p *CohereProvider) PrepareRequest(prompt string, options map[string]any) (
 requestBody := map[string]any{
 "model": p.model,
 "messages": []map[string]any{
-{"role": "user", "content": prompt},
+{
+"role": "user",
+"content": []map[string]any{
+{
+"type": "text",
+"text": prompt,
+},
+},
+},
 },
 }
 
@@ -316,8 +324,13 @@ cohereMessages := []map[string]interface{}{}
 
 for _, msg := range messages {
 cohereMessages = append(cohereMessages, map[string]interface{}{
-"role":    msg.Role,
-"content": msg.Content,
+"role": msg.Role,
+"content": []map[string]interface{}{
+{
+"type": "text",
+"text": msg.Content,
+},
+},
 })
 }
 
