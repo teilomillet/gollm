@@ -115,7 +115,7 @@ return true
 //   - Any additional headers specified via SetExtraHeaders
 func (p *CohereProvider) Headers() map[string]string {
 headers := map[string]string{
-"Content-type":  "application/json",
+"Content-Type":  "application/json",
 "Authorization": "bearer " + p.apiKey,
 }
 
