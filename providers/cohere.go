@@ -155,14 +155,29 @@ requestBody := map[string]any{
 },
 }
 
-// First, add default options
-for k, v := range p.options {
-requestBody[k] = v
+// Cohere v2 API supported parameters
+supportedParams := map[string]bool{
+"temperature":        true,
+"max_tokens":         true,
+"seed":               true,
+"frequency_penalty":  true,
+"presence_penalty":   true,
+"k":                  true,
+"p":                  true,
 }
 
-// Then, add any additional options (which may override defaults)
-for k, v := range options {
+// First, add default options (filter unsupported)
+for k, v := range p.options {
+if supportedParams[k] {
 requestBody[k] = v
+}
+}
+
+// Then, add any additional options (which may override defaults, filter unsupported)
+for k, v := range options {
+if supportedParams[k] {
+requestBody[k] = v
+}
 }
 
 return json.Marshal(requestBody)
@@ -340,14 +355,25 @@ request := map[string]interface{}{
 "messages": cohereMessages,
 }
 
-// Add other options
+// Add other options (filter unsupported parameters)
+// Cohere v2 API supported parameters: temperature, max_tokens, seed, frequency_penalty, presence_penalty, k, p
+supportedParams := map[string]bool{
+"temperature":        true,
+"max_tokens":         true,
+"seed":               true,
+"frequency_penalty":  true,
+"presence_penalty":   true,
+"k":                  true,
+"p":                  true,
+}
+
 for k, v := range p.options {
-if k != "messages" {
+if k != "messages" && supportedParams[k] {
 request[k] = v
 }
 }
 for k, v := range options {
-if k != "messages" && k != "system_prompt" && k != "structured_messages" {
+if k != "messages" && k != "system_prompt" && k != "structured_messages" && supportedParams[k] {
 request[k] = v
 }
 }
