@@ -144,13 +144,8 @@ requestBody := map[string]any{
 "model": p.model,
 "messages": []map[string]any{
 {
-"role": "user",
-"content": []map[string]any{
-{
-"type": "text",
-"text": prompt,
-},
-},
+"role":    "user",
+"content": prompt, // Cohere v2 API accepts string content
 },
 },
 }
@@ -339,13 +334,8 @@ cohereMessages := []map[string]interface{}{}
 
 for _, msg := range messages {
 cohereMessages = append(cohereMessages, map[string]interface{}{
-"role": msg.Role,
-"content": []map[string]interface{}{
-{
-"type": "text",
-"text": msg.Content,
-},
-},
+"role":    msg.Role,
+"content": msg.Content, // Cohere v2 API accepts string content
 })
 }
 
@@ -368,13 +358,21 @@ supportedParams := map[string]bool{
 }
 
 for k, v := range p.options {
-if k != "messages" && supportedParams[k] {
+if k != "messages" {
+if supportedParams[k] {
 request[k] = v
+} else {
+p.logger.Debug("Filtering unsupported parameter from p.options: %s", k)
+}
 }
 }
 for k, v := range options {
-if k != "messages" && k != "system_prompt" && k != "structured_messages" && supportedParams[k] {
+if k != "messages" && k != "system_prompt" && k != "structured_messages" {
+if supportedParams[k] {
 request[k] = v
+} else {
+p.logger.Debug("Filtering unsupported parameter from options: %s", k)
+}
 }
 }
 
@@ -382,13 +380,8 @@ request[k] = v
 if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
 // Insert system message at the beginning
 systemMessage := map[string]interface{}{
-"role": "system",
-"content": []map[string]interface{}{
-{
-"type": "text",
-"text": systemPrompt,
-},
-},
+"role":    "system",
+"content": systemPrompt, // Cohere v2 API accepts string content
 }
 request["messages"] = append([]map[string]interface{}{systemMessage}, cohereMessages...)
 }
