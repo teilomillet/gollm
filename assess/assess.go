@@ -327,7 +327,6 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 				if tr.batchCfg.RateLimit != nil {
 					if err := tr.batchCfg.RateLimit.Wait(ctx); err != nil {
 						rateLimitErr := fmt.Errorf("rate limit wait failed: %w", err)
-						tr.recordError(p.Name, rateLimitErr)
 						tr.t.Logf("Rate limit wait error for provider %s: %v", p.Name, err)
 
 						// Send failure result and clean up
@@ -348,7 +347,6 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 				// when concurrent goroutines call SetOption on the same client
 				client, err := tr.setupClient(p)
 				if err != nil {
-					tr.recordError(p.Name, err)
 					tr.t.Logf("Client setup error for provider %s: %v", p.Name, err)
 
 					// Send failure result and clean up
