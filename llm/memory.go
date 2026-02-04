@@ -403,6 +403,7 @@ func (l *LLMWithMemory) GetMemory() []types.MemoryMessage {
 
 // GenerateWithSchema generates text conforming to a schema, with conversation history.
 // It automatically adds the prompt and response to memory.
+// Respects the useStructuredMessages setting for consistent behavior with Generate.
 //
 // Parameters:
 //   - ctx: Context for cancellation and timeout
@@ -414,17 +415,47 @@ func (l *LLMWithMemory) GetMemory() []types.MemoryMessage {
 //   - Generated text response
 //   - Error types as per the base LLM's GenerateWithSchema method
 func (l *LLMWithMemory) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (string, error) {
+	// Add user message to memory
 	l.memory.Add("user", prompt.Input)
-	fullPrompt := l.memory.GetPrompt()
 
-	memoryPrompt := &Prompt{
-		SystemPrompt: prompt.SystemPrompt,
-		Tools:        prompt.Tools,
-		ToolChoice:   prompt.ToolChoice,
-		Input:        fullPrompt,
+	var response string
+	var err error
+
+	if l.useStructuredMessages {
+		// Get structured messages from memory
+		messages := l.memory.GetMessages()
+
+		// Make a copy of the original prompt with empty input
+		// (since content will be in structured messages)
+		emptyPrompt := &Prompt{
+			SystemPrompt: prompt.SystemPrompt,
+			Tools:        prompt.Tools,
+			ToolChoice:   prompt.ToolChoice,
+			Input:        "", // Empty as content is in messages
+		}
+
+		// Set structured messages option
+		l.LLM.SetOption("structured_messages", messages)
+
+		// Generate with structured messages and schema
+		response, err = l.LLM.GenerateWithSchema(ctx, emptyPrompt, schema, opts...)
+
+		// Remove the structured messages option after use
+		l.LLM.SetOption("structured_messages", nil)
+	} else {
+		// Fallback to traditional flattened prompt approach
+		fullPrompt := l.memory.GetPrompt()
+
+		memoryPrompt := &Prompt{
+			SystemPrompt: prompt.SystemPrompt,
+			Tools:        prompt.Tools,
+			ToolChoice:   prompt.ToolChoice,
+			Input:        fullPrompt,
+		}
+
+		response, err = l.LLM.GenerateWithSchema(ctx, memoryPrompt, schema, opts...)
 	}
 
-	response, err := l.LLM.GenerateWithSchema(ctx, memoryPrompt, schema, opts...)
 	if err != nil {
 		return "", err
 	}
