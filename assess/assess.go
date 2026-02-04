@@ -228,10 +228,14 @@ func (tr *TestRunner) printErrorSummary() {
 	}
 
 	tr.t.Log("\n=== Performance Summary ===")
-	for provider, latency := range tr.batchMetrics.BatchTiming.ProviderLatency {
-		tr.t.Logf("Provider %s - Average Response Time: %v", provider, latency)
+	if tr.batchMetrics != nil {
+		for provider, latency := range tr.batchMetrics.BatchTiming.ProviderLatency {
+			tr.t.Logf("Provider %s - Average Response Time: %v", provider, latency)
+		}
+		tr.t.Logf("Total Execution Time: %v", tr.batchMetrics.BatchTiming.TotalDuration)
+	} else {
+		tr.t.Log("No performance metrics available")
 	}
-	tr.t.Logf("Total Execution Time: %v", tr.batchMetrics.BatchTiming.TotalDuration)
 	tr.t.Log("==================")
 }
 
