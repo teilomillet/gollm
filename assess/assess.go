@@ -285,6 +285,10 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 
 	var concurrencyMu sync.Mutex
 
+	// Track latency sums and counts for computing true arithmetic mean
+	providerLatencySum := make(map[string]time.Duration)
+	providerLatencyCount := make(map[string]int)
+
 	// Create channels for real-time updates
 	type testResult struct {
 		provider string
@@ -347,13 +351,10 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 					response: response,
 				}
 
-				// Update provider latency metrics
+				// Accumulate latency for computing arithmetic mean later
 				tr.mu.Lock()
-				if existing, ok := tr.batchMetrics.BatchTiming.ProviderLatency[p.Name]; ok {
-					tr.batchMetrics.BatchTiming.ProviderLatency[p.Name] = (existing + duration) / 2
-				} else {
-					tr.batchMetrics.BatchTiming.ProviderLatency[p.Name] = duration
-				}
+				providerLatencySum[p.Name] += duration
+				providerLatencyCount[p.Name]++
 				tr.mu.Unlock()
 
 				// Release semaphore
@@ -385,6 +386,13 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 			tr.t.Logf("✓ [%s/%s] Completed in %v", result.provider, result.testCase, result.duration)
 		}
 		tr.t.Logf("Progress: %d/%d tests completed (%d%%)", completedTests, totalTests, (completedTests*100)/totalTests)
+	}
+
+	// Compute true arithmetic mean for provider latencies
+	for provider, sum := range providerLatencySum {
+		if count := providerLatencyCount[provider]; count > 0 {
+			tr.batchMetrics.BatchTiming.ProviderLatency[provider] = sum / time.Duration(count)
+		}
 	}
 
 	// Record final metrics
