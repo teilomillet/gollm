@@ -176,21 +176,22 @@ func (d *NDJSONDecoder) Next() bool {
 		return false
 	}
 
-	if !d.scanner.Scan() {
-		d.err = d.scanner.Err()
-		return false
+	// Use loop instead of recursion to avoid stack overflow on many empty lines
+	for d.scanner.Scan() {
+		line := d.scanner.Bytes()
+		if len(line) == 0 {
+			continue // Skip empty lines
+		}
+
+		d.current = Event{
+			Type: "text",
+			Data: line,
+		}
+		return true
 	}
 
-	line := d.scanner.Bytes()
-	if len(line) == 0 {
-		return d.Next() // Skip empty lines
-	}
-
-	d.current = Event{
-		Type: "text",
-		Data: line,
-	}
-	return true
+	d.err = d.scanner.Err()
+	return false
 }
 
 func (d *NDJSONDecoder) Event() Event {

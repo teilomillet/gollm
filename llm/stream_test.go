@@ -113,3 +113,46 @@ func TestNDJSONDecoderSkipsEmptyLines(t *testing.T) {
 		t.Errorf("Expected data '%s', got '%s'", expected, string(event.Data))
 	}
 }
+
+func TestNDJSONDecoderManyEmptyLines(t *testing.T) {
+	// Test that many empty lines don't cause stack overflow (was recursive before)
+	var sb strings.Builder
+	sb.WriteString(`{"response": "Start", "done": false}`)
+	sb.WriteString("\n")
+	// Add 10000 empty lines - would cause stack overflow with recursive implementation
+	for i := 0; i < 10000; i++ {
+		sb.WriteString("\n")
+	}
+	sb.WriteString(`{"response": "End", "done": true}`)
+	sb.WriteString("\n")
+
+	reader := strings.NewReader(sb.String())
+	decoder := NewNDJSONDecoder(reader)
+
+	// First line
+	if !decoder.Next() {
+		t.Fatal("Expected first line")
+	}
+	event := decoder.Event()
+	if string(event.Data) != `{"response": "Start", "done": false}` {
+		t.Errorf("Unexpected first data: %s", string(event.Data))
+	}
+
+	// Second line (should skip all 10000 empty lines without stack overflow)
+	if !decoder.Next() {
+		t.Fatal("Expected second line after skipping empty lines")
+	}
+	event = decoder.Event()
+	if string(event.Data) != `{"response": "End", "done": true}` {
+		t.Errorf("Unexpected second data: %s", string(event.Data))
+	}
+
+	// No more lines
+	if decoder.Next() {
+		t.Error("Expected no more lines")
+	}
+
+	if decoder.Err() != nil {
+		t.Errorf("Unexpected error: %v", decoder.Err())
+	}
+}
