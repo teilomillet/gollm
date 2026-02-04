@@ -25,6 +25,7 @@ func TestProviderRegistration(t *testing.T) {
 		"google-openai",
 		"openrouter",    // Registered via init() - was failing in issue #42
 		"azure-openai",  // Has config but needs constructor - was failing in issue #38
+		"aliyun",        // Alibaba Cloud DashScope - issue #52
 	}
 
 	registry := GetDefaultRegistry()
@@ -52,6 +53,8 @@ func TestNewProviderRegistryContainsKnownProviders(t *testing.T) {
 		"cohere",
 		"deepseek",
 		"google-openai",
+		"azure-openai",
+		"aliyun",
 	}
 
 	registry := NewProviderRegistry()
@@ -99,6 +102,7 @@ func TestProviderConfigsExist(t *testing.T) {
 		"ollama",
 		"deepseek",
 		"google-openai",
+		"aliyun",
 	}
 
 	registry := GetDefaultRegistry()

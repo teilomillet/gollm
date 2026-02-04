@@ -185,6 +185,7 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"deepseek":      NewDeepSeekProvider,
 		"google-openai": NewGoogleProvider,
 		"azure-openai":  NewAzureOpenAIProvider,
+		"aliyun":        NewAliyunProvider,
 		// Add other providers here as they are implemented
 	}
 
@@ -254,6 +255,16 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			Name:              "google-openai",
 			Type:              TypeOpenAI,
 			Endpoint:          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"aliyun": {
+			Name:              "aliyun",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
 			AuthHeader:        "Authorization",
 			AuthPrefix:        "Bearer ",
 			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
