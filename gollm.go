@@ -10,8 +10,23 @@ import (
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/llm"
 	"github.com/teilomillet/gollm/providers"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
+
+// ToolResult represents the result of executing a tool.
+// Use NewToolResult or NewToolError to create instances.
+type ToolResult = types.ToolResult
+
+// NewToolResult creates a successful tool result.
+func NewToolResult(toolCallID, content string) ToolResult {
+	return types.NewToolResult(toolCallID, content)
+}
+
+// NewToolError creates an error tool result.
+func NewToolError(toolCallID, errorMessage string) ToolResult {
+	return types.NewToolError(toolCallID, errorMessage)
+}
 
 // LLM is the interface that wraps the basic LLM operations.
 // It extends the base llm.LLM interface with additional functionality specific to gollm,
@@ -60,6 +75,21 @@ type LLM interface {
 	// When false, messages are flattened into a single prompt string.
 	// Does nothing if memory is not enabled.
 	SetUseStructuredMessages(use bool)
+
+	// Tool calling methods (only functional when memory is enabled via SetMemory)
+
+	// AddToolResult adds a tool execution result to the conversation history.
+	// Use this after executing a tool to provide the result back to the LLM.
+	// Does nothing if memory is not enabled.
+	AddToolResult(toolCallID, result string)
+	// AddToolError adds a tool execution error to the conversation history.
+	// Use this when a tool fails to inform the LLM of the error.
+	// Does nothing if memory is not enabled.
+	AddToolError(toolCallID, errorMessage string)
+	// AddAssistantMessageWithToolCalls adds an assistant message with tool calls.
+	// This preserves tool calls in the conversation for multi-turn tool usage.
+	// Does nothing if memory is not enabled.
+	AddAssistantMessageWithToolCalls(content string, toolCalls []ToolCall)
 }
 
 // llmImpl is the concrete implementation of the LLM interface.
@@ -118,6 +148,27 @@ func (l *llmImpl) AddStructuredMessage(role, content, cacheControl string) {
 func (l *llmImpl) SetUseStructuredMessages(use bool) {
 	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
 		mem.SetUseStructuredMessages(use)
+	}
+}
+
+// AddToolResult adds a tool execution result to the conversation history.
+func (l *llmImpl) AddToolResult(toolCallID, result string) {
+	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+		mem.AddToolResult(toolCallID, result)
+	}
+}
+
+// AddToolError adds a tool execution error to the conversation history.
+func (l *llmImpl) AddToolError(toolCallID, errorMessage string) {
+	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+		mem.AddToolError(toolCallID, errorMessage)
+	}
+}
+
+// AddAssistantMessageWithToolCalls adds an assistant message with tool calls.
+func (l *llmImpl) AddAssistantMessageWithToolCalls(content string, toolCalls []ToolCall) {
+	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+		mem.AddAssistantMessageWithToolCalls(content, toolCalls)
 	}
 }
 

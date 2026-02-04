@@ -600,7 +600,63 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMe
 
 	// Convert MemoryMessage objects to Anthropic messages
 	for _, msg := range messages {
-		content := []map[string]interface{}{
+		var content []map[string]interface{}
+
+		// Handle tool result messages (role=tool becomes user with tool_result content)
+		if msg.Role == "tool" && msg.ToolCallID != "" {
+			// Anthropic expects tool results as user messages with tool_result content block
+			content = []map[string]interface{}{
+				{
+					"type":        "tool_result",
+					"tool_use_id": msg.ToolCallID,
+					"content":     msg.Content,
+				},
+			}
+			// Check if this is an error result
+			if isError, ok := msg.Metadata["is_error"].(bool); ok && isError {
+				content[0]["is_error"] = true
+			}
+			message := map[string]interface{}{
+				"role":    "user", // Anthropic uses "user" role for tool results
+				"content": content,
+			}
+			requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), message)
+			continue
+		}
+
+		// Handle assistant messages with tool calls
+		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+			// Add text content if present
+			if msg.Content != "" {
+				content = append(content, map[string]interface{}{
+					"type": "text",
+					"text": msg.Content,
+				})
+			}
+			// Add tool_use content blocks for each tool call
+			for _, tc := range msg.ToolCalls {
+				// Parse the arguments JSON
+				var args interface{}
+				if err := json.Unmarshal(tc.Function.Arguments, &args); err != nil {
+					args = map[string]interface{}{} // Empty object on parse error
+				}
+				content = append(content, map[string]interface{}{
+					"type":  "tool_use",
+					"id":    tc.ID,
+					"name":  tc.Function.Name,
+					"input": args,
+				})
+			}
+			message := map[string]interface{}{
+				"role":    "assistant",
+				"content": content,
+			}
+			requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), message)
+			continue
+		}
+
+		// Regular text message
+		content = []map[string]interface{}{
 			{
 				"type": "text",
 				"text": msg.Content,

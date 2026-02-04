@@ -603,14 +603,43 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 	// Convert MemoryMessage objects to OpenAI messages format
 	for _, msg := range messages {
 		message := map[string]interface{}{
-			"role":    msg.Role,
-			"content": msg.Content,
+			"role": msg.Role,
 		}
 
-		// Add metadata if present
+		// Handle tool result messages (role=tool)
+		if msg.Role == "tool" && msg.ToolCallID != "" {
+			message["tool_call_id"] = msg.ToolCallID
+			message["content"] = msg.Content
+		} else if len(msg.ToolCalls) > 0 {
+			// Handle assistant messages with tool calls
+			// OpenAI expects tool_calls array for assistant messages
+			toolCalls := make([]map[string]interface{}, len(msg.ToolCalls))
+			for i, tc := range msg.ToolCalls {
+				toolCalls[i] = map[string]interface{}{
+					"id":   tc.ID,
+					"type": tc.Type,
+					"function": map[string]interface{}{
+						"name":      tc.Function.Name,
+						"arguments": string(tc.Function.Arguments),
+					},
+				}
+			}
+			message["tool_calls"] = toolCalls
+			// Content can be empty or contain text alongside tool calls
+			if msg.Content != "" {
+				message["content"] = msg.Content
+			}
+		} else {
+			// Regular text message
+			message["content"] = msg.Content
+		}
+
+		// Add metadata if present (excluding tool-related fields already handled)
 		if len(msg.Metadata) > 0 {
 			for k, v := range msg.Metadata {
-				message[k] = v
+				if k != "tool_calls" && k != "tool_call_id" {
+					message[k] = v
+				}
 			}
 		}
 

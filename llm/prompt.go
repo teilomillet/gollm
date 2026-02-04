@@ -1,11 +1,11 @@
 package llm
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/invopop/jsonschema"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -32,14 +32,9 @@ type PromptMessage struct {
 
 // ToolCall represents a request from the LLM to use a specific tool.
 // It includes the tool's identifier, type, and any arguments needed for execution.
-type ToolCall struct {
-	ID       string `json:"id"`   // Unique identifier for the tool call
-	Type     string `json:"type"` // Type of tool being called
-	Function struct {
-		Name      string          `json:"name"`      // Name of the function to call
-		Arguments json.RawMessage `json:"arguments"` // Arguments for the function call
-	} `json:"function"`
-}
+//
+// Deprecated: Use types.ToolCall instead.
+type ToolCall = types.ToolCall
 
 // Prompt represents a complete prompt structure that can be sent to an LLM.
 // It includes various components like system messages, user input, context,
