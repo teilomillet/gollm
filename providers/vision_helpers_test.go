@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm/types"
 )
 
@@ -89,9 +90,10 @@ func TestContentPartToOpenAIImage(t *testing.T) {
 			},
 		}
 		result, ok := ContentPartToOpenAIImage(part)
-		assert.True(t, ok)
+		require.True(t, ok, "conversion should succeed")
 		assert.Equal(t, "image_url", result["type"])
-		imgURL := result["image_url"].(map[string]interface{})
+		imgURL, ok := result["image_url"].(map[string]interface{})
+		require.True(t, ok, "image_url should be a map")
 		assert.Equal(t, "https://example.com/image.jpg", imgURL["url"])
 		assert.Equal(t, "high", imgURL["detail"])
 	})
@@ -104,8 +106,9 @@ func TestContentPartToOpenAIImage(t *testing.T) {
 			},
 		}
 		result, ok := ContentPartToOpenAIImage(part)
-		assert.True(t, ok)
-		imgURL := result["image_url"].(map[string]interface{})
+		require.True(t, ok, "conversion should succeed")
+		imgURL, ok := result["image_url"].(map[string]interface{})
+		require.True(t, ok, "image_url should be a map")
 		assert.Equal(t, "https://example.com/image.jpg", imgURL["url"])
 		_, hasDetail := imgURL["detail"]
 		assert.False(t, hasDetail)
@@ -121,9 +124,10 @@ func TestContentPartToOpenAIImage(t *testing.T) {
 			},
 		}
 		result, ok := ContentPartToOpenAIImage(part)
-		assert.True(t, ok)
+		require.True(t, ok, "conversion should succeed")
 		assert.Equal(t, "image_url", result["type"])
-		imgURL := result["image_url"].(map[string]interface{})
+		imgURL, ok := result["image_url"].(map[string]interface{})
+		require.True(t, ok, "image_url should be a map")
 		assert.Equal(t, "data:image/png;base64,iVBORw0KGgo=", imgURL["url"])
 	})
 
@@ -157,9 +161,10 @@ func TestContentPartToAnthropicImage(t *testing.T) {
 			},
 		}
 		result, ok := ContentPartToAnthropicImage(part)
-		assert.True(t, ok)
+		require.True(t, ok, "conversion should succeed")
 		assert.Equal(t, "image", result["type"])
-		source := result["source"].(map[string]interface{})
+		source, ok := result["source"].(map[string]interface{})
+		require.True(t, ok, "source should be a map")
 		assert.Equal(t, "base64", source["type"])
 		assert.Equal(t, "image/png", source["media_type"])
 		assert.Equal(t, "iVBORw0KGgo=", source["data"])
@@ -173,9 +178,10 @@ func TestContentPartToAnthropicImage(t *testing.T) {
 			},
 		}
 		result, ok := ContentPartToAnthropicImage(part)
-		assert.True(t, ok)
+		require.True(t, ok, "conversion should succeed")
 		assert.Equal(t, "image", result["type"])
-		source := result["source"].(map[string]interface{})
+		source, ok := result["source"].(map[string]interface{})
+		require.True(t, ok, "source should be a map")
 		assert.Equal(t, "url", source["type"])
 		assert.Equal(t, "https://example.com/image.jpg", source["url"])
 	})
@@ -188,9 +194,10 @@ func TestContentPartToAnthropicImage(t *testing.T) {
 			},
 		}
 		result, ok := ContentPartToAnthropicImage(part)
-		assert.True(t, ok)
+		require.True(t, ok, "conversion should succeed")
 		assert.Equal(t, "image", result["type"])
-		source := result["source"].(map[string]interface{})
+		source, ok := result["source"].(map[string]interface{})
+		require.True(t, ok, "source should be a map")
 		assert.Equal(t, "base64", source["type"])
 		assert.Equal(t, "image/jpeg", source["media_type"])
 		assert.Equal(t, "/9j/4AAQ=", source["data"])

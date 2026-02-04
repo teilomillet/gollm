@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewTextContent(t *testing.T) {
@@ -20,7 +21,7 @@ func TestNewImageURLContent(t *testing.T) {
 		content := NewImageURLContent("https://example.com/image.jpg", "")
 
 		assert.Equal(t, ContentTypeImageURL, content.Type)
-		assert.NotNil(t, content.ImageURL)
+		require.NotNil(t, content.ImageURL, "ImageURL should not be nil")
 		assert.Equal(t, "https://example.com/image.jpg", content.ImageURL.URL)
 		assert.Equal(t, "auto", content.ImageURL.Detail)
 	})
@@ -29,7 +30,7 @@ func TestNewImageURLContent(t *testing.T) {
 		content := NewImageURLContent("https://example.com/image.jpg", "high")
 
 		assert.Equal(t, ContentTypeImageURL, content.Type)
-		assert.NotNil(t, content.ImageURL)
+		require.NotNil(t, content.ImageURL, "ImageURL should not be nil")
 		assert.Equal(t, "https://example.com/image.jpg", content.ImageURL.URL)
 		assert.Equal(t, "high", content.ImageURL.Detail)
 	})
@@ -39,7 +40,7 @@ func TestNewImageBase64Content(t *testing.T) {
 	content := NewImageBase64Content("base64data", "image/png")
 
 	assert.Equal(t, ContentTypeImage, content.Type)
-	assert.NotNil(t, content.Source)
+	require.NotNil(t, content.Source, "Source should not be nil")
 	assert.Equal(t, "base64", content.Source.Type)
 	assert.Equal(t, "image/png", content.Source.MediaType)
 	assert.Equal(t, "base64data", content.Source.Data)
