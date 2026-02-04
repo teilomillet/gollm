@@ -360,10 +360,17 @@ func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...Ge
 		// Make a copy of the original prompt with empty input
 		// (since content will be in structured messages)
 		emptyPrompt := &Prompt{
-			SystemPrompt: prompt.SystemPrompt,
-			Tools:        prompt.Tools,
-			ToolChoice:   prompt.ToolChoice,
-			Input:        "", // Empty as content is in messages
+			Input:           "", // Empty as content is in messages
+			Output:          prompt.Output,
+			Directives:      prompt.Directives,
+			Context:         prompt.Context,
+			MaxLength:       prompt.MaxLength,
+			Examples:        prompt.Examples,
+			SystemPrompt:    prompt.SystemPrompt,
+			SystemCacheType: prompt.SystemCacheType,
+			Tools:           prompt.Tools,
+			ToolChoice:      prompt.ToolChoice,
+			// Messages intentionally omitted - using structured_messages option instead
 		}
 
 		// This is an intentional no-op GenerateOption. The structured messages are
@@ -455,10 +462,17 @@ func (l *LLMWithMemory) GenerateWithSchema(ctx context.Context, prompt *Prompt, 
 		// Make a copy of the original prompt with empty input
 		// (since content will be in structured messages)
 		emptyPrompt := &Prompt{
-			SystemPrompt: prompt.SystemPrompt,
-			Tools:        prompt.Tools,
-			ToolChoice:   prompt.ToolChoice,
-			Input:        "", // Empty as content is in messages
+			Input:           "", // Empty as content is in messages
+			Output:          prompt.Output,
+			Directives:      prompt.Directives,
+			Context:         prompt.Context,
+			MaxLength:       prompt.MaxLength,
+			Examples:        prompt.Examples,
+			SystemPrompt:    prompt.SystemPrompt,
+			SystemCacheType: prompt.SystemCacheType,
+			Tools:           prompt.Tools,
+			ToolChoice:      prompt.ToolChoice,
+			// Messages intentionally omitted - using structured_messages option instead
 		}
 
 		// Set structured messages option
