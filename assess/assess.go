@@ -341,7 +341,23 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 
 				// Create a new client for each test case to avoid race conditions
 				// when concurrent goroutines call SetOption on the same client
-				client := tr.setupClient(tr.t, p)
+				client, err := tr.setupClient(p)
+				if err != nil {
+					tr.recordError(p.Name, err)
+					tr.t.Logf("Client setup error for provider %s: %v", p.Name, err)
+
+					// Send failure result and clean up
+					results <- testResult{
+						provider: p.Name,
+						testCase: testCase.Name,
+						err:      err,
+					}
+					concurrencyMu.Lock()
+					currentConcurrent--
+					concurrencyMu.Unlock()
+					<-semaphore
+					return
+				}
 
 				// Run the test case
 				start := time.Now()
@@ -461,11 +477,11 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 	return response, nil
 }
 
-func (tr *TestRunner) setupClient(t *testing.T, provider TestProvider) llm.LLM {
+func (tr *TestRunner) setupClient(provider TestProvider) (llm.LLM, error) {
 	// Get API key from environment (providers should be pre-filtered, but check as safety)
 	apiKey := provider.apiKey()
 	if apiKey == "" {
-		t.Skipf("Skipping tests for %s: %s environment variable not set", provider.Name, provider.providerAPIKeyEnv())
+		return nil, fmt.Errorf("API key not set: %s environment variable is empty", provider.providerAPIKeyEnv())
 	}
 
 	// Create options with provider-specific settings
@@ -500,13 +516,13 @@ func (tr *TestRunner) setupClient(t *testing.T, provider TestProvider) llm.LLM {
 	// Create LLM client
 	client, err := gollm.NewLLM(opts...)
 	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
 	// Note: Response format for JSON schema validation is now set in runBatchCase
 	// when ExpectedSchema is present, not here in setupClient
 
-	return client
+	return client, nil
 }
 
 func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM, provider TestProvider, tc *TestCase) {
@@ -646,7 +662,10 @@ func (tr *TestRunner) Run(ctx context.Context) {
 
 	for _, provider := range availableProviders {
 		tr.t.Run(provider.Name, func(t *testing.T) {
-			client := tr.setupClient(t, provider)
+			client, err := tr.setupClient(provider)
+			if err != nil {
+				t.Fatalf("Failed to setup client for %s: %v", provider.Name, err)
+			}
 
 			for _, tc := range tr.cases {
 				t.Run(tc.Name, func(t *testing.T) {
