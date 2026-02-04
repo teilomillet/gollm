@@ -136,6 +136,46 @@ func ConvertImagesToAnthropicContent(images []types.ContentPart) []map[string]in
 	return result
 }
 
+// BuildOpenAIContentFromParts converts a slice of ContentPart (text + images) to OpenAI message content.
+// This is the primary helper for building multimodal content arrays.
+func BuildOpenAIContentFromParts(parts []types.ContentPart) []map[string]interface{} {
+	content := make([]map[string]interface{}, 0, len(parts))
+	for _, part := range parts {
+		switch part.Type {
+		case types.ContentTypeText:
+			content = append(content, map[string]interface{}{
+				"type": "text",
+				"text": part.Text,
+			})
+		default:
+			if converted, ok := ContentPartToOpenAIImage(part); ok {
+				content = append(content, converted)
+			}
+		}
+	}
+	return content
+}
+
+// BuildAnthropicContentFromParts converts a slice of ContentPart (text + images) to Anthropic message content.
+// This is the primary helper for building multimodal content arrays.
+func BuildAnthropicContentFromParts(parts []types.ContentPart) []map[string]interface{} {
+	content := make([]map[string]interface{}, 0, len(parts))
+	for _, part := range parts {
+		switch part.Type {
+		case types.ContentTypeText:
+			content = append(content, map[string]interface{}{
+				"type": "text",
+				"text": part.Text,
+			})
+		default:
+			if converted, ok := ContentPartToAnthropicImage(part); ok {
+				content = append(content, converted)
+			}
+		}
+	}
+	return content
+}
+
 // NormalizeContentArray safely converts various content representations to []map[string]interface{}.
 // Handles: string, []map[string]interface{}, []interface{}, and nil.
 func NormalizeContentArray(content interface{}) []map[string]interface{} {

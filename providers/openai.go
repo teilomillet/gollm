@@ -646,19 +646,8 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 				message["content"] = msg.Content
 			}
 		} else if msg.HasMultiContent() {
-			// Handle multimodal content (text + images) using shared helper
-			content := make([]map[string]interface{}, 0, len(msg.MultiContent))
-			for _, part := range msg.MultiContent {
-				if part.Type == types.ContentTypeText {
-					content = append(content, map[string]interface{}{
-						"type": "text",
-						"text": part.Text,
-					})
-				} else if imgContent, ok := ContentPartToOpenAIImage(part); ok {
-					content = append(content, imgContent)
-				}
-			}
-			message["content"] = content
+			// Handle multimodal content (text + images)
+			message["content"] = BuildOpenAIContentFromParts(msg.MultiContent)
 		} else {
 			// Regular text message
 			message["content"] = msg.Content

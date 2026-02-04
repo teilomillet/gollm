@@ -609,20 +609,9 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 			"role": msg.Role,
 		}
 
-		// Check if message has multimodal content (images) - use shared helper
+		// Check if message has multimodal content (images)
 		if msg.HasMultiContent() {
-			contentArray := []map[string]interface{}{}
-			for _, part := range msg.MultiContent {
-				if part.Type == types.ContentTypeText {
-					contentArray = append(contentArray, map[string]interface{}{
-						"type": "text",
-						"text": part.Text,
-					})
-				} else if imgContent, ok := ContentPartToOpenAIImage(part); ok {
-					contentArray = append(contentArray, imgContent)
-				}
-			}
-			formattedMsg["content"] = contentArray
+			formattedMsg["content"] = BuildOpenAIContentFromParts(msg.MultiContent)
 		} else {
 			formattedMsg["content"] = msg.Content
 

@@ -665,19 +665,9 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMe
 			continue
 		}
 
-		// Check if message has multimodal content - use shared helper
+		// Check if message has multimodal content
 		if msg.HasMultiContent() {
-			// Handle multimodal content (text + images)
-			for _, part := range msg.MultiContent {
-				if part.Type == types.ContentTypeText {
-					content = append(content, map[string]interface{}{
-						"type": "text",
-						"text": part.Text,
-					})
-				} else if imgContent, ok := ContentPartToAnthropicImage(part); ok {
-					content = append(content, imgContent)
-				}
-			}
+			content = BuildAnthropicContentFromParts(msg.MultiContent)
 		} else {
 			// Regular text message
 			content = []map[string]interface{}{

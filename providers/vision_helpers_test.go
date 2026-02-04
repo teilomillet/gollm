@@ -243,3 +243,46 @@ func TestNormalizeContentArray(t *testing.T) {
 		assert.Len(t, result, 0)
 	})
 }
+
+func TestBuildOpenAIContentFromParts(t *testing.T) {
+	t.Run("mixed text and images", func(t *testing.T) {
+		parts := []types.ContentPart{
+			{Type: types.ContentTypeText, Text: "Hello"},
+			{Type: types.ContentTypeImageURL, ImageURL: &types.ImageURL{URL: "https://example.com/img.jpg", Detail: "high"}},
+			{Type: types.ContentTypeText, Text: "World"},
+		}
+		result := BuildOpenAIContentFromParts(parts)
+		require.Len(t, result, 3)
+		assert.Equal(t, "text", result[0]["type"])
+		assert.Equal(t, "Hello", result[0]["text"])
+		assert.Equal(t, "image_url", result[1]["type"])
+		assert.Equal(t, "text", result[2]["type"])
+		assert.Equal(t, "World", result[2]["text"])
+	})
+
+	t.Run("skips invalid image parts", func(t *testing.T) {
+		parts := []types.ContentPart{
+			{Type: types.ContentTypeText, Text: "Hello"},
+			{Type: types.ContentTypeImageURL, ImageURL: nil}, // invalid
+			{Type: types.ContentTypeText, Text: "World"},
+		}
+		result := BuildOpenAIContentFromParts(parts)
+		require.Len(t, result, 2)
+		assert.Equal(t, "Hello", result[0]["text"])
+		assert.Equal(t, "World", result[1]["text"])
+	})
+}
+
+func TestBuildAnthropicContentFromParts(t *testing.T) {
+	t.Run("mixed text and images", func(t *testing.T) {
+		parts := []types.ContentPart{
+			{Type: types.ContentTypeText, Text: "Describe this:"},
+			{Type: types.ContentTypeImage, Source: &types.ImageSource{Type: "base64", MediaType: "image/png", Data: "abc123"}},
+		}
+		result := BuildAnthropicContentFromParts(parts)
+		require.Len(t, result, 2)
+		assert.Equal(t, "text", result[0]["type"])
+		assert.Equal(t, "Describe this:", result[0]["text"])
+		assert.Equal(t, "image", result[1]["type"])
+	})
+}
