@@ -177,38 +177,11 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 
 	// Add user message (with or without images)
 	if hasImages && len(images) > 0 {
-		// Build multimodal content array
+		// Build multimodal content array using shared helper
 		content := []map[string]interface{}{
 			{"type": "text", "text": prompt},
 		}
-		for _, img := range images {
-			switch img.Type {
-			case types.ContentTypeImageURL:
-				if img.ImageURL != nil {
-					imgContent := map[string]interface{}{
-						"type": "image_url",
-						"image_url": map[string]interface{}{
-							"url": img.ImageURL.URL,
-						},
-					}
-					if img.ImageURL.Detail != "" {
-						imgContent["image_url"].(map[string]interface{})["detail"] = img.ImageURL.Detail
-					}
-					content = append(content, imgContent)
-				}
-			case types.ContentTypeImage:
-				// Convert base64 to data URI for OpenAI
-				if img.Source != nil {
-					dataURI := fmt.Sprintf("data:%s;base64,%s", img.Source.MediaType, img.Source.Data)
-					content = append(content, map[string]interface{}{
-						"type": "image_url",
-						"image_url": map[string]interface{}{
-							"url": dataURI,
-						},
-					})
-				}
-			}
-		}
+		content = append(content, ConvertImagesToOpenAIContent(images)...)
 		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
 			"role":    "user",
 			"content": content,
@@ -673,39 +646,16 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 				message["content"] = msg.Content
 			}
 		} else if msg.HasMultiContent() {
-			// Handle multimodal content (text + images)
+			// Handle multimodal content (text + images) using shared helper
 			content := make([]map[string]interface{}, 0, len(msg.MultiContent))
 			for _, part := range msg.MultiContent {
-				switch part.Type {
-				case types.ContentTypeText:
+				if part.Type == types.ContentTypeText {
 					content = append(content, map[string]interface{}{
 						"type": "text",
 						"text": part.Text,
 					})
-				case types.ContentTypeImageURL:
-					if part.ImageURL != nil {
-						imgContent := map[string]interface{}{
-							"type": "image_url",
-							"image_url": map[string]interface{}{
-								"url": part.ImageURL.URL,
-							},
-						}
-						if part.ImageURL.Detail != "" {
-							imgContent["image_url"].(map[string]interface{})["detail"] = part.ImageURL.Detail
-						}
-						content = append(content, imgContent)
-					}
-				case types.ContentTypeImage:
-					// Convert base64 to data URI for OpenAI
-					if part.Source != nil {
-						dataURI := fmt.Sprintf("data:%s;base64,%s", part.Source.MediaType, part.Source.Data)
-						content = append(content, map[string]interface{}{
-							"type": "image_url",
-							"image_url": map[string]interface{}{
-								"url": dataURI,
-							},
-						})
-					}
+				} else if imgContent, ok := ContentPartToOpenAIImage(part); ok {
+					content = append(content, imgContent)
 				}
 			}
 			message["content"] = content

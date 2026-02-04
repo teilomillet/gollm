@@ -170,41 +170,13 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]in
 		delete(req, "system_message")
 	}
 
-	// Add the user prompt (with image support)
+	// Add the user prompt (with image support) using shared helper
 	if images, ok := req["images"].([]types.ContentPart); ok && len(images) > 0 {
 		// Build multimodal content array
 		contentArray := []map[string]interface{}{
 			{"type": "text", "text": prompt},
 		}
-
-		for _, img := range images {
-			switch img.Type {
-			case types.ContentTypeImageURL:
-				if img.ImageURL != nil {
-					imageContent := map[string]interface{}{
-						"type": "image_url",
-						"image_url": map[string]interface{}{
-							"url": img.ImageURL.URL,
-						},
-					}
-					if img.ImageURL.Detail != "" {
-						imageContent["image_url"].(map[string]interface{})["detail"] = img.ImageURL.Detail
-					}
-					contentArray = append(contentArray, imageContent)
-				}
-			case types.ContentTypeImage:
-				if img.Source != nil {
-					// Convert base64 to data URI for OpenAI-compatible format
-					dataURI := fmt.Sprintf("data:%s;base64,%s", img.Source.MediaType, img.Source.Data)
-					contentArray = append(contentArray, map[string]interface{}{
-						"type": "image_url",
-						"image_url": map[string]interface{}{
-							"url": dataURI,
-						},
-					})
-				}
-			}
-		}
+		contentArray = append(contentArray, ConvertImagesToOpenAIContent(images)...)
 		delete(req, "images")
 
 		messages = append(messages, map[string]interface{}{
@@ -637,40 +609,17 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 			"role": msg.Role,
 		}
 
-		// Check if message has multimodal content (images)
+		// Check if message has multimodal content (images) - use shared helper
 		if msg.HasMultiContent() {
 			contentArray := []map[string]interface{}{}
 			for _, part := range msg.MultiContent {
-				switch part.Type {
-				case types.ContentTypeText:
+				if part.Type == types.ContentTypeText {
 					contentArray = append(contentArray, map[string]interface{}{
 						"type": "text",
 						"text": part.Text,
 					})
-				case types.ContentTypeImageURL:
-					if part.ImageURL != nil {
-						imageContent := map[string]interface{}{
-							"type": "image_url",
-							"image_url": map[string]interface{}{
-								"url": part.ImageURL.URL,
-							},
-						}
-						if part.ImageURL.Detail != "" {
-							imageContent["image_url"].(map[string]interface{})["detail"] = part.ImageURL.Detail
-						}
-						contentArray = append(contentArray, imageContent)
-					}
-				case types.ContentTypeImage:
-					if part.Source != nil {
-						// Convert base64 to data URI for OpenAI-compatible format
-						dataURI := fmt.Sprintf("data:%s;base64,%s", part.Source.MediaType, part.Source.Data)
-						contentArray = append(contentArray, map[string]interface{}{
-							"type": "image_url",
-							"image_url": map[string]interface{}{
-								"url": dataURI,
-							},
-						})
-					}
+				} else if imgContent, ok := ContentPartToOpenAIImage(part); ok {
+					contentArray = append(contentArray, imgContent)
 				}
 			}
 			formattedMsg["content"] = contentArray
@@ -700,52 +649,15 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 		formattedMessages = append(formattedMessages, formattedMsg)
 	}
 
-	// Handle images passed in options (for the last user message)
+	// Handle images passed in options (for the last user message) - use shared helpers
 	if images, ok := req["images"].([]types.ContentPart); ok && len(images) > 0 {
 		// Find and update the last user message to include images
 		for i := len(formattedMessages) - 1; i >= 0; i-- {
 			if formattedMessages[i]["role"] == "user" {
-				existingContent := formattedMessages[i]["content"]
-				var contentArray []map[string]interface{}
-
-				// Convert existing content to array if it's a string
-				if strContent, ok := existingContent.(string); ok {
-					contentArray = []map[string]interface{}{
-						{"type": "text", "text": strContent},
-					}
-				} else if arrContent, ok := existingContent.([]map[string]interface{}); ok {
-					contentArray = arrContent
-				}
-
-				// Add images
-				for _, img := range images {
-					switch img.Type {
-					case types.ContentTypeImageURL:
-						if img.ImageURL != nil {
-							imageContent := map[string]interface{}{
-								"type": "image_url",
-								"image_url": map[string]interface{}{
-									"url": img.ImageURL.URL,
-								},
-							}
-							if img.ImageURL.Detail != "" {
-								imageContent["image_url"].(map[string]interface{})["detail"] = img.ImageURL.Detail
-							}
-							contentArray = append(contentArray, imageContent)
-						}
-					case types.ContentTypeImage:
-						if img.Source != nil {
-							dataURI := fmt.Sprintf("data:%s;base64,%s", img.Source.MediaType, img.Source.Data)
-							contentArray = append(contentArray, map[string]interface{}{
-								"type": "image_url",
-								"image_url": map[string]interface{}{
-									"url": dataURI,
-								},
-							})
-						}
-					}
-				}
-
+				// Use NormalizeContentArray for safe type conversion (handles string, []map, []interface{})
+				contentArray := NormalizeContentArray(formattedMessages[i]["content"])
+				// Add images using shared helper
+				contentArray = append(contentArray, ConvertImagesToOpenAIContent(images)...)
 				formattedMessages[i]["content"] = contentArray
 				break
 			}

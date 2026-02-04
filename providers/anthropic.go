@@ -197,63 +197,11 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]int
 	// Build user message content
 	userContent := []map[string]interface{}{}
 
-	// Check if we have images to include
+	// Check if we have images to include - use shared helper for conversion
 	images, hasImages := options["images"].([]types.ContentPart)
 	if hasImages && len(images) > 0 {
 		// Add images first, then text (Anthropic prefers this order)
-		for _, img := range images {
-			switch img.Type {
-			case types.ContentTypeImage:
-				// Direct base64 image
-				if img.Source != nil {
-					userContent = append(userContent, map[string]interface{}{
-						"type": "image",
-						"source": map[string]interface{}{
-							"type":       "base64",
-							"media_type": img.Source.MediaType,
-							"data":       img.Source.Data,
-						},
-					})
-				}
-			case types.ContentTypeImageURL:
-				// URL-based image - Anthropic supports URL sources
-				if img.ImageURL != nil {
-					// Check if it's a data URI (base64)
-					if strings.HasPrefix(img.ImageURL.URL, "data:") {
-						// Parse data URI: data:image/jpeg;base64,/9j/4AAQ...
-						parts := strings.SplitN(img.ImageURL.URL, ",", 2)
-						if len(parts) == 2 {
-							// Extract media type from data:image/jpeg;base64
-							mediaType := "image/jpeg" // default
-							if strings.Contains(parts[0], "image/png") {
-								mediaType = "image/png"
-							} else if strings.Contains(parts[0], "image/gif") {
-								mediaType = "image/gif"
-							} else if strings.Contains(parts[0], "image/webp") {
-								mediaType = "image/webp"
-							}
-							userContent = append(userContent, map[string]interface{}{
-								"type": "image",
-								"source": map[string]interface{}{
-									"type":       "base64",
-									"media_type": mediaType,
-									"data":       parts[1],
-								},
-							})
-						}
-					} else {
-						// Regular URL - Anthropic supports URL source type
-						userContent = append(userContent, map[string]interface{}{
-							"type": "image",
-							"source": map[string]interface{}{
-								"type": "url",
-								"url":  img.ImageURL.URL,
-							},
-						})
-					}
-				}
-			}
-		}
+		userContent = append(userContent, ConvertImagesToAnthropicContent(images)...)
 	}
 
 	// Add text content
@@ -717,64 +665,17 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMe
 			continue
 		}
 
-		// Check if message has multimodal content
+		// Check if message has multimodal content - use shared helper
 		if msg.HasMultiContent() {
 			// Handle multimodal content (text + images)
 			for _, part := range msg.MultiContent {
-				switch part.Type {
-				case types.ContentTypeText:
-					textContent := map[string]interface{}{
+				if part.Type == types.ContentTypeText {
+					content = append(content, map[string]interface{}{
 						"type": "text",
 						"text": part.Text,
-					}
-					content = append(content, textContent)
-				case types.ContentTypeImage:
-					// Direct base64 image
-					if part.Source != nil {
-						content = append(content, map[string]interface{}{
-							"type": "image",
-							"source": map[string]interface{}{
-								"type":       "base64",
-								"media_type": part.Source.MediaType,
-								"data":       part.Source.Data,
-							},
-						})
-					}
-				case types.ContentTypeImageURL:
-					// URL-based image
-					if part.ImageURL != nil {
-						if strings.HasPrefix(part.ImageURL.URL, "data:") {
-							// Parse data URI
-							parts := strings.SplitN(part.ImageURL.URL, ",", 2)
-							if len(parts) == 2 {
-								mediaType := "image/jpeg"
-								if strings.Contains(parts[0], "image/png") {
-									mediaType = "image/png"
-								} else if strings.Contains(parts[0], "image/gif") {
-									mediaType = "image/gif"
-								} else if strings.Contains(parts[0], "image/webp") {
-									mediaType = "image/webp"
-								}
-								content = append(content, map[string]interface{}{
-									"type": "image",
-									"source": map[string]interface{}{
-										"type":       "base64",
-										"media_type": mediaType,
-										"data":       parts[1],
-									},
-								})
-							}
-						} else {
-							// Regular URL
-							content = append(content, map[string]interface{}{
-								"type": "image",
-								"source": map[string]interface{}{
-									"type": "url",
-									"url":  part.ImageURL.URL,
-								},
-							})
-						}
-					}
+					})
+				} else if imgContent, ok := ContentPartToAnthropicImage(part); ok {
+					content = append(content, imgContent)
 				}
 			}
 		} else {
