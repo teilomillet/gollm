@@ -184,6 +184,7 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"cohere":        NewCohereProvider,
 		"deepseek":      NewDeepSeekProvider,
 		"google-openai": NewGoogleProvider,
+		"azure-openai":  NewAzureOpenAIProvider,
 		// Add other providers here as they are implemented
 	}
 
