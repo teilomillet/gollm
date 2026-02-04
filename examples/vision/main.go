@@ -1,5 +1,5 @@
 // Package main demonstrates how to use GoLLM with vision-capable models.
-// This example shows how to send images to models like gpt-4o, claude-sonnet-4, llava, etc.
+// This example shows how to send images to models like gpt-5.2, claude-sonnet-4.5, llava, etc.
 package main
 
 import (
@@ -14,13 +14,13 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// Example 1: Using OpenAI gpt-4o with an image URL
-	fmt.Println("\n=== Example 1: OpenAI gpt-4o with Image URL ===")
+	// Example 1: Using OpenAI GPT-5.2 with an image URL
+	fmt.Println("\n=== Example 1: OpenAI GPT-5.2 with Image URL ===")
 	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
 		llm, err := gollm.NewLLM(
 			gollm.SetProvider("openai"),
 			gollm.SetAPIKey(apiKey),
-			gollm.SetModel("gpt-4o"), // or "gpt-4-turbo"
+			gollm.SetModel("gpt-5.2"), // vision-capable model
 			gollm.SetMaxTokens(1000),
 		)
 		if err != nil {
@@ -46,13 +46,13 @@ func main() {
 		fmt.Println("Skipping: OPENAI_API_KEY not set")
 	}
 
-	// Example 2: Using Anthropic Claude with an image URL
-	fmt.Println("\n=== Example 2: Anthropic Claude with Image URL ===")
+	// Example 2: Using Anthropic Claude Sonnet 4.5 with an image URL
+	fmt.Println("\n=== Example 2: Anthropic Claude Sonnet 4.5 with Image URL ===")
 	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
 		llm, err := gollm.NewLLM(
 			gollm.SetProvider("anthropic"),
 			gollm.SetAPIKey(apiKey),
-			gollm.SetModel("claude-sonnet-4-20250514"), // or any vision-capable Claude model
+			gollm.SetModel("claude-sonnet-4.5"), // or claude-opus-4.5, claude-haiku-4.5
 			gollm.SetMaxTokens(1000),
 		)
 		if err != nil {
@@ -83,7 +83,7 @@ func main() {
 		llm, err := gollm.NewLLM(
 			gollm.SetProvider("openai"),
 			gollm.SetAPIKey(apiKey),
-			gollm.SetModel("gpt-4o"),
+			gollm.SetModel("gpt-5.2"),
 			gollm.SetMaxTokens(500),
 		)
 		if err != nil {
@@ -130,7 +130,7 @@ func main() {
 		llm, err := gollm.NewLLM(
 			gollm.SetProvider("openai"),
 			gollm.SetAPIKey(apiKey),
-			gollm.SetModel("gpt-4o"),
+			gollm.SetModel("gpt-5.2"),
 			gollm.SetMaxTokens(1000),
 		)
 		if err != nil {
@@ -159,7 +159,7 @@ func main() {
 		llm, err := gollm.NewLLM(
 			gollm.SetProvider("openrouter"),
 			gollm.SetAPIKey(apiKey),
-			gollm.SetModel("anthropic/claude-3-5-sonnet"), // Vision-capable model via OpenRouter
+			gollm.SetModel("anthropic/claude-sonnet-4.5"), // Vision-capable model via OpenRouter
 			gollm.SetMaxTokens(1000),
 		)
 		if err != nil {
