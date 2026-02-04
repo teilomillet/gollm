@@ -194,20 +194,30 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]int
 		}
 	}
 
-	// Handle user message with potential caching
-	userMessage := map[string]interface{}{
-		"role": "user",
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": prompt,
-			},
-		},
+	// Build user message content
+	userContent := []map[string]interface{}{}
+
+	// Check if we have images to include - use shared helper for conversion
+	images, hasImages := options["images"].([]types.ContentPart)
+	if hasImages && len(images) > 0 {
+		// Add images first, then text (Anthropic prefers this order)
+		userContent = append(userContent, ConvertImagesToAnthropicContent(images)...)
 	}
 
+	// Add text content
+	textContent := map[string]interface{}{
+		"type": "text",
+		"text": prompt,
+	}
 	// Add cache_control only if caching is enabled
 	if caching, ok := options["enable_caching"].(bool); ok && caching {
-		userMessage["content"].([]map[string]interface{})[0]["cache_control"] = map[string]string{"type": "ephemeral"}
+		textContent["cache_control"] = map[string]string{"type": "ephemeral"}
+	}
+	userContent = append(userContent, textContent)
+
+	userMessage := map[string]interface{}{
+		"role":    "user",
+		"content": userContent,
 	}
 
 	requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), userMessage)
@@ -655,20 +665,27 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMe
 			continue
 		}
 
-		// Regular text message
-		content = []map[string]interface{}{
-			{
-				"type": "text",
-				"text": msg.Content,
-			},
+		// Check if message has multimodal content
+		if msg.HasMultiContent() {
+			content = BuildAnthropicContentFromParts(msg.MultiContent)
+		} else {
+			// Regular text message
+			content = []map[string]interface{}{
+				{
+					"type": "text",
+					"text": msg.Content,
+				},
+			}
 		}
 
-		// Add cache_control if specified
-		if msg.CacheControl != "" {
-			content[0]["cache_control"] = map[string]string{"type": msg.CacheControl}
-		} else if caching, ok := options["enable_caching"].(bool); ok && caching {
-			// Add default caching if enabled globally
-			content[0]["cache_control"] = map[string]string{"type": "ephemeral"}
+		// Add cache_control if specified (to the last content block)
+		if len(content) > 0 {
+			if msg.CacheControl != "" {
+				content[len(content)-1]["cache_control"] = map[string]string{"type": msg.CacheControl}
+			} else if caching, ok := options["enable_caching"].(bool); ok && caching {
+				// Add default caching if enabled globally
+				content[len(content)-1]["cache_control"] = map[string]string{"type": "ephemeral"}
+			}
 		}
 
 		message := map[string]interface{}{

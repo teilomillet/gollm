@@ -172,11 +172,27 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 		})
 	}
 
-	// Add user message
-	request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
-		"role":    "user",
-		"content": prompt,
-	})
+	// Check if we have images to include
+	images, hasImages := options["images"].([]types.ContentPart)
+
+	// Add user message (with or without images)
+	if hasImages && len(images) > 0 {
+		// Build multimodal content array using shared helper
+		content := []map[string]interface{}{
+			{"type": "text", "text": prompt},
+		}
+		content = append(content, ConvertImagesToOpenAIContent(images)...)
+		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+			"role":    "user",
+			"content": content,
+		})
+	} else {
+		// Simple text-only message
+		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+			"role":    "user",
+			"content": prompt,
+		})
+	}
 
 	// Handle tool_choice
 	if toolChoice, ok := options["tool_choice"].(string); ok {
@@ -629,6 +645,9 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 			if msg.Content != "" {
 				message["content"] = msg.Content
 			}
+		} else if msg.HasMultiContent() {
+			// Handle multimodal content (text + images)
+			message["content"] = BuildOpenAIContentFromParts(msg.MultiContent)
 		} else {
 			// Regular text message
 			message["content"] = msg.Content

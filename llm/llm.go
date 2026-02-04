@@ -235,6 +235,11 @@ func (l *LLMImpl) attemptGenerate(ctx context.Context, prompt *Prompt) (string, 
 		options["tool_choice"] = prompt.ToolChoice
 	}
 
+	// Add Images to options for vision-capable models
+	if prompt.HasImages() {
+		options["images"] = prompt.Images
+	}
+
 	var reqBody []byte
 	var err error
 
