@@ -36,6 +36,10 @@ type (
 	//   cfg = ApplyOptions(cfg, SetLogLevel(LogLevelInfo))
 	LogLevel = utils.LogLevel
 
+	// Logger is the interface for custom loggers.
+	// Implement this interface to use your own logging solution.
+	Logger = utils.Logger
+
 	// MemoryOption configures the memory settings for conversation history.
 	// It controls how much context is retained between interactions.
 	//
@@ -105,8 +109,14 @@ var (
 	SetEnableCaching = config.SetEnableCaching // Enables/disables response caching
 	SetMemory        = config.SetMemory        // Configures conversation memory
 
+	// Logging
+	SetLogger = config.SetLogger // Sets a custom logger implementation
+
 	// Configuration creation
 	NewConfig = config.NewConfig // Creates a new Config with default values
+
+	// Logger utilities
+	NewNopLogger = utils.NewNopLogger // Creates a no-op logger that discards all output
 )
 
 // LogLevel constants define available logging verbosity levels

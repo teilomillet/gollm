@@ -78,6 +78,7 @@ type Config struct {
 	EnableCaching         bool `env:"LLM_ENABLE_CACHING" envDefault:"false"`
 	EnableStreaming       bool `env:"LLM_ENABLE_STREAMING" envDefault:"false"`
 	MemoryOption          *MemoryOption
+	Logger                utils.Logger // Custom logger, if nil uses default
 }
 
 // LoadConfig creates a new Config instance, loading values from environment
@@ -348,6 +349,15 @@ func SetMirostatTau(tau float64) ConfigOption {
 func SetTfsZ(z float64) ConfigOption {
 	return func(c *Config) {
 		c.TfsZ = &z
+	}
+}
+
+// SetLogger sets a custom logger implementation.
+// If not set, a default logger writing to stderr is used.
+// Pass nil to disable logging entirely.
+func SetLogger(logger utils.Logger) ConfigOption {
+	return func(c *Config) {
+		c.Logger = logger
 	}
 }
 
