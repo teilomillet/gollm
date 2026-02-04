@@ -296,8 +296,7 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 	results := make(chan testResult, len(availableProviders)*len(tr.cases))
 
 	for _, provider := range availableProviders {
-		client := tr.setupClient(tr.t, provider)
-		tr.t.Logf("Initialized client for provider: %s", provider.Name)
+		tr.t.Logf("Starting test cases for provider: %s", provider.Name)
 
 		for _, tc := range tr.cases {
 			wg.Add(1)
@@ -322,6 +321,10 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 						tr.t.Logf("Rate limit wait error for provider %s: %v", p.Name, err)
 					}
 				}
+
+				// Create a new client for each test case to avoid race conditions
+				// when concurrent goroutines call SetOption on the same client
+				client := tr.setupClient(tr.t, p)
 
 				// Run the test case
 				start := time.Now()
