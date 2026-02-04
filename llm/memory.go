@@ -415,3 +415,53 @@ func (l *LLMWithMemory) AddStructuredMessage(role, content, cacheControl string)
 	}
 	l.memory.AddStructured(message)
 }
+
+// AddToolResult adds a tool result to the conversation history.
+// This should be called after executing a tool to provide its result
+// back to the LLM for incorporation into its response.
+//
+// Parameters:
+//   - toolCallID: The ID of the tool call this result responds to
+//   - result: The result content from the tool execution
+func (l *LLMWithMemory) AddToolResult(toolCallID, result string) {
+	message := types.MemoryMessage{
+		Role:       "tool",
+		Content:    result,
+		ToolCallID: toolCallID,
+	}
+	l.memory.AddStructured(message)
+}
+
+// AddToolError adds a tool error result to the conversation history.
+// Use this when a tool execution fails to inform the LLM of the error.
+//
+// Parameters:
+//   - toolCallID: The ID of the tool call this error responds to
+//   - errorMessage: Description of the error that occurred
+func (l *LLMWithMemory) AddToolError(toolCallID, errorMessage string) {
+	message := types.MemoryMessage{
+		Role:       "tool",
+		Content:    "Error: " + errorMessage,
+		ToolCallID: toolCallID,
+		Metadata: map[string]interface{}{
+			"is_error": true,
+		},
+	}
+	l.memory.AddStructured(message)
+}
+
+// AddAssistantMessageWithToolCalls adds an assistant message that includes tool calls.
+// This preserves tool calls in the conversation history so they can be
+// properly sent to the provider in subsequent requests.
+//
+// Parameters:
+//   - content: The text content of the assistant's message (can be empty if only tool calls)
+//   - toolCalls: The tool calls requested by the assistant
+func (l *LLMWithMemory) AddAssistantMessageWithToolCalls(content string, toolCalls []types.ToolCall) {
+	message := types.MemoryMessage{
+		Role:      "assistant",
+		Content:   content,
+		ToolCalls: toolCalls,
+	}
+	l.memory.AddStructured(message)
+}
