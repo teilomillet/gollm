@@ -23,10 +23,12 @@ func TestProviderRegistration(t *testing.T) {
 		"cohere",
 		"deepseek",
 		"google-openai",
-		"openrouter",    // Registered via init() - was failing in issue #42
-		"azure-openai",  // Has config but needs constructor - was failing in issue #38
-		"aliyun",        // Alibaba Cloud DashScope - issue #52
-		"lmstudio",      // LM Studio local server
+		"openrouter",   // OpenRouter API aggregator
+		"azure-openai", // Azure OpenAI Service
+		"aliyun",       // Alibaba Cloud DashScope
+		"lmstudio",     // LM Studio local server
+		"lambda",       // Lambda Labs
+		"bedrock",      // AWS Bedrock
 	}
 
 	registry := GetDefaultRegistry()
@@ -57,6 +59,9 @@ func TestNewProviderRegistryContainsKnownProviders(t *testing.T) {
 		"azure-openai",
 		"aliyun",
 		"lmstudio",
+		"openrouter",
+		"lambda",
+		"bedrock",
 	}
 
 	registry := NewProviderRegistry()
@@ -70,14 +75,13 @@ func TestNewProviderRegistryContainsKnownProviders(t *testing.T) {
 	}
 }
 
-// TestOpenRouterRegisteredViaInit specifically tests that OpenRouter,
-// which registers itself via init(), is available in the default registry.
-// This is the core test for GitHub issue #42.
-func TestOpenRouterRegisteredViaInit(t *testing.T) {
+// TestOpenRouterAvailable specifically tests that OpenRouter is available
+// in the default registry. This is the core test for GitHub issue #42.
+func TestOpenRouterAvailable(t *testing.T) {
 	registry := GetDefaultRegistry()
 
 	provider, err := registry.Get("openrouter", "test-api-key", "openai/gpt-4", nil)
-	require.NoError(t, err, "OpenRouter should be registered via init() in default registry")
+	require.NoError(t, err, "OpenRouter should be registered in default registry")
 	assert.NotNil(t, provider)
 	assert.Equal(t, "openrouter", provider.Name())
 }
@@ -106,6 +110,9 @@ func TestProviderConfigsExist(t *testing.T) {
 		"google-openai",
 		"aliyun",
 		"lmstudio",
+		"openrouter",
+		"lambda",
+		"bedrock",
 	}
 
 	registry := GetDefaultRegistry()

@@ -187,7 +187,9 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"azure-openai":  NewAzureOpenAIProvider,
 		"aliyun":        NewAliyunProvider,
 		"lmstudio":      NewLMStudioProvider,
-		// Add other providers here as they are implemented
+		"openrouter":    NewOpenRouterProvider,
+		"lambda":        NewLambdaProvider,
+		"bedrock":       NewBedrockProvider,
 	}
 
 	// Standard provider configurations
@@ -282,7 +284,36 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			SupportsSchema:    true,
 			SupportsStreaming: false, // LM Studio streaming works differently
 		},
-		// Add other provider configurations
+		"openrouter": {
+			Name:              "openrouter",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://openrouter.ai/api/v1/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"lambda": {
+			Name:              "lambda",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://api.lambdalabs.com/v1/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"bedrock": {
+			Name:              "bedrock",
+			Type:              TypeCustom,
+			Endpoint:          "", // Configured dynamically based on region and model
+			AuthHeader:        "", // Uses AWS Signature V4
+			AuthPrefix:        "",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
 	}
 
 	// Store standard configs

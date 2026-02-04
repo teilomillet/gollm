@@ -640,8 +640,3 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 	return json.Marshal(req)
 }
 
-func init() {
-	// Register the OpenRouter provider
-	registry := GetDefaultRegistry()
-	registry.Register("openrouter", NewOpenRouterProvider)
-}
