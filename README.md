@@ -37,6 +37,7 @@
   - [Prompt Optimizer](#prompt-optimizer)
   - [Model Comparison](#model-comparison-1)
   - [Memory Retention](#memory-retention)
+  - [Structured Messages and Caching](#structured-messages-and-caching)
 - [Best Practices](#best-practices)
 - [Examples and Tutorials](#examples-and-tutorials)
 - [Project Status](#project-status)
@@ -469,6 +470,70 @@ if err != nil {
 }
 fmt.Printf("Response 2: %s\n", response2)
 ```
+
+### Structured Messages and Caching
+
+When using memory with LLMs, gollm preserves each message as a separate structured object (enabled by default). This approach:
+
+- **Maintains conversation structure** for better LLM understanding
+- **Enables API-level caching** (especially with Anthropic's prompt caching)
+- **Reduces token costs** by allowing providers to cache repeated context
+
+#### Basic Usage (Automatic)
+
+Structured messages are enabled by default when you use `SetMemory()`:
+
+```go
+llm, err := gollm.NewLLM(
+    gollm.SetProvider("anthropic"),
+    gollm.SetModel("claude-3-5-sonnet-20241022"),
+    gollm.SetAPIKey(os.Getenv("ANTHROPIC_API_KEY")),
+    gollm.SetMemory(4096), // Structured messages enabled by default
+)
+```
+
+#### Cache Control with Anthropic
+
+For fine-grained control over caching, you can add messages with explicit cache control:
+
+```go
+// Add a message with cache control
+// "ephemeral" caching is recommended for most use cases
+llm.AddStructuredMessage("user", "Here is a long document to analyze...", "ephemeral")
+
+// Generate - subsequent requests with the same context will use cached tokens
+response, err := llm.Generate(ctx, gollm.NewPrompt("Summarize the key points"))
+```
+
+#### Managing Memory
+
+```go
+// Check if memory is enabled
+if llm.HasMemory() {
+    // Get current conversation history
+    messages := llm.GetMemory()
+
+    // Add a message manually
+    llm.AddToMemory("user", "Remember this context")
+
+    // Clear conversation history
+    llm.ClearMemory()
+}
+```
+
+#### Switching Between Modes
+
+You can toggle between structured and flattened message modes:
+
+```go
+// Use structured messages (default, recommended for caching)
+llm.SetUseStructuredMessages(true)
+
+// Or use flattened prompt (legacy mode, combines all messages into one)
+llm.SetUseStructuredMessages(false)
+```
+
+See the `examples/caching_structured/` directory for a complete working example.
 
 ## Best Practices
 

@@ -37,6 +37,29 @@ type LLM interface {
 	// SetSystemPrompt updates the system prompt with caching configuration.
 	// The cacheType parameter determines how the prompt should be cached.
 	SetSystemPrompt(prompt string, cacheType CacheType)
+
+	// Memory-related methods (only functional when memory is enabled via SetMemory)
+
+	// HasMemory returns true if this LLM instance has memory enabled.
+	HasMemory() bool
+	// ClearMemory removes all messages from the conversation history.
+	// Does nothing if memory is not enabled.
+	ClearMemory()
+	// GetMemory returns the conversation history as a slice of messages.
+	// Returns nil if memory is not enabled.
+	GetMemory() []MemoryMessage
+	// AddToMemory adds a message to the conversation history.
+	// Does nothing if memory is not enabled.
+	AddToMemory(role, content string)
+	// AddStructuredMessage adds a message with cache control to the conversation history.
+	// The cacheControl parameter specifies caching behavior (e.g., "ephemeral").
+	// Does nothing if memory is not enabled.
+	AddStructuredMessage(role, content, cacheControl string)
+	// SetUseStructuredMessages configures whether to use structured messages.
+	// When true (default), messages are passed as separate JSON objects to the provider.
+	// When false, messages are flattened into a single prompt string.
+	// Does nothing if memory is not enabled.
+	SetUseStructuredMessages(use bool)
 }
 
 // llmImpl is the concrete implementation of the LLM interface.
@@ -54,6 +77,48 @@ type llmImpl struct {
 func (l *llmImpl) SetSystemPrompt(prompt string, cacheType CacheType) {
 	newPrompt := NewPrompt(prompt, WithSystemPrompt(prompt, cacheType))
 	l.SetOption("system_prompt", newPrompt)
+}
+
+// HasMemory returns true if this LLM instance has memory enabled.
+func (l *llmImpl) HasMemory() bool {
+	_, ok := l.LLM.(*llm.LLMWithMemory)
+	return ok
+}
+
+// ClearMemory removes all messages from the conversation history.
+func (l *llmImpl) ClearMemory() {
+	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+		mem.ClearMemory()
+	}
+}
+
+// GetMemory returns the conversation history as a slice of messages.
+func (l *llmImpl) GetMemory() []MemoryMessage {
+	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+		return mem.GetMemory()
+	}
+	return nil
+}
+
+// AddToMemory adds a message to the conversation history.
+func (l *llmImpl) AddToMemory(role, content string) {
+	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+		mem.AddToMemory(role, content)
+	}
+}
+
+// AddStructuredMessage adds a message with cache control to the conversation history.
+func (l *llmImpl) AddStructuredMessage(role, content, cacheControl string) {
+	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+		mem.AddStructuredMessage(role, content, cacheControl)
+	}
+}
+
+// SetUseStructuredMessages configures whether to use structured messages.
+func (l *llmImpl) SetUseStructuredMessages(use bool) {
+	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+		mem.SetUseStructuredMessages(use)
+	}
 }
 
 // GetProvider returns the provider of the LLM.
