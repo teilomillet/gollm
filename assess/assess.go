@@ -321,8 +321,21 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 				// Apply rate limiting if configured
 				if tr.batchCfg.RateLimit != nil {
 					if err := tr.batchCfg.RateLimit.Wait(ctx); err != nil {
-						tr.recordError(p.Name, fmt.Errorf("rate limit wait failed: %w", err))
+						rateLimitErr := fmt.Errorf("rate limit wait failed: %w", err)
+						tr.recordError(p.Name, rateLimitErr)
 						tr.t.Logf("Rate limit wait error for provider %s: %v", p.Name, err)
+
+						// Send failure result and clean up
+						results <- testResult{
+							provider: p.Name,
+							testCase: testCase.Name,
+							err:      rateLimitErr,
+						}
+						concurrencyMu.Lock()
+						currentConcurrent--
+						concurrencyMu.Unlock()
+						<-semaphore
+						return
 					}
 				}
 
