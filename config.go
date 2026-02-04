@@ -79,6 +79,7 @@ var (
 	SetProvider       = config.SetProvider       // Sets the LLM provider (e.g., "openai", "anthropic")
 	SetModel          = config.SetModel          // Sets the model name for the selected provider
 	SetOllamaEndpoint = config.SetOllamaEndpoint // Sets the endpoint URL for Ollama local deployment
+	SetVLLMEndpoint   = config.SetVLLMEndpoint   // Sets the endpoint URL for vLLM local deployment
 	SetAPIKey         = config.SetAPIKey         // Sets the API key for the current provider
 
 	// Generation parameters

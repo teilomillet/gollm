@@ -16,34 +16,41 @@ import (
 // VLLMProvider implements the Provider interface for vLLM's OpenAI-compatible API.
 // It supports local models served via vLLM without requiring API key authentication.
 type VLLMProvider struct {
-	baseURL      string                 // Base URL for vLLM server (e.g., "http://192.168.1.17:8000/v1")
-	model        string                 // Model identifier (e.g., "eduMind-6.7b")
+	endpoint     string                 // vLLM API endpoint URL
+	model        string                 // Model identifier (e.g., "Qwen/Qwen2-7B-Instruct")
 	extraHeaders map[string]string      // Additional HTTP headers
 	options      map[string]interface{} // Model-specific options
 	logger       utils.Logger           // Logger instance
 }
 
 // NewVLLMProvider creates a new vLLM provider instance.
-// It initializes the provider with the given base URL, model, and optional headers.
+// vLLM does not require an API key, so the apiKey parameter is ignored.
+// The endpoint defaults to http://localhost:8000 and can be changed via SetEndpoint
+// or by setting VLLMEndpoint in the config.
 //
 // Parameters:
-//   - baseURL: vLLM server base URL (e.g., "http://192.168.1.17:8000/v1")
-//   - model: The model to use (e.g., "eduMind-6.7b")
+//   - apiKey: Ignored (vLLM doesn't require authentication)
+//   - model: The model to use (e.g., "Qwen/Qwen2-7B-Instruct")
 //   - extraHeaders: Additional HTTP headers for requests
 //
 // Returns:
 //   - A configured vLLM Provider instance
-func NewVLLMProvider(baseURL, model string, extraHeaders map[string]string) Provider {
+func NewVLLMProvider(apiKey, model string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
 	return &VLLMProvider{
-		baseURL:      baseURL,
+		endpoint:     "http://localhost:8000", // Default vLLM endpoint
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]interface{}),
 		logger:       utils.NewLogger(utils.LogLevelInfo),
 	}
+}
+
+// SetEndpoint configures the vLLM server endpoint URL.
+func (p *VLLMProvider) SetEndpoint(endpoint string) {
+	p.endpoint = endpoint
 }
 
 // SetLogger configures the logger for the vLLM provider.
@@ -64,6 +71,10 @@ func (p *VLLMProvider) SetDefaultOptions(config *config.Config) {
 	if config.Seed != nil {
 		p.SetOption("seed", *config.Seed)
 	}
+	// Use configured endpoint if provided
+	if config.VLLMEndpoint != "" {
+		p.SetEndpoint(config.VLLMEndpoint)
+	}
 	p.logger.Debug("Default options set", "temperature", config.Temperature, "max_tokens", config.MaxTokens)
 }
 
@@ -73,21 +84,21 @@ func (p *VLLMProvider) Name() string {
 }
 
 // Endpoint returns the vLLM API endpoint URL.
-// It normalizes the base URL to ensure proper formatting.
+// It normalizes the endpoint to ensure proper formatting.
 func (p *VLLMProvider) Endpoint() string {
-	baseURL := p.baseURL
+	endpoint := p.endpoint
 
 	// Remove trailing slash if present
-	if len(baseURL) > 0 && baseURL[len(baseURL)-1] == '/' {
-		baseURL = baseURL[:len(baseURL)-1]
+	if len(endpoint) > 0 && endpoint[len(endpoint)-1] == '/' {
+		endpoint = endpoint[:len(endpoint)-1]
 	}
 
-	// Ensure base URL ends with /v1 if not already present
-	if !strings.HasSuffix(baseURL, "/v1") {
-		baseURL = baseURL + "/v1"
+	// Ensure endpoint ends with /v1 if not already present
+	if !strings.HasSuffix(endpoint, "/v1") {
+		endpoint = endpoint + "/v1"
 	}
 
-	return baseURL + "/chat/completions"
+	return endpoint + "/chat/completions"
 }
 
 // SupportsJSONSchema indicates that vLLM supports JSON schema validation
