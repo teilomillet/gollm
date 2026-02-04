@@ -388,10 +388,10 @@ func SetTfsZ(z float64) ConfigOption {
 //	llm, err := gollm.NewLLM(
 //	    gollm.SetProvider("google"),
 //	    gollm.SetCustomValidator(func(v interface{}) error {
-//	        if config, ok := v.(*Config); ok && config.Provider == "google" {
+//	        if config, ok := v.(*gollm.Config); ok && config.Provider == "google" {
 //	            return nil // Skip validation for Google
 //	        }
-//	        return llm.DefaultValidate(v) // Use default for others
+//	        return gollm.DefaultValidate(v) // Use default for others
 //	    }),
 //	)
 func SetCustomValidator(fn func(interface{}) error) ConfigOption {

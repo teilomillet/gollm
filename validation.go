@@ -49,6 +49,34 @@ func Validate(s interface{}) error {
 	return llm.Validate(s)
 }
 
+// DefaultValidate performs the standard struct validation using the go-playground/validator.
+// This can be called from custom validators to fall back to default validation behavior.
+//
+// Example usage in a custom validator:
+//
+//	gollm.SetCustomValidator(func(v interface{}) error {
+//	    if config, ok := v.(*gollm.Config); ok && config.Provider == "google" {
+//	        return nil // Skip validation for Google
+//	    }
+//	    return gollm.DefaultValidate(v) // Use default for others
+//	})
+func DefaultValidate(s interface{}) error {
+	return llm.DefaultValidate(s)
+}
+
+// ValidateWithCustomValidator checks if the given struct is valid, using a custom validator if provided.
+// This allows for scoped custom validation without affecting other goroutines.
+//
+// Parameters:
+//   - s: The struct to validate. Must be a pointer to a struct.
+//   - customValidator: Optional custom validation function. If nil, uses default validation.
+//
+// Returns:
+//   - error: nil if validation passes, otherwise returns validation errors
+func ValidateWithCustomValidator(s interface{}, customValidator func(interface{}) error) error {
+	return llm.ValidateWithCustomValidator(s, customValidator)
+}
+
 // GenerateJSONSchema generates a JSON schema for the given struct.
 // The schema is generated based on struct fields and their tags, providing
 // a complete JSON Schema that can be used for validation or documentation.
