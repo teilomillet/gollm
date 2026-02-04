@@ -95,9 +95,10 @@ func NewLLM(cfg *config.Config, logger utils.Logger, registry *providers.Provide
 		extraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
 	}
 
-	// Check if API key is empty
+	// Check if API key is empty (skip for local providers that don't require auth)
 	apiKey := cfg.APIKeys[cfg.Provider]
-	if apiKey == "" {
+	isLocalProvider := cfg.Provider == "ollama" || cfg.Provider == "lmstudio" || cfg.Provider == "vllm"
+	if apiKey == "" && !isLocalProvider {
 		return nil, NewLLMError(ErrorTypeAuthentication, "empty API key", nil)
 	}
 

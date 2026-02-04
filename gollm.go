@@ -271,8 +271,8 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		opt(cfg)
 	}
 
-	// For local LLM servers (Ollama, LM Studio), ensure we have a dummy API key
-	if cfg.Provider == "ollama" || cfg.Provider == "lmstudio" {
+	// For local LLM servers (Ollama, LM Studio, vLLM), ensure we have a dummy API key
+	if cfg.Provider == "ollama" || cfg.Provider == "lmstudio" || cfg.Provider == "vllm" {
 		if cfg.APIKeys == nil {
 			cfg.APIKeys = make(map[string]string)
 		}

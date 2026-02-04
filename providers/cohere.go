@@ -10,11 +10,25 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+// cohereSupportedParams defines the parameters accepted by Cohere v2 API.
+// Used to filter out unsupported parameters before sending requests.
+var cohereSupportedParams = map[string]bool{
+	"temperature":       true,
+	"max_tokens":        true,
+	"seed":              true,
+	"frequency_penalty": true,
+	"presence_penalty":  true,
+	"k":                 true,
+	"p":                 true,
+	"stream":            true,
+}
+
 // CohereProvider implements the Provider interface for Cohere's API.
 // It supports Cohere's language models and provides access to their capabilities,
 // including chat completion and structured output
 type CohereProvider struct {
 	apiKey       string            // API key for authentication
+	baseURL      string            // Base URL for API endpoint
 	model        string            // Model identifier (e.g., "command-r-plus-08-2024", "command-r-plus-04-2024")
 	extraHeaders map[string]string // Additional HTTP headers
 	options      map[string]any    // Model-specific options
@@ -32,12 +46,18 @@ type CohereProvider struct {
 // Returns:
 //   - A configured Cohere Provider instance
 func NewCohereProvider(apiKey, model string, extraHeaders map[string]string) Provider {
+	return NewCohereProviderWithURL(apiKey, model, "https://api.cohere.com", extraHeaders)
+}
+
+// NewCohereProviderWithURL creates a new Cohere provider with a custom base URL
+func NewCohereProviderWithURL(apiKey, model, baseURL string, extraHeaders map[string]string) Provider {
 	if extraHeaders == nil {
 		extraHeaders = make(map[string]string)
 	}
 
 	return &CohereProvider{
 		apiKey:       apiKey,
+		baseURL:      baseURL,
 		model:        model,
 		extraHeaders: extraHeaders,
 		options:      make(map[string]any),
@@ -82,9 +102,16 @@ func (p *CohereProvider) Name() string {
 }
 
 // Endpoint returns the base URL for the Cohere API.
-// This is "https://api.cohere.com/v2/chat".
+// Uses the configured baseURL and appends the appropriate API version path.
 func (p *CohereProvider) Endpoint() string {
-	return "https://api.cohere.com/v2/chat"
+	baseURL := p.baseURL
+
+	// Remove trailing slash if present
+	if len(baseURL) > 0 && baseURL[len(baseURL)-1] == '/' {
+		baseURL = baseURL[:len(baseURL)-1]
+	}
+
+	return baseURL + "/v2/chat"
 }
 
 // SupportsJSONSchema indicates that Cohere supports structured output
@@ -100,7 +127,7 @@ func (p *CohereProvider) SupportsJSONSchema() bool {
 //   - Any additional headers specified via SetExtraHeaders
 func (p *CohereProvider) Headers() map[string]string {
 	headers := map[string]string{
-		"Content-type":  "application/json",
+		"Content-Type":  "application/json",
 		"Authorization": "Bearer " + p.apiKey,
 	}
 
@@ -128,18 +155,23 @@ func (p *CohereProvider) PrepareRequest(prompt string, options map[string]any) (
 	requestBody := map[string]any{
 		"model": p.model,
 		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
+			{
+				"role":    "user",
+				"content": prompt, // Cohere v2 API accepts string content
+			},
 		},
 	}
 
-	// First, add default options
+	// Filter to only Cohere v2 API supported parameters
 	for k, v := range p.options {
-		requestBody[k] = v
+		if cohereSupportedParams[k] {
+			requestBody[k] = v
+		}
 	}
-
-	// Then, add any additional options (which may override defaults)
 	for k, v := range options {
-		requestBody[k] = v
+		if cohereSupportedParams[k] {
+			requestBody[k] = v
+		}
 	}
 
 	return json.Marshal(requestBody)
@@ -168,14 +200,16 @@ func (p *CohereProvider) PrepareRequestWithSchema(prompt string, options map[str
 		},
 	}
 
-	// First, add the default options
+	// Filter to only Cohere v2 API supported parameters
 	for k, v := range p.options {
-		requestBody[k] = v
+		if cohereSupportedParams[k] {
+			requestBody[k] = v
+		}
 	}
-
-	// Then, add any additional options (which may override defaults)
 	for k, v := range options {
-		requestBody[k] = v
+		if cohereSupportedParams[k] {
+			requestBody[k] = v
+		}
 	}
 
 	return json.Marshal(requestBody)
@@ -294,47 +328,49 @@ func (p *CohereProvider) ParseStreamResponse(chunk []byte) (string, error) {
 }
 
 // PrepareRequestWithMessages creates a request using structured message objects.
+// This method uses Cohere v2 API format with messages array for conversation history.
 func (p *CohereProvider) PrepareRequestWithMessages(messages []types.MemoryMessage, options map[string]interface{}) ([]byte, error) {
-	// Cohere uses a chat history format
-	chatHistory := []map[string]interface{}{}
-	var userMessage string
+	// Convert messages to Cohere v2 format
+	cohereMessages := []map[string]interface{}{}
 
-	// Process messages and build chat history
-	for i, msg := range messages {
-		if i == len(messages)-1 && msg.Role == "user" {
-			// Last user message goes in the message field
-			userMessage = msg.Content
-		} else {
-			// Previous messages go into chat history
-			chatHistory = append(chatHistory, map[string]interface{}{
-				"role":    msg.Role,
-				"message": msg.Content,
-			})
-		}
+	for _, msg := range messages {
+		cohereMessages = append(cohereMessages, map[string]interface{}{
+			"role":    msg.Role,
+			"content": msg.Content, // Cohere v2 API accepts string content
+		})
 	}
 
-	// Build request
+	// Build request using v2 API format
 	request := map[string]interface{}{
-		"model":        p.model,
-		"message":      userMessage,
-		"chat_history": chatHistory,
+		"model":    p.model,
+		"messages": cohereMessages,
 	}
 
-	// Add other options
+	// Filter to only Cohere v2 API supported parameters (see cohereSupportedParams)
 	for k, v := range p.options {
-		if k != "message" && k != "chat_history" {
+		if k != "messages" && cohereSupportedParams[k] {
 			request[k] = v
 		}
 	}
 	for k, v := range options {
-		if k != "message" && k != "chat_history" && k != "system_prompt" && k != "structured_messages" {
+		if k != "messages" && k != "system_prompt" && k != "structured_messages" && cohereSupportedParams[k] {
 			request[k] = v
 		}
 	}
 
-	// Add system prompt if present
+	// Add system prompt if present (as first message with role "system")
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
-		request["preamble"] = systemPrompt
+		// Insert system message at the beginning
+		systemMessage := map[string]interface{}{
+			"role":    "system",
+			"content": systemPrompt, // Cohere v2 API accepts string content
+		}
+		request["messages"] = append([]map[string]interface{}{systemMessage}, cohereMessages...)
+	}
+
+	if p.logger != nil {
+		p.logger.Debug("Using Cohere v2 messages format",
+			"message_count", len(cohereMessages))
 	}
 
 	return json.Marshal(request)
