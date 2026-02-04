@@ -18,6 +18,47 @@ import (
 // Deprecated: Use types.MemoryMessage instead.
 type MemoryMessage = types.MemoryMessage
 
+// deepCopyValue recursively deep copies a value for use in Metadata.
+// Handles maps, slices, and primitive types.
+func deepCopyValue(v interface{}) interface{} {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+	case map[string]interface{}:
+		return deepCopyMap(val)
+	case []interface{}:
+		return deepCopySlice(val)
+	default:
+		// Primitive types (string, int, float64, bool, etc.) are immutable or copied by value
+		return v
+	}
+}
+
+// deepCopyMap creates a deep copy of a map[string]interface{}.
+func deepCopyMap(m map[string]interface{}) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
+	result := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		result[k] = deepCopyValue(v)
+	}
+	return result
+}
+
+// deepCopySlice creates a deep copy of a []interface{}.
+func deepCopySlice(s []interface{}) []interface{} {
+	if s == nil {
+		return nil
+	}
+	result := make([]interface{}, len(s))
+	for i, v := range s {
+		result[i] = deepCopyValue(v)
+	}
+	return result
+}
+
 // Memory manages conversation history with token-based truncation.
 // It provides thread-safe operations for adding, retrieving, and managing messages
 // while ensuring the total token count stays within specified limits.
@@ -159,12 +200,9 @@ func (m *Memory) GetMessages() []types.MemoryMessage {
 			CacheControl: msg.CacheControl,
 			ToolCallID:   msg.ToolCallID,
 		}
-		// Deep copy Metadata map
+		// Deep copy Metadata map (including nested maps/slices)
 		if msg.Metadata != nil {
-			messages[i].Metadata = make(map[string]interface{}, len(msg.Metadata))
-			for k, v := range msg.Metadata {
-				messages[i].Metadata[k] = v
-			}
+			messages[i].Metadata = deepCopyMap(msg.Metadata)
 		}
 		// Deep copy ToolCalls slice including nested Function.Arguments
 		if msg.ToolCalls != nil {

@@ -483,6 +483,43 @@ func TestMemoryGetMessages(t *testing.T) {
 		assert.Equal(t, "original", messages3[0].Metadata["key"])
 	})
 
+	t.Run("deep copies nested Metadata", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.AddStructured(types.MemoryMessage{
+			Role:    "user",
+			Content: "Hello",
+			Metadata: map[string]interface{}{
+				"nested": map[string]interface{}{
+					"key": "original",
+				},
+				"list": []interface{}{"a", "b", "c"},
+			},
+		})
+
+		messages1 := memory.GetMessages()
+		messages2 := memory.GetMessages()
+
+		// Modify nested map in first copy
+		nested1 := messages1[0].Metadata["nested"].(map[string]interface{})
+		nested1["key"] = "modified"
+
+		// Modify nested slice in first copy
+		list1 := messages1[0].Metadata["list"].([]interface{})
+		list1[0] = "X"
+
+		// Second copy's nested values should be unchanged
+		nested2 := messages2[0].Metadata["nested"].(map[string]interface{})
+		assert.Equal(t, "original", nested2["key"])
+
+		list2 := messages2[0].Metadata["list"].([]interface{})
+		assert.Equal(t, "a", list2[0])
+
+		// Original internal state should also be unchanged
+		messages3 := memory.GetMessages()
+		nested3 := messages3[0].Metadata["nested"].(map[string]interface{})
+		assert.Equal(t, "original", nested3["key"])
+	})
+
 	t.Run("deep copies ToolCalls slice", func(t *testing.T) {
 		memory, _ := NewMemory(1000, "gpt-4", logger)
 		toolCall := types.ToolCall{ID: "call_1", Type: "function"}
