@@ -7,6 +7,20 @@ import (
 	"github.com/teilomillet/gollm/llm"
 )
 
+// ValidatorFunc is the signature for custom validation functions.
+// Custom validators receive the value to validate and return an error if validation fails.
+// Use gollm.DefaultValidate within custom validators to fall back to standard validation.
+//
+// Example:
+//
+//	validator := gollm.ValidatorFunc(func(v interface{}) error {
+//	    if config, ok := v.(*gollm.Config); ok && config.Provider == "google" {
+//	        return nil // Skip validation for Google
+//	    }
+//	    return gollm.DefaultValidate(v)
+//	})
+type ValidatorFunc = llm.ValidatorFunc
+
 // Validate checks if the given struct is valid according to its validation rules.
 // It uses struct tags to define validation rules and performs comprehensive validation
 // of the input structure.
@@ -69,11 +83,20 @@ func DefaultValidate(s interface{}) error {
 //
 // Parameters:
 //   - s: The struct to validate. Must be a pointer to a struct.
-//   - customValidator: Optional custom validation function. If nil, uses default validation.
+//   - customValidator: Optional ValidatorFunc. If nil, uses default validation.
 //
 // Returns:
 //   - error: nil if validation passes, otherwise returns validation errors
-func ValidateWithCustomValidator(s interface{}, customValidator func(interface{}) error) error {
+//
+// Example:
+//
+//	err := gollm.ValidateWithCustomValidator(cfg, func(v interface{}) error {
+//	    if config, ok := v.(*gollm.Config); ok && config.Provider == "google" {
+//	        return nil // Skip validation for Google
+//	    }
+//	    return gollm.DefaultValidate(v)
+//	})
+func ValidateWithCustomValidator(s interface{}, customValidator ValidatorFunc) error {
 	return llm.ValidateWithCustomValidator(s, customValidator)
 }
 

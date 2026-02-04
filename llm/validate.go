@@ -16,11 +16,16 @@ import (
 // validate is the shared validator instance used across the package.
 var validate *validator.Validate
 
+// ValidatorFunc is the signature for custom validation functions.
+// Custom validators receive the value to validate and return an error if validation fails.
+// Use gollm.DefaultValidate within custom validators to fall back to standard validation.
+type ValidatorFunc func(interface{}) error
+
 // DefaultValidate performs the standard struct validation using the go-playground/validator.
-// This can be called from custom validators to fall back to default validation.
-// It delegates to Validate to maintain a single source of truth.
+// This is the canonical validation function that all other validation methods delegate to.
+// Custom validators can call this to fall back to default validation behavior.
 func DefaultValidate(v interface{}) error {
-	return Validate(v)
+	return validate.Struct(v)
 }
 
 func init() {
@@ -90,7 +95,7 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 }
 
 // Validate checks if the given struct is valid according to its validation rules.
-// It uses the go-playground/validator package to perform validation based on struct tags.
+// It delegates to DefaultValidate to maintain a single code path for validation.
 //
 // Parameters:
 //   - s: The struct to validate. Must be a pointer to a struct.
@@ -110,7 +115,7 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 //	    log.Fatal(err)
 //	}
 func Validate(s interface{}) error {
-	return validate.Struct(s)
+	return DefaultValidate(s)
 }
 
 // ValidateWithCustomValidator checks if the given struct is valid, using a custom validator if provided.
@@ -118,7 +123,7 @@ func Validate(s interface{}) error {
 //
 // Parameters:
 //   - s: The struct to validate. Must be a pointer to a struct.
-//   - customValidator: Optional custom validation function. If nil, uses default validation.
+//   - customValidator: Optional ValidatorFunc. If nil, uses default validation.
 //
 // Returns:
 //   - error: nil if validation passes, otherwise returns validation errors
@@ -126,17 +131,17 @@ func Validate(s interface{}) error {
 // Example:
 //
 //	// Skip validation for Google/Gemini provider
-//	err := ValidateWithCustomValidator(cfg, func(v interface{}) error {
-//	    if config, ok := v.(*config.Config); ok && config.Provider == "google" {
+//	err := gollm.ValidateWithCustomValidator(cfg, func(v interface{}) error {
+//	    if config, ok := v.(*gollm.Config); ok && config.Provider == "google" {
 //	        return nil // Skip validation for Google
 //	    }
-//	    return DefaultValidate(v) // Use default for others
+//	    return gollm.DefaultValidate(v) // Use default for others
 //	})
-func ValidateWithCustomValidator(s interface{}, customValidator func(interface{}) error) error {
+func ValidateWithCustomValidator(s interface{}, customValidator ValidatorFunc) error {
 	if customValidator != nil {
 		return customValidator(s)
 	}
-	return Validate(s)
+	return DefaultValidate(s)
 }
 
 // RegisterCustomValidation registers a custom validation function with the validator.
