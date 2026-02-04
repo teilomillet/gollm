@@ -229,6 +229,12 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 			BatchTimeout: 10 * time.Minute,
 		}
 	}
+	if tr.batchMetrics == nil {
+		tr.batchMetrics = &BatchMetrics{
+			Errors: make(map[string][]error),
+		}
+		tr.batchMetrics.BatchTiming.ProviderLatency = make(map[string]time.Duration)
+	}
 
 	// Filter providers with available API keys
 	var availableProviders []TestProvider
