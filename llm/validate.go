@@ -38,15 +38,23 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 	parent := fl.Parent()
 	provider := parent.FieldByName("Provider").String()
 
-	// For Ollama, we don't require an API key
-	if provider == "ollama" {
-		// For Ollama, check if the endpoint is accessible
+	// For local LLM servers, we don't require an API key
+	// Just check if the endpoint is accessible
+	switch provider {
+	case "ollama":
 		endpoint := parent.FieldByName("OllamaEndpoint").String()
 		if endpoint == "" {
-			endpoint = "http://localhost:11434" // default endpoint
+			endpoint = "http://localhost:11434"
 		}
-		// Try to make a HEAD request to the Ollama endpoint
 		resp, err := http.Head(endpoint + "/api/tags")
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode == http.StatusOK
+	case "lmstudio":
+		// LM Studio uses OpenAI-compatible API at localhost:1234
+		resp, err := http.Get("http://localhost:1234/v1/models")
 		if err != nil {
 			return false
 		}

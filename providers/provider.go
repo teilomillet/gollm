@@ -186,6 +186,7 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"google-openai": NewGoogleProvider,
 		"azure-openai":  NewAzureOpenAIProvider,
 		"aliyun":        NewAliyunProvider,
+		"lmstudio":      NewLMStudioProvider,
 		// Add other providers here as they are implemented
 	}
 
@@ -270,6 +271,16 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
 			SupportsSchema:    true,
 			SupportsStreaming: true,
+		},
+		"lmstudio": {
+			Name:              "lmstudio",
+			Type:              TypeOpenAI,
+			Endpoint:          "http://localhost:1234/v1/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: false, // LM Studio streaming works differently
 		},
 		// Add other provider configurations
 	}

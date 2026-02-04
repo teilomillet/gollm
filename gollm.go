@@ -155,13 +155,13 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		opt(cfg)
 	}
 
-	// For Ollama, ensure we have a dummy API key if none is provided
-	if cfg.Provider == "ollama" {
+	// For local LLM servers (Ollama, LM Studio), ensure we have a dummy API key
+	if cfg.Provider == "ollama" || cfg.Provider == "lmstudio" {
 		if cfg.APIKeys == nil {
 			cfg.APIKeys = make(map[string]string)
 		}
 		if _, exists := cfg.APIKeys[cfg.Provider]; !exists || cfg.APIKeys[cfg.Provider] == "" {
-			cfg.APIKeys[cfg.Provider] = "ollama-local"
+			cfg.APIKeys[cfg.Provider] = cfg.Provider + "-local"
 		}
 	}
 
