@@ -381,8 +381,10 @@ func (l *LLMWithMemory) GenerateWithSchema(ctx context.Context, prompt *Prompt, 
 	fullPrompt := l.memory.GetPrompt()
 
 	memoryPrompt := &Prompt{
-		Input: fullPrompt,
-		// Copy other fields from the original prompt if needed
+		SystemPrompt: prompt.SystemPrompt,
+		Tools:        prompt.Tools,
+		ToolChoice:   prompt.ToolChoice,
+		Input:        fullPrompt,
 	}
 
 	response, err := l.LLM.GenerateWithSchema(ctx, memoryPrompt, schema, opts...)
