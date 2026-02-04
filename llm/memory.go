@@ -177,6 +177,25 @@ func (m *Memory) Clear() {
 	m.logger.Debug("Cleared memory")
 }
 
+// MemoryCapable is an interface for LLM instances that support memory operations.
+// This interface allows for decoupling from the concrete LLMWithMemory type.
+type MemoryCapable interface {
+	LLM
+	// ClearMemory removes all messages from the conversation history.
+	ClearMemory()
+	// GetMemory returns the conversation history as a slice of messages.
+	GetMemory() []types.MemoryMessage
+	// AddToMemory adds a message to the conversation history.
+	AddToMemory(role, content string)
+	// AddStructuredMessage adds a message with cache control to the conversation history.
+	AddStructuredMessage(role, content, cacheControl string)
+	// SetUseStructuredMessages configures whether to use structured messages.
+	SetUseStructuredMessages(use bool)
+}
+
+// Ensure LLMWithMemory implements MemoryCapable
+var _ MemoryCapable = (*LLMWithMemory)(nil)
+
 // LLMWithMemory wraps an LLM instance with conversation memory capabilities.
 // It maintains a conversation history, automatically adding user prompts and
 // assistant responses to create context for future interactions.

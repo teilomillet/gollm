@@ -4,20 +4,33 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/teilomillet/gollm"
 )
 
+// createTestLLM attempts to create a test LLM with the given options.
+// Returns the LLM instance and true if successful, or nil and false if the provider
+// is not available (in which case the test should be skipped).
+func createTestLLM(t *testing.T, opts ...gollm.ConfigOption) (gollm.LLM, bool) {
+	t.Helper()
+	llm, err := gollm.NewLLM(opts...)
+	if err != nil {
+		t.Skipf("Skipping test: could not create LLM (provider may not be available): %v", err)
+		return nil, false
+	}
+	return llm, true
+}
+
 // TestLLMWithoutMemory tests memory methods when memory is not enabled
 func TestLLMWithoutMemory(t *testing.T) {
-	// Skip if no local provider is available
-	llm, err := gollm.NewLLM(
+	llm, ok := createTestLLM(t,
 		gollm.SetProvider("lmstudio"),
 		gollm.SetModel("local-model"),
 		gollm.SetMaxTokens(100),
 		// No SetMemory - memory is disabled
 	)
-	require.NoError(t, err)
+	if !ok {
+		return
+	}
 
 	t.Run("HasMemory returns false when memory not enabled", func(t *testing.T) {
 		assert.False(t, llm.HasMemory())
@@ -56,13 +69,15 @@ func TestLLMWithoutMemory(t *testing.T) {
 
 // TestLLMWithMemory tests memory methods when memory is enabled
 func TestLLMWithMemory(t *testing.T) {
-	llm, err := gollm.NewLLM(
+	llm, ok := createTestLLM(t,
 		gollm.SetProvider("lmstudio"),
 		gollm.SetModel("local-model"),
 		gollm.SetMaxTokens(100),
 		gollm.SetMemory(4096), // Enable memory
 	)
-	require.NoError(t, err)
+	if !ok {
+		return
+	}
 
 	t.Run("HasMemory returns true when memory enabled", func(t *testing.T) {
 		assert.True(t, llm.HasMemory())
@@ -113,12 +128,14 @@ func TestLLMWithMemory(t *testing.T) {
 
 // TestMemoryEdgeCases tests edge cases for memory methods
 func TestMemoryEdgeCases(t *testing.T) {
-	llm, err := gollm.NewLLM(
+	llm, ok := createTestLLM(t,
 		gollm.SetProvider("lmstudio"),
 		gollm.SetModel("local-model"),
 		gollm.SetMemory(4096),
 	)
-	require.NoError(t, err)
+	if !ok {
+		return
+	}
 
 	t.Run("AddToMemory with empty content", func(t *testing.T) {
 		llm.ClearMemory()

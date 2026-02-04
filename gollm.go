@@ -81,20 +81,20 @@ func (l *llmImpl) SetSystemPrompt(prompt string, cacheType CacheType) {
 
 // HasMemory returns true if this LLM instance has memory enabled.
 func (l *llmImpl) HasMemory() bool {
-	_, ok := l.LLM.(*llm.LLMWithMemory)
+	_, ok := l.LLM.(llm.MemoryCapable)
 	return ok
 }
 
 // ClearMemory removes all messages from the conversation history.
 func (l *llmImpl) ClearMemory() {
-	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
 		mem.ClearMemory()
 	}
 }
 
 // GetMemory returns the conversation history as a slice of messages.
 func (l *llmImpl) GetMemory() []MemoryMessage {
-	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
 		return mem.GetMemory()
 	}
 	return nil
@@ -102,21 +102,21 @@ func (l *llmImpl) GetMemory() []MemoryMessage {
 
 // AddToMemory adds a message to the conversation history.
 func (l *llmImpl) AddToMemory(role, content string) {
-	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
 		mem.AddToMemory(role, content)
 	}
 }
 
 // AddStructuredMessage adds a message with cache control to the conversation history.
 func (l *llmImpl) AddStructuredMessage(role, content, cacheControl string) {
-	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
 		mem.AddStructuredMessage(role, content, cacheControl)
 	}
 }
 
 // SetUseStructuredMessages configures whether to use structured messages.
 func (l *llmImpl) SetUseStructuredMessages(use bool) {
-	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
 		mem.SetUseStructuredMessages(use)
 	}
 }
