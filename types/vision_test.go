@@ -85,4 +85,38 @@ func TestMemoryMessageMultiContent(t *testing.T) {
 		}
 		assert.Equal(t, "Hello world!", msg.GetTextContent())
 	})
+
+	t.Run("GetTextContent returns empty for image-only MultiContent", func(t *testing.T) {
+		msg := MemoryMessage{
+			Role: "user",
+			MultiContent: []ContentPart{
+				NewImageBase64Content("base64data", "image/png"),
+				NewImageURLContent("https://example.com/img.jpg", "auto"),
+			},
+		}
+		assert.True(t, msg.HasMultiContent())
+		assert.Equal(t, "", msg.GetTextContent())
+	})
+
+	t.Run("GetTextContent prefers MultiContent text over Content field", func(t *testing.T) {
+		msg := MemoryMessage{
+			Role:    "user",
+			Content: "fallback content",
+			MultiContent: []ContentPart{
+				NewTextContent("multi text"),
+				NewImageBase64Content("base64data", "image/png"),
+			},
+		}
+		assert.True(t, msg.HasMultiContent())
+		assert.Equal(t, "multi text", msg.GetTextContent())
+	})
+
+	t.Run("HasMultiContent returns false for empty slice", func(t *testing.T) {
+		msg := MemoryMessage{
+			Role:         "user",
+			Content:      "text only",
+			MultiContent: []ContentPart{},
+		}
+		assert.False(t, msg.HasMultiContent())
+	})
 }
