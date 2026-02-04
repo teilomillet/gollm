@@ -449,11 +449,10 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 }
 
 func (tr *TestRunner) setupClient(t *testing.T, provider TestProvider) llm.LLM {
-	// Get API key from environment
-	apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(provider.Name))
-	apiKey := os.Getenv(apiKeyEnv)
+	// Get API key from environment (providers should be pre-filtered, but check as safety)
+	apiKey := provider.apiKey()
 	if apiKey == "" {
-		t.Skipf("Skipping tests for %s: %s environment variable not set", provider.Name, apiKeyEnv)
+		t.Skipf("Skipping tests for %s: %s environment variable not set", provider.Name, provider.providerAPIKeyEnv())
 	}
 
 	// Create options with provider-specific settings
@@ -617,7 +616,22 @@ func ExpectMatches(pattern string) ValidationFunc {
 }
 
 func (tr *TestRunner) Run(ctx context.Context) {
+	// Filter providers with available API keys (consistent with RunBatch)
+	var availableProviders []TestProvider
 	for _, provider := range tr.providers {
+		if provider.hasAPIKey() {
+			availableProviders = append(availableProviders, provider)
+		} else {
+			tr.t.Logf("Skipping provider %s: %s environment variable not set", provider.Name, provider.providerAPIKeyEnv())
+		}
+	}
+
+	if len(availableProviders) == 0 {
+		tr.t.Log("No providers available: missing API keys - skipping test execution")
+		return
+	}
+
+	for _, provider := range availableProviders {
 		tr.t.Run(provider.Name, func(t *testing.T) {
 			client := tr.setupClient(t, provider)
 
