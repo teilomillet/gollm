@@ -304,6 +304,12 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (string, error) {
 	if err := json.Unmarshal(chunk, &response); err != nil {
 		return "", err
 	}
+
+	// Check if this is the final chunk
+	if response.Done {
+		return response.Response, io.EOF
+	}
+
 	return response.Response, nil
 }
 
