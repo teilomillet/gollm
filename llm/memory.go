@@ -323,11 +323,12 @@ func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...Ge
 			Input:        "", // Empty as content is in messages
 		}
 
-		// Add structured messages to the options
-		withMessages := func(config *GenerateConfig) {
-			// We're simply passing this function to keep the original options
-			// The structured messages will be added in the WithOption call
-		}
+		// This is an intentional no-op GenerateOption. The structured messages are
+		// passed via SetOption("structured_messages", messages) above, not through
+		// the GenerateOption mechanism. This placeholder is included only to satisfy
+		// the append(opts, withMessages) pattern, ensuring we don't modify the
+		// caller's original opts slice while still passing all options through.
+		withMessages := func(config *GenerateConfig) {}
 
 		// Set structured messages option
 		l.LLM.SetOption("structured_messages", messages)
