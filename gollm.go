@@ -10,8 +10,23 @@ import (
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/llm"
 	"github.com/teilomillet/gollm/providers"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
+
+// ToolResult represents the result of executing a tool.
+// Use NewToolResult or NewToolError to create instances.
+type ToolResult = types.ToolResult
+
+// NewToolResult creates a successful tool result.
+func NewToolResult(toolCallID, content string) ToolResult {
+	return types.NewToolResult(toolCallID, content)
+}
+
+// NewToolError creates an error tool result.
+func NewToolError(toolCallID, errorMessage string) ToolResult {
+	return types.NewToolError(toolCallID, errorMessage)
+}
 
 // LLM is the interface that wraps the basic LLM operations.
 // It extends the base llm.LLM interface with additional functionality specific to gollm,
@@ -37,6 +52,44 @@ type LLM interface {
 	// SetSystemPrompt updates the system prompt with caching configuration.
 	// The cacheType parameter determines how the prompt should be cached.
 	SetSystemPrompt(prompt string, cacheType CacheType)
+
+	// Memory-related methods (only functional when memory is enabled via SetMemory)
+
+	// HasMemory returns true if this LLM instance has memory enabled.
+	HasMemory() bool
+	// ClearMemory removes all messages from the conversation history.
+	// Does nothing if memory is not enabled.
+	ClearMemory()
+	// GetMemory returns the conversation history as a slice of messages.
+	// Returns nil if memory is not enabled.
+	GetMemory() []MemoryMessage
+	// AddToMemory adds a message to the conversation history.
+	// Does nothing if memory is not enabled.
+	AddToMemory(role, content string)
+	// AddStructuredMessage adds a message with cache control to the conversation history.
+	// The cacheControl parameter specifies caching behavior (e.g., "ephemeral").
+	// Does nothing if memory is not enabled.
+	AddStructuredMessage(role, content, cacheControl string)
+	// SetUseStructuredMessages configures whether to use structured messages.
+	// When true (default), messages are passed as separate JSON objects to the provider.
+	// When false, messages are flattened into a single prompt string.
+	// Does nothing if memory is not enabled.
+	SetUseStructuredMessages(use bool)
+
+	// Tool calling methods (only functional when memory is enabled via SetMemory)
+
+	// AddToolResult adds a tool execution result to the conversation history.
+	// Use this after executing a tool to provide the result back to the LLM.
+	// Does nothing if memory is not enabled.
+	AddToolResult(toolCallID, result string)
+	// AddToolError adds a tool execution error to the conversation history.
+	// Use this when a tool fails to inform the LLM of the error.
+	// Does nothing if memory is not enabled.
+	AddToolError(toolCallID, errorMessage string)
+	// AddAssistantMessageWithToolCalls adds an assistant message with tool calls.
+	// This preserves tool calls in the conversation for multi-turn tool usage.
+	// Does nothing if memory is not enabled.
+	AddAssistantMessageWithToolCalls(content string, toolCalls []ToolCall)
 }
 
 // llmImpl is the concrete implementation of the LLM interface.
@@ -54,6 +107,69 @@ type llmImpl struct {
 func (l *llmImpl) SetSystemPrompt(prompt string, cacheType CacheType) {
 	newPrompt := NewPrompt(prompt, WithSystemPrompt(prompt, cacheType))
 	l.SetOption("system_prompt", newPrompt)
+}
+
+// HasMemory returns true if this LLM instance has memory enabled.
+func (l *llmImpl) HasMemory() bool {
+	_, ok := l.LLM.(llm.MemoryCapable)
+	return ok
+}
+
+// ClearMemory removes all messages from the conversation history.
+func (l *llmImpl) ClearMemory() {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
+		mem.ClearMemory()
+	}
+}
+
+// GetMemory returns the conversation history as a slice of messages.
+func (l *llmImpl) GetMemory() []MemoryMessage {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
+		return mem.GetMemory()
+	}
+	return nil
+}
+
+// AddToMemory adds a message to the conversation history.
+func (l *llmImpl) AddToMemory(role, content string) {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
+		mem.AddToMemory(role, content)
+	}
+}
+
+// AddStructuredMessage adds a message with cache control to the conversation history.
+func (l *llmImpl) AddStructuredMessage(role, content, cacheControl string) {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
+		mem.AddStructuredMessage(role, content, cacheControl)
+	}
+}
+
+// SetUseStructuredMessages configures whether to use structured messages.
+func (l *llmImpl) SetUseStructuredMessages(use bool) {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
+		mem.SetUseStructuredMessages(use)
+	}
+}
+
+// AddToolResult adds a tool execution result to the conversation history.
+func (l *llmImpl) AddToolResult(toolCallID, result string) {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
+		mem.AddToolResult(toolCallID, result)
+	}
+}
+
+// AddToolError adds a tool execution error to the conversation history.
+func (l *llmImpl) AddToolError(toolCallID, errorMessage string) {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
+		mem.AddToolError(toolCallID, errorMessage)
+	}
+}
+
+// AddAssistantMessageWithToolCalls adds an assistant message with tool calls.
+func (l *llmImpl) AddAssistantMessageWithToolCalls(content string, toolCalls []ToolCall) {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
+		mem.AddAssistantMessageWithToolCalls(content, toolCalls)
+	}
 }
 
 // GetProvider returns the provider of the LLM.
@@ -155,13 +271,13 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		opt(cfg)
 	}
 
-	// For Ollama, ensure we have a dummy API key if none is provided
-	if cfg.Provider == "ollama" {
+	// For local LLM servers (Ollama, LM Studio, vLLM), ensure we have a dummy API key
+	if cfg.Provider == "ollama" || cfg.Provider == "lmstudio" || cfg.Provider == "vllm" {
 		if cfg.APIKeys == nil {
 			cfg.APIKeys = make(map[string]string)
 		}
 		if _, exists := cfg.APIKeys[cfg.Provider]; !exists || cfg.APIKeys[cfg.Provider] == "" {
-			cfg.APIKeys[cfg.Provider] = "ollama-local"
+			cfg.APIKeys[cfg.Provider] = cfg.Provider + "-local"
 		}
 	}
 
@@ -176,7 +292,13 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	logger := utils.NewLogger(cfg.LogLevel)
+	// Use custom logger if provided, otherwise create default
+	var logger utils.Logger
+	if cfg.Logger != nil {
+		logger = cfg.Logger
+	} else {
+		logger = utils.NewLogger(cfg.LogLevel)
+	}
 
 	if cfg.Provider == "anthropic" && cfg.EnableCaching {
 		if cfg.ExtraHeaders == nil {
@@ -185,13 +307,15 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		cfg.ExtraHeaders["anthropic-beta"] = "prompt-caching-2024-07-31"
 	}
 
-	baseLLM, err := llm.NewLLM(cfg, logger, providers.NewProviderRegistry())
+	registry := providers.GetDefaultRegistry()
+
+	baseLLM, err := llm.NewLLM(cfg, logger, registry)
 	if err != nil {
 		logger.Error("Failed to create internal LLM", "error", err)
 		return nil, fmt.Errorf("failed to create internal LLM: %w", err)
 	}
 
-	provider, err := providers.NewProviderRegistry().Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, cfg.ExtraHeaders)
+	provider, err := registry.Get(cfg.Provider, cfg.APIKeys[cfg.Provider], cfg.Model, cfg.ExtraHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider: %w", err)
 	}

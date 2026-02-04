@@ -84,3 +84,18 @@ func (l *LogLevel) UnmarshalText(text []byte) error {
 	}
 	return nil
 }
+
+// NopLogger is a logger that discards all output.
+// Use this when you want to completely disable logging.
+type NopLogger struct{}
+
+// NewNopLogger creates a new no-op logger that discards all output.
+func NewNopLogger() Logger {
+	return &NopLogger{}
+}
+
+func (l *NopLogger) Debug(msg string, keysAndValues ...interface{}) {}
+func (l *NopLogger) Info(msg string, keysAndValues ...interface{})  {}
+func (l *NopLogger) Warn(msg string, keysAndValues ...interface{})  {}
+func (l *NopLogger) Error(msg string, keysAndValues ...interface{}) {}
+func (l *NopLogger) SetLevel(level LogLevel)                        {}

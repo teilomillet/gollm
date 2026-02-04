@@ -36,6 +36,10 @@ type (
 	//   cfg = ApplyOptions(cfg, SetLogLevel(LogLevelInfo))
 	LogLevel = utils.LogLevel
 
+	// Logger is the interface for custom loggers.
+	// Implement this interface to use your own logging solution.
+	Logger = utils.Logger
+
 	// MemoryOption configures the memory settings for conversation history.
 	// It controls how much context is retained between interactions.
 	//
@@ -75,6 +79,7 @@ var (
 	SetProvider       = config.SetProvider       // Sets the LLM provider (e.g., "openai", "anthropic")
 	SetModel          = config.SetModel          // Sets the model name for the selected provider
 	SetOllamaEndpoint = config.SetOllamaEndpoint // Sets the endpoint URL for Ollama local deployment
+	SetVLLMEndpoint   = config.SetVLLMEndpoint   // Sets the endpoint URL for vLLM local deployment
 	SetAPIKey         = config.SetAPIKey         // Sets the API key for the current provider
 
 	// Generation parameters
@@ -108,8 +113,14 @@ var (
 	// Validation configuration
 	SetCustomValidator = config.SetCustomValidator // Sets a custom validation function to override default validation
 
+	// Logging
+	SetLogger = config.SetLogger // Sets a custom logger implementation
+
 	// Configuration creation
 	NewConfig = config.NewConfig // Creates a new Config with default values
+
+	// Logger utilities
+	NewNopLogger = utils.NewNopLogger // Creates a no-op logger that discards all output
 )
 
 // LogLevel constants define available logging verbosity levels

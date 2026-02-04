@@ -26,3 +26,12 @@ go.work.sum
 goal
 
 testexamples/
+
+# Environment variables (secrets)
+.env
+.env.local
+
+# Compiled example binaries (from go build ./examples/...)
+structured_output
+lmstudio
+basic_usage

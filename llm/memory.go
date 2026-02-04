@@ -18,6 +18,47 @@ import (
 // Deprecated: Use types.MemoryMessage instead.
 type MemoryMessage = types.MemoryMessage
 
+// deepCopyValue recursively deep copies a value for use in Metadata.
+// Handles maps, slices, and primitive types.
+func deepCopyValue(v interface{}) interface{} {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+	case map[string]interface{}:
+		return deepCopyMap(val)
+	case []interface{}:
+		return deepCopySlice(val)
+	default:
+		// Primitive types (string, int, float64, bool, etc.) are immutable or copied by value
+		return v
+	}
+}
+
+// deepCopyMap creates a deep copy of a map[string]interface{}.
+func deepCopyMap(m map[string]interface{}) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
+	result := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		result[k] = deepCopyValue(v)
+	}
+	return result
+}
+
+// deepCopySlice creates a deep copy of a []interface{}.
+func deepCopySlice(s []interface{}) []interface{} {
+	if s == nil {
+		return nil
+	}
+	result := make([]interface{}, len(s))
+	for i, v := range s {
+		result[i] = deepCopyValue(v)
+	}
+	return result
+}
+
 // Memory manages conversation history with token-based truncation.
 // It provides thread-safe operations for adding, retrieving, and managing messages
 // while ensuring the total token count stays within specified limits.
@@ -111,19 +152,8 @@ func (m *Memory) AddStructured(message types.MemoryMessage) {
 		"total_tokens", m.totalTokens)
 }
 
-// truncate removes oldest messages until the total token count is within limits.
-// This is called automatically by Add when necessary.
-func (m *Memory) truncate() {
-	for m.totalTokens > m.maxTokens && len(m.messages) > 1 {
-		removed := m.messages[0]
-		m.messages = m.messages[1:]
-		m.totalTokens -= removed.Tokens
-		m.logger.Debug("Removed message from memory", "role", removed.Role, "tokens", removed.Tokens, "total_tokens", m.totalTokens)
-	}
-}
-
-// truncateIfNeeded truncates messages if the total token count exceeds the maxTokens.
-// This is called automatically by Add when necessary.
+// truncateIfNeeded removes oldest messages until the total token count is within limits.
+// This is called automatically by Add and AddStructured when necessary.
 func (m *Memory) truncateIfNeeded() {
 	for m.totalTokens > m.maxTokens && len(m.messages) > 1 {
 		removed := m.messages[0]
@@ -160,9 +190,36 @@ func (m *Memory) GetMessages() []types.MemoryMessage {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	// Return a copy to prevent external modifications
+	// Return a deep copy to prevent external modifications
 	messages := make([]types.MemoryMessage, len(m.messages))
-	copy(messages, m.messages)
+	for i, msg := range m.messages {
+		messages[i] = types.MemoryMessage{
+			Role:         msg.Role,
+			Content:      msg.Content,
+			Tokens:       msg.Tokens,
+			CacheControl: msg.CacheControl,
+			ToolCallID:   msg.ToolCallID,
+		}
+		// Deep copy Metadata map (including nested maps/slices)
+		if msg.Metadata != nil {
+			messages[i].Metadata = deepCopyMap(msg.Metadata)
+		}
+		// Deep copy ToolCalls slice including nested Function.Arguments
+		if msg.ToolCalls != nil {
+			messages[i].ToolCalls = make([]types.ToolCall, len(msg.ToolCalls))
+			for j, tc := range msg.ToolCalls {
+				messages[i].ToolCalls[j] = types.ToolCall{
+					ID:   tc.ID,
+					Type: tc.Type,
+				}
+				messages[i].ToolCalls[j].Function.Name = tc.Function.Name
+				if tc.Function.Arguments != nil {
+					messages[i].ToolCalls[j].Function.Arguments = make([]byte, len(tc.Function.Arguments))
+					copy(messages[i].ToolCalls[j].Function.Arguments, tc.Function.Arguments)
+				}
+			}
+		}
+	}
 	return messages
 }
 
@@ -176,6 +233,31 @@ func (m *Memory) Clear() {
 	m.totalTokens = 0
 	m.logger.Debug("Cleared memory")
 }
+
+// MemoryCapable is an interface for LLM instances that support memory operations.
+// This interface allows for decoupling from the concrete LLMWithMemory type.
+type MemoryCapable interface {
+	LLM
+	// ClearMemory removes all messages from the conversation history.
+	ClearMemory()
+	// GetMemory returns the conversation history as a slice of messages.
+	GetMemory() []types.MemoryMessage
+	// AddToMemory adds a message to the conversation history.
+	AddToMemory(role, content string)
+	// AddStructuredMessage adds a message with cache control to the conversation history.
+	AddStructuredMessage(role, content, cacheControl string)
+	// SetUseStructuredMessages configures whether to use structured messages.
+	SetUseStructuredMessages(use bool)
+	// AddToolResult adds a tool execution result to the conversation history.
+	AddToolResult(toolCallID, result string)
+	// AddToolError adds a tool execution error to the conversation history.
+	AddToolError(toolCallID, errorMessage string)
+	// AddAssistantMessageWithToolCalls adds an assistant message with tool calls.
+	AddAssistantMessageWithToolCalls(content string, toolCalls []types.ToolCall)
+}
+
+// Ensure LLMWithMemory implements MemoryCapable
+var _ MemoryCapable = (*LLMWithMemory)(nil)
 
 // LLMWithMemory wraps an LLM instance with conversation memory capabilities.
 // It maintains a conversation history, automatically adding user prompts and
@@ -278,17 +360,25 @@ func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...Ge
 		// Make a copy of the original prompt with empty input
 		// (since content will be in structured messages)
 		emptyPrompt := &Prompt{
-			SystemPrompt: prompt.SystemPrompt,
-			Tools:        prompt.Tools,
-			ToolChoice:   prompt.ToolChoice,
-			Input:        "", // Empty as content is in messages
+			Input:           "", // Empty as content is in messages
+			Output:          prompt.Output,
+			Directives:      prompt.Directives,
+			Context:         prompt.Context,
+			MaxLength:       prompt.MaxLength,
+			Examples:        prompt.Examples,
+			SystemPrompt:    prompt.SystemPrompt,
+			SystemCacheType: prompt.SystemCacheType,
+			Tools:           prompt.Tools,
+			ToolChoice:      prompt.ToolChoice,
+			// Messages intentionally omitted - using structured_messages option instead
 		}
 
-		// Add structured messages to the options
-		withMessages := func(config *GenerateConfig) {
-			// We're simply passing this function to keep the original options
-			// The structured messages will be added in the WithOption call
-		}
+		// This is an intentional no-op GenerateOption. The structured messages are
+		// passed via SetOption("structured_messages", messages) above, not through
+		// the GenerateOption mechanism. This placeholder is included only to satisfy
+		// the append(opts, withMessages) pattern, ensuring we don't modify the
+		// caller's original opts slice while still passing all options through.
+		withMessages := func(config *GenerateConfig) {}
 
 		// Set structured messages option
 		l.LLM.SetOption("structured_messages", messages)
@@ -304,10 +394,17 @@ func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...Ge
 
 		// Create a new Prompt with the full memory context
 		memoryPrompt := &Prompt{
-			SystemPrompt: prompt.SystemPrompt,
-			Tools:        prompt.Tools,
-			ToolChoice:   prompt.ToolChoice,
-			Input:        fullPrompt,
+			Input:           fullPrompt,
+			Output:          prompt.Output,
+			Directives:      prompt.Directives,
+			Context:         prompt.Context,
+			MaxLength:       prompt.MaxLength,
+			Examples:        prompt.Examples,
+			SystemPrompt:    prompt.SystemPrompt,
+			SystemCacheType: prompt.SystemCacheType,
+			Tools:           prompt.Tools,
+			ToolChoice:      prompt.ToolChoice,
+			// Messages intentionally omitted - using flattened prompt in Input
 		}
 
 		response, err = l.LLM.Generate(ctx, memoryPrompt, opts...)
@@ -347,6 +444,7 @@ func (l *LLMWithMemory) GetMemory() []types.MemoryMessage {
 
 // GenerateWithSchema generates text conforming to a schema, with conversation history.
 // It automatically adds the prompt and response to memory.
+// Respects the useStructuredMessages setting for consistent behavior with Generate.
 //
 // Parameters:
 //   - ctx: Context for cancellation and timeout
@@ -358,15 +456,61 @@ func (l *LLMWithMemory) GetMemory() []types.MemoryMessage {
 //   - Generated text response
 //   - Error types as per the base LLM's GenerateWithSchema method
 func (l *LLMWithMemory) GenerateWithSchema(ctx context.Context, prompt *Prompt, schema interface{}, opts ...GenerateOption) (string, error) {
+	// Add user message to memory
 	l.memory.Add("user", prompt.Input)
-	fullPrompt := l.memory.GetPrompt()
 
-	memoryPrompt := &Prompt{
-		Input: fullPrompt,
-		// Copy other fields from the original prompt if needed
+	var response string
+	var err error
+
+	if l.useStructuredMessages {
+		// Get structured messages from memory
+		messages := l.memory.GetMessages()
+
+		// Make a copy of the original prompt with empty input
+		// (since content will be in structured messages)
+		emptyPrompt := &Prompt{
+			Input:           "", // Empty as content is in messages
+			Output:          prompt.Output,
+			Directives:      prompt.Directives,
+			Context:         prompt.Context,
+			MaxLength:       prompt.MaxLength,
+			Examples:        prompt.Examples,
+			SystemPrompt:    prompt.SystemPrompt,
+			SystemCacheType: prompt.SystemCacheType,
+			Tools:           prompt.Tools,
+			ToolChoice:      prompt.ToolChoice,
+			// Messages intentionally omitted - using structured_messages option instead
+		}
+
+		// Set structured messages option
+		l.LLM.SetOption("structured_messages", messages)
+
+		// Generate with structured messages and schema
+		response, err = l.LLM.GenerateWithSchema(ctx, emptyPrompt, schema, opts...)
+
+		// Remove the structured messages option after use
+		l.LLM.SetOption("structured_messages", nil)
+	} else {
+		// Fallback to traditional flattened prompt approach
+		fullPrompt := l.memory.GetPrompt()
+
+		memoryPrompt := &Prompt{
+			Input:           fullPrompt,
+			Output:          prompt.Output,
+			Directives:      prompt.Directives,
+			Context:         prompt.Context,
+			MaxLength:       prompt.MaxLength,
+			Examples:        prompt.Examples,
+			SystemPrompt:    prompt.SystemPrompt,
+			SystemCacheType: prompt.SystemCacheType,
+			Tools:           prompt.Tools,
+			ToolChoice:      prompt.ToolChoice,
+			// Messages intentionally omitted - using flattened prompt in Input
+		}
+
+		response, err = l.LLM.GenerateWithSchema(ctx, memoryPrompt, schema, opts...)
 	}
 
-	response, err := l.LLM.GenerateWithSchema(ctx, memoryPrompt, schema, opts...)
 	if err != nil {
 		return "", err
 	}
@@ -393,6 +537,56 @@ func (l *LLMWithMemory) AddStructuredMessage(role, content, cacheControl string)
 		Role:         role,
 		Content:      content,
 		CacheControl: cacheControl,
+	}
+	l.memory.AddStructured(message)
+}
+
+// AddToolResult adds a tool result to the conversation history.
+// This should be called after executing a tool to provide its result
+// back to the LLM for incorporation into its response.
+//
+// Parameters:
+//   - toolCallID: The ID of the tool call this result responds to
+//   - result: The result content from the tool execution
+func (l *LLMWithMemory) AddToolResult(toolCallID, result string) {
+	message := types.MemoryMessage{
+		Role:       "tool",
+		Content:    result,
+		ToolCallID: toolCallID,
+	}
+	l.memory.AddStructured(message)
+}
+
+// AddToolError adds a tool error result to the conversation history.
+// Use this when a tool execution fails to inform the LLM of the error.
+//
+// Parameters:
+//   - toolCallID: The ID of the tool call this error responds to
+//   - errorMessage: Description of the error that occurred
+func (l *LLMWithMemory) AddToolError(toolCallID, errorMessage string) {
+	message := types.MemoryMessage{
+		Role:       "tool",
+		Content:    "Error: " + errorMessage,
+		ToolCallID: toolCallID,
+		Metadata: map[string]interface{}{
+			"is_error": true,
+		},
+	}
+	l.memory.AddStructured(message)
+}
+
+// AddAssistantMessageWithToolCalls adds an assistant message that includes tool calls.
+// This preserves tool calls in the conversation history so they can be
+// properly sent to the provider in subsequent requests.
+//
+// Parameters:
+//   - content: The text content of the assistant's message (can be empty if only tool calls)
+//   - toolCalls: The tool calls requested by the assistant
+func (l *LLMWithMemory) AddAssistantMessageWithToolCalls(content string, toolCalls []types.ToolCall) {
+	message := types.MemoryMessage{
+		Role:      "assistant",
+		Content:   content,
+		ToolCalls: toolCalls,
 	}
 	l.memory.AddStructured(message)
 }

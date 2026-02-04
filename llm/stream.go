@@ -83,6 +83,13 @@ func (s *DefaultRetryStrategy) Reset() {
 	s.attempts = 0
 }
 
+// StreamDecoder interface for different streaming formats
+type StreamDecoder interface {
+	Next() bool
+	Event() Event
+	Err() error
+}
+
 // SSEDecoder handles Server-Sent Events (SSE) streaming
 type SSEDecoder struct {
 	reader  *bufio.Scanner
@@ -148,5 +155,49 @@ func (d *SSEDecoder) Event() Event {
 }
 
 func (d *SSEDecoder) Err() error {
+	return d.err
+}
+
+// NDJSONDecoder handles Newline Delimited JSON streaming
+type NDJSONDecoder struct {
+	scanner *bufio.Scanner
+	current Event
+	err     error
+}
+
+func NewNDJSONDecoder(reader io.Reader) *NDJSONDecoder {
+	return &NDJSONDecoder{
+		scanner: bufio.NewScanner(reader),
+	}
+}
+
+func (d *NDJSONDecoder) Next() bool {
+	if d.err != nil {
+		return false
+	}
+
+	// Use loop instead of recursion to avoid stack overflow on many empty lines
+	for d.scanner.Scan() {
+		line := d.scanner.Bytes()
+		if len(line) == 0 {
+			continue // Skip empty lines
+		}
+
+		d.current = Event{
+			Type: "text",
+			Data: line,
+		}
+		return true
+	}
+
+	d.err = d.scanner.Err()
+	return false
+}
+
+func (d *NDJSONDecoder) Event() Event {
+	return d.current
+}
+
+func (d *NDJSONDecoder) Err() error {
 	return d.err
 }

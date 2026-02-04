@@ -184,7 +184,13 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 		"cohere":        NewCohereProvider,
 		"deepseek":      NewDeepSeekProvider,
 		"google-openai": NewGoogleProvider,
-		// Add other providers here as they are implemented
+		"azure-openai":  NewAzureOpenAIProvider,
+		"aliyun":        NewAliyunProvider,
+		"lmstudio":      NewLMStudioProvider,
+		"openrouter":    NewOpenRouterProvider,
+		"lambda":        NewLambdaProvider,
+		"bedrock":       NewBedrockProvider,
+		"vllm":          NewVLLMProvider,
 	}
 
 	// Standard provider configurations
@@ -259,7 +265,66 @@ func NewProviderRegistry(providerNames ...string) *ProviderRegistry {
 			SupportsSchema:    true,
 			SupportsStreaming: true,
 		},
-		// Add other provider configurations
+		"aliyun": {
+			Name:              "aliyun",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"lmstudio": {
+			Name:              "lmstudio",
+			Type:              TypeOpenAI,
+			Endpoint:          "http://localhost:1234/v1/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: false, // LM Studio streaming works differently
+		},
+		"openrouter": {
+			Name:              "openrouter",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://openrouter.ai/api/v1/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"lambda": {
+			Name:              "lambda",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://api.lambdalabs.com/v1/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"bedrock": {
+			Name:              "bedrock",
+			Type:              TypeCustom,
+			Endpoint:          "", // Configured dynamically based on region and model
+			AuthHeader:        "", // Uses AWS Signature V4
+			AuthPrefix:        "",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
+		"vllm": {
+			Name:              "vllm",
+			Type:              TypeOpenAI,
+			Endpoint:          "", // Configured by user for local vLLM server
+			AuthHeader:        "", // No authentication required
+			AuthPrefix:        "",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		},
 	}
 
 	// Store standard configs

@@ -8,6 +8,7 @@ import (
 
 	"github.com/teilomillet/gollm/config"
 	"github.com/teilomillet/gollm/llm"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -54,6 +55,16 @@ type (
 	// PromptTemplate defines a reusable template for generating prompts.
 	// Templates can include variables that are filled in at runtime.
 	PromptTemplate = llm.PromptTemplate
+
+	// ContentPart represents a single part of multimodal content (text or image).
+	// Used for vision-capable models that can process both text and images.
+	ContentPart = types.ContentPart
+
+	// ImageURL represents an image specified by URL for vision models.
+	ImageURL = types.ImageURL
+
+	// ImageSource represents a base64-encoded image for vision models.
+	ImageSource = types.ImageSource
 )
 
 // Cache type constants define the available caching strategies.
@@ -116,6 +127,17 @@ var (
 
 	// WithStream enables or disables streaming responses.
 	WithStream = config.WithStream
+
+	// WithImageURL adds an image by URL to the prompt for vision-capable models.
+	// The detail parameter controls image processing quality: "auto", "low", or "high".
+	WithImageURL = llm.WithImageURL
+
+	// WithImageBase64 adds a base64-encoded image to the prompt for vision-capable models.
+	// The mediaType should specify the image format (e.g., "image/png", "image/jpeg").
+	WithImageBase64 = llm.WithImageBase64
+
+	// WithImages adds multiple images to the prompt for vision-capable models.
+	WithImages = llm.WithImages
 )
 
 // CleanResponse processes and cleans up LLM responses by removing markdown formatting

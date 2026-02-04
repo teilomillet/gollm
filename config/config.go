@@ -54,6 +54,7 @@ type Config struct {
 	Provider              string            `env:"LLM_PROVIDER" envDefault:"anthropic" validate:"required"`
 	Model                 string            `env:"LLM_MODEL" envDefault:"claude-3-5-haiku-latest" validate:"required"`
 	OllamaEndpoint        string            `env:"OLLAMA_ENDPOINT" envDefault:"http://localhost:11434"`
+	VLLMEndpoint          string            `env:"VLLM_ENDPOINT" envDefault:"http://localhost:8000"`
 	Temperature           float64           `env:"LLM_TEMPERATURE" envDefault:"0.7" validate:"gte=0,lte=1"`
 	MaxTokens             int               `env:"LLM_MAX_TOKENS" envDefault:"100"`
 	TopP                  float64           `env:"LLM_TOP_P" envDefault:"0.9" validate:"gte=0,lte=1"`
@@ -79,6 +80,7 @@ type Config struct {
 	EnableStreaming       bool `env:"LLM_ENABLE_STREAMING" envDefault:"false"`
 	MemoryOption          *MemoryOption
 	CustomValidator       func(interface{}) error // Custom validation function to override default validation
+	Logger                utils.Logger            // Custom logger, if nil uses default
 }
 
 // LoadConfig creates a new Config instance, loading values from environment
@@ -183,6 +185,13 @@ func SetModel(model string) ConfigOption {
 func SetOllamaEndpoint(endpoint string) ConfigOption {
 	return func(c *Config) {
 		c.OllamaEndpoint = endpoint
+	}
+}
+
+// SetVLLMEndpoint sets the vLLM API endpoint.
+func SetVLLMEndpoint(endpoint string) ConfigOption {
+	return func(c *Config) {
+		c.VLLMEndpoint = endpoint
 	}
 }
 
@@ -390,6 +399,15 @@ func SetCustomValidator(fn func(interface{}) error) ConfigOption {
 		// Store the validator function to be applied during config loading
 		// The actual setting will be done in the NewLLM function
 		c.CustomValidator = fn
+	}
+}
+
+// SetLogger sets a custom logger implementation.
+// If not set, a default logger writing to stderr is used.
+// Pass nil to disable logging entirely.
+func SetLogger(logger utils.Logger) ConfigOption {
+	return func(c *Config) {
+		c.Logger = logger
 	}
 }
 

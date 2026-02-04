@@ -172,11 +172,27 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 		})
 	}
 
-	// Add user message
-	request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
-		"role":    "user",
-		"content": prompt,
-	})
+	// Check if we have images to include
+	images, hasImages := options["images"].([]types.ContentPart)
+
+	// Add user message (with or without images)
+	if hasImages && len(images) > 0 {
+		// Build multimodal content array using shared helper
+		content := []map[string]interface{}{
+			{"type": "text", "text": prompt},
+		}
+		content = append(content, ConvertImagesToOpenAIContent(images)...)
+		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+			"role":    "user",
+			"content": content,
+		})
+	} else {
+		// Simple text-only message
+		request["messages"] = append(request["messages"].([]map[string]interface{}), map[string]interface{}{
+			"role":    "user",
+			"content": prompt,
+		})
+	}
 
 	// Handle tool_choice
 	if toolChoice, ok := options["tool_choice"].(string); ok {
@@ -603,14 +619,46 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 	// Convert MemoryMessage objects to OpenAI messages format
 	for _, msg := range messages {
 		message := map[string]interface{}{
-			"role":    msg.Role,
-			"content": msg.Content,
+			"role": msg.Role,
 		}
 
-		// Add metadata if present
+		// Handle tool result messages (role=tool)
+		if msg.Role == "tool" && msg.ToolCallID != "" {
+			message["tool_call_id"] = msg.ToolCallID
+			message["content"] = msg.Content
+		} else if len(msg.ToolCalls) > 0 {
+			// Handle assistant messages with tool calls
+			// OpenAI expects tool_calls array for assistant messages
+			toolCalls := make([]map[string]interface{}, len(msg.ToolCalls))
+			for i, tc := range msg.ToolCalls {
+				toolCalls[i] = map[string]interface{}{
+					"id":   tc.ID,
+					"type": tc.Type,
+					"function": map[string]interface{}{
+						"name":      tc.Function.Name,
+						"arguments": string(tc.Function.Arguments),
+					},
+				}
+			}
+			message["tool_calls"] = toolCalls
+			// Content can be empty or contain text alongside tool calls
+			if msg.Content != "" {
+				message["content"] = msg.Content
+			}
+		} else if msg.HasMultiContent() {
+			// Handle multimodal content (text + images)
+			message["content"] = BuildOpenAIContentFromParts(msg.MultiContent)
+		} else {
+			// Regular text message
+			message["content"] = msg.Content
+		}
+
+		// Add metadata if present (excluding tool-related fields already handled)
 		if len(msg.Metadata) > 0 {
 			for k, v := range msg.Metadata {
-				message[k] = v
+				if k != "tool_calls" && k != "tool_call_id" {
+					message[k] = v
+				}
 			}
 		}
 

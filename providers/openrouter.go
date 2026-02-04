@@ -170,11 +170,25 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]in
 		delete(req, "system_message")
 	}
 
-	// Add the user prompt
-	messages = append(messages, map[string]interface{}{
-		"role":    "user",
-		"content": prompt,
-	})
+	// Add the user prompt (with image support) using shared helper
+	if images, ok := req["images"].([]types.ContentPart); ok && len(images) > 0 {
+		// Build multimodal content array
+		contentArray := []map[string]interface{}{
+			{"type": "text", "text": prompt},
+		}
+		contentArray = append(contentArray, ConvertImagesToOpenAIContent(images)...)
+		delete(req, "images")
+
+		messages = append(messages, map[string]interface{}{
+			"role":    "user",
+			"content": contentArray,
+		})
+	} else {
+		messages = append(messages, map[string]interface{}{
+			"role":    "user",
+			"content": prompt,
+		})
+	}
 
 	req["messages"] = messages
 
@@ -588,34 +602,56 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 		delete(req, "provider_preferences")
 	}
 
-	// Convert memory messages to OpenRouter format
+	// Convert memory messages to OpenRouter format (OpenAI-compatible)
 	formattedMessages := make([]map[string]interface{}, 0, len(messages))
 	for _, msg := range messages {
 		formattedMsg := map[string]interface{}{
-			"role":    msg.Role,
-			"content": msg.Content,
+			"role": msg.Role,
 		}
 
-		// Handle Anthropic-style prompt caching if enabled
-		if caching, ok := req["enable_prompt_caching"].(bool); ok && caching && msg.Role == "user" {
-			// Check if the message is large enough to benefit from caching
-			if len(msg.Content) > 1000 {
-				// For Anthropic models, we need to use multipart messages with cache_control
-				if strings.HasPrefix(p.model, "anthropic/") {
-					formattedMsg["content"] = []map[string]interface{}{
-						{
-							"type": "text",
-							"text": msg.Content,
-							"cache_control": map[string]string{
-								"type": "ephemeral",
+		// Check if message has multimodal content (images)
+		if msg.HasMultiContent() {
+			formattedMsg["content"] = BuildOpenAIContentFromParts(msg.MultiContent)
+		} else {
+			formattedMsg["content"] = msg.Content
+
+			// Handle Anthropic-style prompt caching if enabled
+			if caching, ok := req["enable_prompt_caching"].(bool); ok && caching && msg.Role == "user" {
+				// Check if the message is large enough to benefit from caching
+				if len(msg.Content) > 1000 {
+					// For Anthropic models, we need to use multipart messages with cache_control
+					if strings.HasPrefix(p.model, "anthropic/") {
+						formattedMsg["content"] = []map[string]interface{}{
+							{
+								"type": "text",
+								"text": msg.Content,
+								"cache_control": map[string]string{
+									"type": "ephemeral",
+								},
 							},
-						},
+						}
 					}
 				}
 			}
 		}
 
 		formattedMessages = append(formattedMessages, formattedMsg)
+	}
+
+	// Handle images passed in options (for the last user message) - use shared helpers
+	if images, ok := req["images"].([]types.ContentPart); ok && len(images) > 0 {
+		// Find and update the last user message to include images
+		for i := len(formattedMessages) - 1; i >= 0; i-- {
+			if formattedMessages[i]["role"] == "user" {
+				// Use NormalizeContentArray for safe type conversion (handles string, []map, []interface{})
+				contentArray := NormalizeContentArray(formattedMessages[i]["content"])
+				// Add images using shared helper
+				contentArray = append(contentArray, ConvertImagesToOpenAIContent(images)...)
+				formattedMessages[i]["content"] = contentArray
+				break
+			}
+		}
+		delete(req, "images")
 	}
 
 	req["messages"] = formattedMessages
@@ -640,8 +676,3 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 	return json.Marshal(req)
 }
 
-func init() {
-	// Register the OpenRouter provider
-	registry := GetDefaultRegistry()
-	registry.Register("openrouter", NewOpenRouterProvider)
-}

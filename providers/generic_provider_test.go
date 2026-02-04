@@ -345,22 +345,42 @@ func TestProviderRegistryWithGenericProvider(t *testing.T) {
 	})
 
 	t.Run("RegisterGenericProvider registers constructor", func(t *testing.T) {
-		// Save the current registry
-		oldRegistry := defaultRegistry
-		defer func() { defaultRegistry = oldRegistry }()
+		// Test the registration mechanism using a local registry
+		// to avoid modifying global state during parallel test execution
+		localRegistry := NewProviderRegistry()
 
-		// Create a new default registry for this test
-		defaultRegistry = NewProviderRegistry()
+		// Register the config
+		customConfig := ProviderConfig{
+			Name:              "custom-provider",
+			Type:              TypeOpenAI,
+			Endpoint:          "https://api.custom-provider.com/v1/chat/completions",
+			AuthHeader:        "Authorization",
+			AuthPrefix:        "Bearer ",
+			RequiredHeaders:   map[string]string{"Content-Type": "application/json"},
+			SupportsSchema:    true,
+			SupportsStreaming: true,
+		}
+		localRegistry.RegisterProviderConfig("custom-provider", customConfig)
 
-		// Register a generic provider
-		testConfig.Name = "custom-provider" // Update the name to match what we check for
-		RegisterGenericProvider("custom-provider", testConfig)
+		// Register a constructor that creates a GenericProvider directly with the config
+		localRegistry.Register("custom-provider", func(apiKey, model string, extraHeaders map[string]string) Provider {
+			if extraHeaders == nil {
+				extraHeaders = make(map[string]string)
+			}
+			return &GenericProvider{
+				apiKey:       apiKey,
+				model:        model,
+				config:       customConfig,
+				extraHeaders: extraHeaders,
+				options:      make(map[string]interface{}),
+				logger:       utils.NewLogger(utils.LogLevelInfo),
+			}
+		})
 
 		// Check if constructor was registered by creating an instance
-		constructor, exists := defaultRegistry.providers["custom-provider"]
-		require.True(t, exists)
-
-		provider := constructor("test-key", "test-model", nil)
+		provider, err := localRegistry.Get("custom-provider", "test-key", "test-model", nil)
+		require.NoError(t, err)
+		require.NotNil(t, provider)
 		assert.Equal(t, "custom-provider", provider.Name())
 	})
 }

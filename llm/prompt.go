@@ -1,11 +1,11 @@
 package llm
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/invopop/jsonschema"
+	"github.com/teilomillet/gollm/types"
 	"github.com/teilomillet/gollm/utils"
 )
 
@@ -20,30 +20,26 @@ const (
 
 // PromptMessage represents a single message in a conversation with an LLM.
 // It can be a system message, user message, or assistant message, and may include
-// tool calls and caching configuration.
+// tool calls, images, and caching configuration.
 type PromptMessage struct {
-	Role       string     `json:"role"`                   // Role of the message sender (e.g., "system", "user", "assistant")
-	Content    string     `json:"content"`                // The actual message content
-	CacheType  CacheType  `json:"cache_type,omitempty"`   // Optional caching strategy for this message
-	Name       string     `json:"name,omitempty"`         // Optional name identifier for the message
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   // Optional tool calls requested by the LLM
-	ToolCallID string     `json:"tool_call_id,omitempty"` // ID of the tool call this message responds to
+	Role         string              `json:"role"`                    // Role of the message sender (e.g., "system", "user", "assistant")
+	Content      string              `json:"content"`                 // The actual message content (text-only)
+	MultiContent []types.ContentPart `json:"multi_content,omitempty"` // Multimodal content (text + images)
+	CacheType    CacheType           `json:"cache_type,omitempty"`    // Optional caching strategy for this message
+	Name         string              `json:"name,omitempty"`          // Optional name identifier for the message
+	ToolCalls    []ToolCall          `json:"tool_calls,omitempty"`    // Optional tool calls requested by the LLM
+	ToolCallID   string              `json:"tool_call_id,omitempty"`  // ID of the tool call this message responds to
 }
 
 // ToolCall represents a request from the LLM to use a specific tool.
 // It includes the tool's identifier, type, and any arguments needed for execution.
-type ToolCall struct {
-	ID       string `json:"id"`   // Unique identifier for the tool call
-	Type     string `json:"type"` // Type of tool being called
-	Function struct {
-		Name      string          `json:"name"`      // Name of the function to call
-		Arguments json.RawMessage `json:"arguments"` // Arguments for the function call
-	} `json:"function"`
-}
+//
+// Deprecated: Use types.ToolCall instead.
+type ToolCall = types.ToolCall
 
 // Prompt represents a complete prompt structure that can be sent to an LLM.
 // It includes various components like system messages, user input, context,
-// and optional elements like tools and examples.
+// and optional elements like tools, images, and examples.
 type Prompt struct {
 	Input           string                 `json:"input" jsonschema:"required,description=The main input text for the LLM" validate:"required"`
 	Output          string                 `json:"output,omitempty" jsonschema:"description=Specification for the expected output format"`
@@ -56,6 +52,7 @@ type Prompt struct {
 	Messages        []PromptMessage        `json:"messages,omitempty" jsonschema:"description=List of messages for the conversation"`
 	Tools           []utils.Tool           `json:"tools,omitempty" jsonschema:"description=Available tools for the LLM to use"`
 	ToolChoice      map[string]interface{} `json:"tool_choice,omitempty" jsonschema:"description=Configuration for tool selection behavior"`
+	Images          []types.ContentPart    `json:"images,omitempty" jsonschema:"description=Images to include with the prompt"`
 }
 
 // PromptOption is a function type that modifies a Prompt.
@@ -219,6 +216,58 @@ func WithExamples(examples ...string) PromptOption {
 			p.Examples = append(p.Examples, examples...)
 		}
 	}
+}
+
+// WithImageURL adds an image from a URL to the prompt.
+// This is used for vision-capable models like GPT-4V, Claude 3, etc.
+//
+// Parameters:
+//   - url: URL of the image (can also be a data URI like "data:image/jpeg;base64,...")
+//   - detail: Detail level for processing ("auto", "low", or "high"). Empty defaults to "auto".
+//
+// Example:
+//
+//	prompt := NewPrompt("What's in this image?",
+//	    WithImageURL("https://example.com/image.jpg", "auto"),
+//	)
+func WithImageURL(url string, detail string) PromptOption {
+	return func(p *Prompt) {
+		p.Images = append(p.Images, types.NewImageURLContent(url, detail))
+	}
+}
+
+// WithImageBase64 adds a base64-encoded image to the prompt.
+// This is used for vision-capable models like GPT-4V, Claude 3, etc.
+//
+// Parameters:
+//   - base64Data: Base64-encoded image data (without the data URI prefix)
+//   - mediaType: MIME type of the image ("image/jpeg", "image/png", "image/gif", "image/webp")
+//
+// Example:
+//
+//	imageData := base64.StdEncoding.EncodeToString(imageBytes)
+//	prompt := NewPrompt("Describe this image",
+//	    WithImageBase64(imageData, "image/png"),
+//	)
+func WithImageBase64(base64Data, mediaType string) PromptOption {
+	return func(p *Prompt) {
+		p.Images = append(p.Images, types.NewImageBase64Content(base64Data, mediaType))
+	}
+}
+
+// WithImages adds multiple images to the prompt.
+//
+// Parameters:
+//   - images: Slice of ContentPart representing images
+func WithImages(images []types.ContentPart) PromptOption {
+	return func(p *Prompt) {
+		p.Images = append(p.Images, images...)
+	}
+}
+
+// HasImages returns true if the prompt contains any images.
+func (p *Prompt) HasImages() bool {
+	return len(p.Images) > 0
 }
 
 // Apply applies the given options to modify the prompt's configuration.

@@ -50,13 +50,21 @@ func NewGenericProvider(apiKey, model, providerName string, extraHeaders map[str
 		panic(fmt.Sprintf("Provider configuration for '%s' not found", providerName))
 	}
 
+	// Check for azure_endpoint in extraHeaders (used for Azure OpenAI)
+	var customEndpoint string
+	if endpoint, ok := extraHeaders["azure_endpoint"]; ok {
+		customEndpoint = endpoint
+		delete(extraHeaders, "azure_endpoint") // Remove so it's not sent as HTTP header
+	}
+
 	return &GenericProvider{
-		apiKey:       apiKey,
-		model:        model,
-		config:       config,
-		extraHeaders: extraHeaders,
-		options:      make(map[string]interface{}),
-		logger:       utils.NewLogger(utils.LogLevelInfo),
+		apiKey:        apiKey,
+		model:         model,
+		config:        config,
+		extraHeaders:  extraHeaders,
+		options:       make(map[string]interface{}),
+		logger:        utils.NewLogger(utils.LogLevelInfo),
+		extraEndpoint: customEndpoint,
 	}
 }
 

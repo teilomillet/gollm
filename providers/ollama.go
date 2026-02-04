@@ -138,6 +138,23 @@ func (p *OllamaProvider) PrepareRequest(prompt string, options map[string]interf
 		"prompt": prompt,
 	}
 
+	// Handle images for vision models (like llava, bakllava, etc.)
+	if images, ok := options["images"].([]types.ContentPart); ok && len(images) > 0 {
+		base64Images := []string{}
+		for _, img := range images {
+			if img.Source != nil && img.Source.Data != "" {
+				// Base64 encoded image
+				base64Images = append(base64Images, img.Source.Data)
+			}
+			// Note: Ollama doesn't support URL-based images directly,
+			// they need to be fetched and base64-encoded first
+		}
+		if len(base64Images) > 0 {
+			requestBody["images"] = base64Images
+		}
+		delete(options, "images")
+	}
+
 	for k, v := range options {
 		requestBody[k] = v
 	}
@@ -287,6 +304,12 @@ func (p *OllamaProvider) ParseStreamResponse(chunk []byte) (string, error) {
 	if err := json.Unmarshal(chunk, &response); err != nil {
 		return "", err
 	}
+
+	// Check if this is the final chunk
+	if response.Done {
+		return response.Response, io.EOF
+	}
+
 	return response.Response, nil
 }
 
@@ -305,6 +328,9 @@ func (p *OllamaProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 	// Convert to flattened format
 	var flattenedPrompt strings.Builder
 
+	// Collect any images from messages
+	var allImages []string
+
 	// Add system prompt if present
 	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
 		flattenedPrompt.WriteString("System: ")
@@ -316,10 +342,43 @@ func (p *OllamaProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 	for _, msg := range messages {
 		flattenedPrompt.WriteString(msg.Role)
 		flattenedPrompt.WriteString(": ")
-		flattenedPrompt.WriteString(msg.Content)
+		if msg.HasMultiContent() {
+			flattenedPrompt.WriteString(msg.GetTextContent())
+			// Extract images from multi-content messages
+			for _, part := range msg.MultiContent {
+				if part.Source != nil && part.Source.Data != "" {
+					allImages = append(allImages, part.Source.Data)
+				}
+			}
+		} else {
+			flattenedPrompt.WriteString(msg.Content)
+		}
 		flattenedPrompt.WriteString("\n\n")
 	}
 
-	// Use regular prompt preparation with flattened text
-	return p.PrepareRequest(flattenedPrompt.String(), options)
+	// Handle images passed in options
+	if images, ok := options["images"].([]types.ContentPart); ok && len(images) > 0 {
+		for _, img := range images {
+			if img.Source != nil && img.Source.Data != "" {
+				allImages = append(allImages, img.Source.Data)
+			}
+		}
+		delete(options, "images")
+	}
+
+	requestBody := map[string]interface{}{
+		"model":  p.model,
+		"prompt": flattenedPrompt.String(),
+	}
+
+	// Add images if present
+	if len(allImages) > 0 {
+		requestBody["images"] = allImages
+	}
+
+	for k, v := range options {
+		requestBody[k] = v
+	}
+
+	return json.Marshal(requestBody)
 }
