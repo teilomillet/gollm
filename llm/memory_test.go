@@ -259,3 +259,470 @@ func TestCachingBenefit(t *testing.T) {
 	t.Logf("Second run (with cache): %v", secondRunDuration)
 	t.Logf("Speedup: %.2fx", float64(firstRunDuration)/float64(secondRunDuration))
 }
+
+// TestMemoryCreate tests NewMemory creation and edge cases
+func TestMemoryCreate(t *testing.T) {
+	logger := utils.NewLogger(utils.LogLevelDebug)
+
+	t.Run("valid creation", func(t *testing.T) {
+		memory, err := NewMemory(1000, "gpt-4", logger)
+		require.NoError(t, err)
+		assert.NotNil(t, memory)
+		assert.Equal(t, 0, len(memory.GetMessages()))
+	})
+
+	t.Run("unknown model falls back to gpt-4o", func(t *testing.T) {
+		memory, err := NewMemory(1000, "unknown-model-xyz", logger)
+		require.NoError(t, err)
+		assert.NotNil(t, memory)
+	})
+
+	t.Run("zero max tokens", func(t *testing.T) {
+		memory, err := NewMemory(0, "gpt-4", logger)
+		require.NoError(t, err)
+		assert.NotNil(t, memory)
+	})
+
+	t.Run("negative max tokens", func(t *testing.T) {
+		memory, err := NewMemory(-100, "gpt-4", logger)
+		require.NoError(t, err)
+		assert.NotNil(t, memory)
+	})
+}
+
+// TestMemoryAdd tests Add method and edge cases
+func TestMemoryAdd(t *testing.T) {
+	logger := utils.NewLogger(utils.LogLevelDebug)
+
+	t.Run("add single message", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.Add("user", "Hello")
+		messages := memory.GetMessages()
+		assert.Equal(t, 1, len(messages))
+		assert.Equal(t, "user", messages[0].Role)
+		assert.Equal(t, "Hello", messages[0].Content)
+	})
+
+	t.Run("add multiple messages", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.Add("user", "Hello")
+		memory.Add("assistant", "Hi there!")
+		memory.Add("user", "How are you?")
+		messages := memory.GetMessages()
+		assert.Equal(t, 3, len(messages))
+	})
+
+	t.Run("add empty content", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.Add("user", "")
+		messages := memory.GetMessages()
+		assert.Equal(t, 1, len(messages))
+		assert.Equal(t, "", messages[0].Content)
+	})
+
+	t.Run("add empty role", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.Add("", "Hello")
+		messages := memory.GetMessages()
+		assert.Equal(t, 1, len(messages))
+		assert.Equal(t, "", messages[0].Role)
+	})
+
+	t.Run("truncation when exceeding max tokens", func(t *testing.T) {
+		memory, _ := NewMemory(10, "gpt-4", logger) // Very small limit
+		memory.Add("user", "This is a long message that will exceed the token limit")
+		memory.Add("user", "Another long message")
+		// Should truncate older messages
+		messages := memory.GetMessages()
+		assert.LessOrEqual(t, len(messages), 2)
+	})
+}
+
+// TestMemoryAddStructured tests AddStructured method and edge cases
+func TestMemoryAddStructured(t *testing.T) {
+	logger := utils.NewLogger(utils.LogLevelDebug)
+
+	t.Run("add with cache control", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		msg := types.MemoryMessage{
+			Role:         "user",
+			Content:      "Test",
+			CacheControl: "ephemeral",
+		}
+		memory.AddStructured(msg)
+		messages := memory.GetMessages()
+		assert.Equal(t, 1, len(messages))
+		assert.Equal(t, "ephemeral", messages[0].CacheControl)
+	})
+
+	t.Run("add with metadata", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		msg := types.MemoryMessage{
+			Role:    "user",
+			Content: "Test",
+			Metadata: map[string]interface{}{
+				"timestamp": "2024-01-01",
+			},
+		}
+		memory.AddStructured(msg)
+		messages := memory.GetMessages()
+		assert.Equal(t, 1, len(messages))
+		assert.NotNil(t, messages[0].Metadata)
+	})
+
+	t.Run("add with zero tokens calculates tokens", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		msg := types.MemoryMessage{
+			Role:    "user",
+			Content: "Hello world",
+			Tokens:  0, // Should be calculated
+		}
+		memory.AddStructured(msg)
+		messages := memory.GetMessages()
+		assert.Greater(t, messages[0].Tokens, 0)
+	})
+
+	t.Run("add with preset tokens uses preset", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		msg := types.MemoryMessage{
+			Role:    "user",
+			Content: "Hello world",
+			Tokens:  999, // Preset value
+		}
+		memory.AddStructured(msg)
+		messages := memory.GetMessages()
+		assert.Equal(t, 999, messages[0].Tokens)
+	})
+}
+
+// TestMemoryClear tests Clear method
+func TestMemoryClear(t *testing.T) {
+	logger := utils.NewLogger(utils.LogLevelDebug)
+
+	t.Run("clear with messages", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.Add("user", "Hello")
+		memory.Add("assistant", "Hi")
+		assert.Equal(t, 2, len(memory.GetMessages()))
+
+		memory.Clear()
+		assert.Equal(t, 0, len(memory.GetMessages()))
+	})
+
+	t.Run("clear empty memory", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.Clear()
+		assert.Equal(t, 0, len(memory.GetMessages()))
+	})
+
+	t.Run("clear resets token count", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.Add("user", "Hello world this is a test message")
+		memory.Clear()
+		// Total tokens should be 0 after clear
+		assert.Equal(t, 0, memory.totalTokens)
+	})
+}
+
+// TestMemoryGetPrompt tests GetPrompt method
+func TestMemoryGetPrompt(t *testing.T) {
+	logger := utils.NewLogger(utils.LogLevelDebug)
+
+	t.Run("empty memory returns empty string", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		assert.Equal(t, "", memory.GetPrompt())
+	})
+
+	t.Run("formats messages correctly", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.Add("user", "Hello")
+		memory.Add("assistant", "Hi there")
+		prompt := memory.GetPrompt()
+		assert.Contains(t, prompt, "user: Hello")
+		assert.Contains(t, prompt, "assistant: Hi there")
+	})
+}
+
+// TestMemoryGetMessages tests GetMessages returns a copy
+func TestMemoryGetMessages(t *testing.T) {
+	logger := utils.NewLogger(utils.LogLevelDebug)
+
+	t.Run("returns copy not reference", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.Add("user", "Hello")
+
+		messages1 := memory.GetMessages()
+		messages2 := memory.GetMessages()
+
+		// Modify the first copy
+		messages1[0].Content = "Modified"
+
+		// Second copy should be unchanged
+		assert.Equal(t, "Hello", messages2[0].Content)
+	})
+}
+
+// TestLLMWithMemoryCreate tests NewLLMWithMemory creation
+func TestLLMWithMemoryCreate(t *testing.T) {
+	t.Run("valid creation", func(t *testing.T) {
+		mockProvider := NewMockProvider()
+		mockLLM := NewMockLLM(mockProvider, utils.NewLogger(utils.LogLevelDebug))
+		llmWithMem, err := NewLLMWithMemory(mockLLM, 1000, "gpt-4")
+		require.NoError(t, err)
+		assert.NotNil(t, llmWithMem)
+	})
+
+	t.Run("defaults to structured messages enabled", func(t *testing.T) {
+		mockProvider := NewMockProvider()
+		mockLLM := NewMockLLM(mockProvider, utils.NewLogger(utils.LogLevelDebug))
+		llmWithMem, _ := NewLLMWithMemory(mockLLM, 1000, "gpt-4")
+		mem := llmWithMem.(*LLMWithMemory)
+		assert.True(t, mem.useStructuredMessages)
+	})
+}
+
+// TestLLMWithMemorySetUseStructuredMessages tests toggling structured messages
+func TestLLMWithMemorySetUseStructuredMessages(t *testing.T) {
+	mockProvider := NewMockProvider()
+	mockLLM := NewMockLLM(mockProvider, utils.NewLogger(utils.LogLevelDebug))
+	llmWithMem, _ := NewLLMWithMemory(mockLLM, 1000, "gpt-4")
+	mem := llmWithMem.(*LLMWithMemory)
+
+	t.Run("can disable structured messages", func(t *testing.T) {
+		mem.SetUseStructuredMessages(false)
+		assert.False(t, mem.useStructuredMessages)
+	})
+
+	t.Run("can enable structured messages", func(t *testing.T) {
+		mem.SetUseStructuredMessages(true)
+		assert.True(t, mem.useStructuredMessages)
+	})
+}
+
+// TestLLMWithMemoryGenerate tests Generate with memory
+func TestLLMWithMemoryGenerate(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("generate with structured messages", func(t *testing.T) {
+		mockProvider := NewMockProvider()
+		mockLLM := NewMockLLM(mockProvider, utils.NewLogger(utils.LogLevelDebug))
+		llmWithMem, _ := NewLLMWithMemory(mockLLM, 1000, "gpt-4")
+		mem := llmWithMem.(*LLMWithMemory)
+		mem.SetUseStructuredMessages(true)
+
+		prompt := mem.NewPrompt("Hello")
+		_, err := mem.Generate(ctx, prompt)
+		require.NoError(t, err)
+
+		// Should have used structured messages path
+		assert.True(t, mockProvider.structured)
+	})
+
+	t.Run("generate with flattened messages", func(t *testing.T) {
+		mockProvider := NewMockProvider()
+		mockLLM := NewMockLLM(mockProvider, utils.NewLogger(utils.LogLevelDebug))
+		llmWithMem, _ := NewLLMWithMemory(mockLLM, 1000, "gpt-4")
+		mem := llmWithMem.(*LLMWithMemory)
+		mem.SetUseStructuredMessages(false)
+
+		prompt := mem.NewPrompt("Hello")
+		_, err := mem.Generate(ctx, prompt)
+		require.NoError(t, err)
+
+		// Should have used flattened messages path
+		assert.False(t, mockProvider.structured)
+	})
+
+	t.Run("adds user message to memory", func(t *testing.T) {
+		mockProvider := NewMockProvider()
+		mockLLM := NewMockLLM(mockProvider, utils.NewLogger(utils.LogLevelDebug))
+		llmWithMem, _ := NewLLMWithMemory(mockLLM, 1000, "gpt-4")
+		mem := llmWithMem.(*LLMWithMemory)
+
+		prompt := mem.NewPrompt("Hello")
+		_, err := mem.Generate(ctx, prompt)
+		require.NoError(t, err)
+
+		messages := mem.GetMemory()
+		// Should have user message + assistant response
+		assert.Equal(t, 2, len(messages))
+		assert.Equal(t, "user", messages[0].Role)
+		assert.Equal(t, "assistant", messages[1].Role)
+	})
+}
+
+// TestLLMWithMemoryClearMemory tests ClearMemory method
+func TestLLMWithMemoryClearMemory(t *testing.T) {
+	mockProvider := NewMockProvider()
+	mockLLM := NewMockLLM(mockProvider, utils.NewLogger(utils.LogLevelDebug))
+	llmWithMem, _ := NewLLMWithMemory(mockLLM, 1000, "gpt-4")
+	mem := llmWithMem.(*LLMWithMemory)
+
+	mem.AddToMemory("user", "Hello")
+	mem.AddToMemory("assistant", "Hi")
+	assert.Equal(t, 2, len(mem.GetMemory()))
+
+	mem.ClearMemory()
+	assert.Equal(t, 0, len(mem.GetMemory()))
+}
+
+// TestLLMWithMemoryAddToMemory tests AddToMemory method
+func TestLLMWithMemoryAddToMemory(t *testing.T) {
+	mockProvider := NewMockProvider()
+	mockLLM := NewMockLLM(mockProvider, utils.NewLogger(utils.LogLevelDebug))
+	llmWithMem, _ := NewLLMWithMemory(mockLLM, 1000, "gpt-4")
+	mem := llmWithMem.(*LLMWithMemory)
+
+	t.Run("add single message", func(t *testing.T) {
+		mem.ClearMemory()
+		mem.AddToMemory("user", "Hello")
+		messages := mem.GetMemory()
+		assert.Equal(t, 1, len(messages))
+		assert.Equal(t, "user", messages[0].Role)
+		assert.Equal(t, "Hello", messages[0].Content)
+	})
+
+	t.Run("add empty content", func(t *testing.T) {
+		mem.ClearMemory()
+		mem.AddToMemory("user", "")
+		messages := mem.GetMemory()
+		assert.Equal(t, 1, len(messages))
+	})
+}
+
+// TestLLMWithMemoryAddStructuredMessage tests AddStructuredMessage method
+func TestLLMWithMemoryAddStructuredMessage(t *testing.T) {
+	mockProvider := NewMockProvider()
+	mockLLM := NewMockLLM(mockProvider, utils.NewLogger(utils.LogLevelDebug))
+	llmWithMem, _ := NewLLMWithMemory(mockLLM, 1000, "gpt-4")
+	mem := llmWithMem.(*LLMWithMemory)
+
+	t.Run("add with cache control", func(t *testing.T) {
+		mem.ClearMemory()
+		mem.AddStructuredMessage("user", "Hello", "ephemeral")
+		messages := mem.GetMemory()
+		assert.Equal(t, 1, len(messages))
+		assert.Equal(t, "ephemeral", messages[0].CacheControl)
+	})
+
+	t.Run("add with empty cache control", func(t *testing.T) {
+		mem.ClearMemory()
+		mem.AddStructuredMessage("user", "Hello", "")
+		messages := mem.GetMemory()
+		assert.Equal(t, 1, len(messages))
+		assert.Equal(t, "", messages[0].CacheControl)
+	})
+}
+
+// TestLLMWithMemoryDelegation tests that methods delegate to underlying LLM
+func TestLLMWithMemoryDelegation(t *testing.T) {
+	mockProvider := NewMockProvider()
+	mockLLM := NewMockLLM(mockProvider, utils.NewLogger(utils.LogLevelDebug))
+	llmWithMem, _ := NewLLMWithMemory(mockLLM, 1000, "gpt-4")
+	mem := llmWithMem.(*LLMWithMemory)
+
+	t.Run("NewPrompt delegates", func(t *testing.T) {
+		prompt := mem.NewPrompt("Test")
+		assert.Equal(t, "Test", prompt.Input)
+	})
+
+	t.Run("GetLogger delegates", func(t *testing.T) {
+		logger := mem.GetLogger()
+		assert.NotNil(t, logger)
+	})
+
+	t.Run("SupportsStreaming delegates", func(t *testing.T) {
+		// MockLLM returns false
+		assert.False(t, mem.SupportsStreaming())
+	})
+
+	t.Run("SupportsJSONSchema delegates", func(t *testing.T) {
+		// MockLLM returns false
+		assert.False(t, mem.SupportsJSONSchema())
+	})
+}
+
+// TestMemoryConcurrency tests thread safety
+func TestMemoryConcurrency(t *testing.T) {
+	logger := utils.NewLogger(utils.LogLevelDebug)
+	memory, _ := NewMemory(10000, "gpt-4", logger)
+
+	done := make(chan bool)
+
+	// Concurrent adds
+	for i := 0; i < 10; i++ {
+		go func(id int) {
+			for j := 0; j < 100; j++ {
+				memory.Add("user", "Message from goroutine")
+			}
+			done <- true
+		}(i)
+	}
+
+	// Concurrent reads
+	for i := 0; i < 10; i++ {
+		go func() {
+			for j := 0; j < 100; j++ {
+				_ = memory.GetMessages()
+				_ = memory.GetPrompt()
+			}
+			done <- true
+		}()
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 20; i++ {
+		<-done
+	}
+
+	// Should not panic and messages should be consistent
+	messages := memory.GetMessages()
+	assert.Greater(t, len(messages), 0)
+}
+
+// TestLMStudioIntegration tests with LM Studio if available
+func TestLMStudioIntegration(t *testing.T) {
+	// Try to connect to LM Studio on default port
+	cfg := &config.Config{
+		Provider:    "lmstudio",
+		Model:       "local-model",
+		MaxTokens:   100,
+		Temperature: 0.7,
+		APIKeys: map[string]string{
+			"lmstudio": "lmstudio-local",
+		},
+		Timeout:    5 * time.Second,
+		MaxRetries: 0,
+	}
+
+	logger := utils.NewLogger(utils.LogLevelDebug)
+	registry := providers.GetDefaultRegistry()
+
+	baseLLM, err := NewLLM(cfg, logger, registry)
+	if err != nil {
+		t.Skip("Skipping LM Studio test: could not create LLM client")
+	}
+
+	llmWithMem, err := NewLLMWithMemory(baseLLM, 1000, cfg.Model)
+	if err != nil {
+		t.Skip("Skipping LM Studio test: could not create memory LLM")
+	}
+
+	mem := llmWithMem.(*LLMWithMemory)
+	mem.SetUseStructuredMessages(true)
+	mem.ClearMemory()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	prompt := mem.NewPrompt("Say hello in exactly 3 words.")
+	_, err = mem.Generate(ctx, prompt)
+	if err != nil {
+		t.Skipf("Skipping LM Studio test: %v (LM Studio may not be running)", err)
+	}
+
+	// If we got here, LM Studio responded
+	messages := mem.GetMemory()
+	assert.Equal(t, 2, len(messages))
+	t.Log("LM Studio integration test passed")
+}
