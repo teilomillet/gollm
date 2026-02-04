@@ -271,6 +271,11 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 		return
 	}
 
+	if len(tr.cases) == 0 {
+		tr.t.Log("No test cases configured - skipping batch execution")
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, tr.batchCfg.BatchTimeout)
 	defer cancel()
 
@@ -663,6 +668,11 @@ func (tr *TestRunner) Run(ctx context.Context) {
 
 	if len(availableProviders) == 0 {
 		tr.t.Log("No providers available: missing API keys - skipping test execution")
+		return
+	}
+
+	if len(tr.cases) == 0 {
+		tr.t.Log("No test cases configured - skipping test execution")
 		return
 	}
 
