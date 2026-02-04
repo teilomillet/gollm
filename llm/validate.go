@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -17,16 +16,9 @@ import (
 // validate is the shared validator instance used across the package.
 var validate *validator.Validate
 
-// custValMu protects access to customValidator
-var custValMu sync.RWMutex
-
-// customValidator holds a custom validation function that can override the default validation
-var customValidator func(interface{}) error
-
-// defaultValidate is the package-internal fallback that bypasses any
-// customValidator hook. It allows custom hooks to invoke the stock
-// rules without risking recursion.
-func defaultValidate(v interface{}) error {
+// DefaultValidate performs the standard struct validation using the go-playground/validator.
+// This can be called from custom validators to fall back to default validation.
+func DefaultValidate(v interface{}) error {
 	return validate.Struct(v)
 }
 
@@ -39,42 +31,6 @@ func init() {
 		// Instead, panic with a clear message as this is a critical setup failure
 		panic(fmt.Sprintf("failed to register API key validator: %v", err))
 	}
-}
-
-// SetCustomValidator allows callers to override the default validation behavior.
-// This is particularly useful for bypassing API key validation or implementing
-// custom validation logic for specific providers.
-// The hook is process-wide; concurrent updates are safe but affect all goroutines.
-//
-// Parameters:
-//   - fn: A custom validation function that takes an interface{} and returns an error.
-//     If fn is nil, the default validation behavior is restored.
-//
-// Example:
-//
-//	// Allow Gemini without API key validation
-//	SetCustomValidator(func(v interface{}) error {
-//	    // Always return nil to skip all validation
-//	    return nil
-//	})
-//
-//	// Or implement custom logic
-//	SetCustomValidator(func(v interface{}) error {
-//	    config, ok := v.(*config.Config)
-//	    if !ok {
-//	        return fmt.Errorf("expected config struct")
-//	    }
-//	    if config.Provider == "google" {
-//	        // Skip validation for Google/Gemini
-//	        return nil
-//	    }
-//	    // Use default validation for other providers
-//	    return defaultValidate(v)
-//	})
-func SetCustomValidator(fn func(interface{}) error) {
-	custValMu.Lock()
-	defer custValMu.Unlock()
-	customValidator = fn
 }
 
 // validateAPIKey checks if the API key map contains a valid key for the current provider
@@ -134,8 +90,6 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 
 // Validate checks if the given struct is valid according to its validation rules.
 // It uses the go-playground/validator package to perform validation based on struct tags.
-// If a custom validator is set via SetCustomValidator, it will be used instead of the default validation.
-// The hook is process-wide; concurrent updates are safe but affect all goroutines.
 //
 // Parameters:
 //   - s: The struct to validate. Must be a pointer to a struct.
@@ -155,14 +109,32 @@ func validateAPIKey(fl validator.FieldLevel) bool {
 //	    log.Fatal(err)
 //	}
 func Validate(s interface{}) error {
-	// Use custom validator if one is set (thread-safe read)
-	custValMu.RLock()
-	fn := customValidator
-	custValMu.RUnlock()
-	if fn != nil {
-		return fn(s)
+	return validate.Struct(s)
+}
+
+// ValidateWithCustomValidator checks if the given struct is valid, using a custom validator if provided.
+// This allows for scoped custom validation without affecting other goroutines.
+//
+// Parameters:
+//   - s: The struct to validate. Must be a pointer to a struct.
+//   - customValidator: Optional custom validation function. If nil, uses default validation.
+//
+// Returns:
+//   - error: nil if validation passes, otherwise returns validation errors
+//
+// Example:
+//
+//	// Skip validation for Google/Gemini provider
+//	err := ValidateWithCustomValidator(cfg, func(v interface{}) error {
+//	    if config, ok := v.(*config.Config); ok && config.Provider == "google" {
+//	        return nil // Skip validation for Google
+//	    }
+//	    return DefaultValidate(v) // Use default for others
+//	})
+func ValidateWithCustomValidator(s interface{}, customValidator func(interface{}) error) error {
+	if customValidator != nil {
+		return customValidator(s)
 	}
-	// Fall back to default validation
 	return validate.Struct(s)
 }
 

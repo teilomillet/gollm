@@ -365,9 +365,12 @@ func SetTfsZ(z float64) ConfigOption {
 // This is particularly useful for bypassing API key validation for specific providers like Google/Gemini
 // or implementing custom validation logic.
 //
+// The custom validator is scoped to the NewLLM call and does not affect other goroutines,
+// making it safe for concurrent use.
+//
 // Parameters:
 //   - fn: A custom validation function that takes an interface{} and returns an error.
-//     If fn is nil, the default validation behavior is restored.
+//     If fn is nil, default validation is used.
 //
 // Example usage:
 //
@@ -381,23 +384,18 @@ func SetTfsZ(z float64) ConfigOption {
 //	    }),
 //	)
 //
-//	// Or implement provider-specific logic
+//	// Or implement provider-specific logic with fallback to default validation
 //	llm, err := gollm.NewLLM(
 //	    gollm.SetProvider("google"),
 //	    gollm.SetCustomValidator(func(v interface{}) error {
 //	        if config, ok := v.(*Config); ok && config.Provider == "google" {
 //	            return nil // Skip validation for Google
 //	        }
-//	        return defaultValidate(v) // Use default for others
+//	        return llm.DefaultValidate(v) // Use default for others
 //	    }),
 //	)
-//
-// NOTE: defaultValidate is unexported; this custom validator must live in
-// the llm package (or duplicate the call to validate.Struct) to compile.
 func SetCustomValidator(fn func(interface{}) error) ConfigOption {
 	return func(c *Config) {
-		// Store the validator function to be applied during config loading
-		// The actual setting will be done in the NewLLM function
 		c.CustomValidator = fn
 	}
 }
