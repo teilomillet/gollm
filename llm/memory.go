@@ -394,10 +394,17 @@ func (l *LLMWithMemory) Generate(ctx context.Context, prompt *Prompt, opts ...Ge
 
 		// Create a new Prompt with the full memory context
 		memoryPrompt := &Prompt{
-			SystemPrompt: prompt.SystemPrompt,
-			Tools:        prompt.Tools,
-			ToolChoice:   prompt.ToolChoice,
-			Input:        fullPrompt,
+			Input:           fullPrompt,
+			Output:          prompt.Output,
+			Directives:      prompt.Directives,
+			Context:         prompt.Context,
+			MaxLength:       prompt.MaxLength,
+			Examples:        prompt.Examples,
+			SystemPrompt:    prompt.SystemPrompt,
+			SystemCacheType: prompt.SystemCacheType,
+			Tools:           prompt.Tools,
+			ToolChoice:      prompt.ToolChoice,
+			// Messages intentionally omitted - using flattened prompt in Input
 		}
 
 		response, err = l.LLM.Generate(ctx, memoryPrompt, opts...)
@@ -488,10 +495,17 @@ func (l *LLMWithMemory) GenerateWithSchema(ctx context.Context, prompt *Prompt, 
 		fullPrompt := l.memory.GetPrompt()
 
 		memoryPrompt := &Prompt{
-			SystemPrompt: prompt.SystemPrompt,
-			Tools:        prompt.Tools,
-			ToolChoice:   prompt.ToolChoice,
-			Input:        fullPrompt,
+			Input:           fullPrompt,
+			Output:          prompt.Output,
+			Directives:      prompt.Directives,
+			Context:         prompt.Context,
+			MaxLength:       prompt.MaxLength,
+			Examples:        prompt.Examples,
+			SystemPrompt:    prompt.SystemPrompt,
+			SystemCacheType: prompt.SystemCacheType,
+			Tools:           prompt.Tools,
+			ToolChoice:      prompt.ToolChoice,
+			// Messages intentionally omitted - using flattened prompt in Input
 		}
 
 		response, err = l.LLM.GenerateWithSchema(ctx, memoryPrompt, schema, opts...)
