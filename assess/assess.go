@@ -592,10 +592,16 @@ func (tr *TestRunner) runCase(ctx context.Context, t *testing.T, client llm.LLM,
 	}
 
 	duration := time.Since(start)
-	tr.metrics.ResponseTimes[provider.Name] = append(tr.metrics.ResponseTimes[provider.Name], duration)
 
+	// Synchronize metrics access for future-proofing if Run() becomes concurrent
+	tr.mu.Lock()
+	tr.metrics.ResponseTimes[provider.Name] = append(tr.metrics.ResponseTimes[provider.Name], duration)
 	if err != nil {
 		tr.metrics.Errors[provider.Name] = append(tr.metrics.Errors[provider.Name], err)
+	}
+	tr.mu.Unlock()
+
+	if err != nil {
 		t.Errorf("Generation failed: %v", err)
 		return
 	}
@@ -662,13 +668,14 @@ func (tr *TestRunner) Run(ctx context.Context) {
 
 	for _, provider := range availableProviders {
 		tr.t.Run(provider.Name, func(t *testing.T) {
-			client, err := tr.setupClient(provider)
-			if err != nil {
-				t.Fatalf("Failed to setup client for %s: %v", provider.Name, err)
-			}
-
 			for _, tc := range tr.cases {
 				t.Run(tc.Name, func(t *testing.T) {
+					// Create a new client per test case to match RunBatch behavior
+					// and prevent issues if t.Parallel() is added later
+					client, err := tr.setupClient(provider)
+					if err != nil {
+						t.Fatalf("Failed to setup client for %s: %v", provider.Name, err)
+					}
 					tr.runCase(ctx, t, client, provider, tc)
 				})
 			}
