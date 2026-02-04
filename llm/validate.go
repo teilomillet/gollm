@@ -18,8 +18,9 @@ var validate *validator.Validate
 
 // DefaultValidate performs the standard struct validation using the go-playground/validator.
 // This can be called from custom validators to fall back to default validation.
+// It delegates to Validate to maintain a single source of truth.
 func DefaultValidate(v interface{}) error {
-	return validate.Struct(v)
+	return Validate(v)
 }
 
 func init() {
@@ -135,7 +136,7 @@ func ValidateWithCustomValidator(s interface{}, customValidator func(interface{}
 	if customValidator != nil {
 		return customValidator(s)
 	}
-	return validate.Struct(s)
+	return Validate(s)
 }
 
 // RegisterCustomValidation registers a custom validation function with the validator.
