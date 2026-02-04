@@ -263,22 +263,34 @@ func (p *VLLMProvider) SupportsStreaming() bool {
 // PrepareStreamRequest creates a request body for streaming API calls
 func (p *VLLMProvider) PrepareStreamRequest(prompt string, options map[string]interface{}) ([]byte, error) {
 	requestBody := map[string]interface{}{
-		"model": p.model,
-		"messages": []map[string]string{
-			{"role": "user", "content": prompt},
-		},
-		"stream": true,
+		"model":    p.model,
+		"messages": []map[string]interface{}{},
+		"stream":   true,
 	}
 
-	// Merge options
+	// Handle system prompt
+	if systemPrompt, ok := options["system_prompt"].(string); ok && systemPrompt != "" {
+		requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), map[string]interface{}{
+			"role":    "system",
+			"content": systemPrompt,
+		})
+	}
+
+	// Add user message
+	requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), map[string]interface{}{
+		"role":    "user",
+		"content": prompt,
+	})
+
+	// Merge options (exclude system_prompt and stream)
 	for k, v := range p.options {
-		if k != "stream" {
+		if k != "stream" && k != "system_prompt" {
 			requestBody[k] = v
 		}
 	}
 
 	for k, v := range options {
-		if k != "stream" {
+		if k != "stream" && k != "system_prompt" {
 			requestBody[k] = v
 		}
 	}

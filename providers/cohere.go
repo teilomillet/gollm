@@ -20,6 +20,7 @@ var cohereSupportedParams = map[string]bool{
 	"presence_penalty":  true,
 	"k":                 true,
 	"p":                 true,
+	"stream":            true,
 }
 
 // CohereProvider implements the Provider interface for Cohere's API.
