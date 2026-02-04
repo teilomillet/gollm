@@ -113,6 +113,18 @@ func (tr *TestRunner) WithProvider(name, model string) *TestRunner {
 	return tr
 }
 
+// HasAvailableProviders checks if any configured provider has an API key set.
+// Use this to skip tests early when no providers are available.
+func (tr *TestRunner) HasAvailableProviders() bool {
+	for _, provider := range tr.providers {
+		apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(provider.Name))
+		if os.Getenv(apiKeyEnv) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func (tr *TestRunner) WithProviders(providers map[string]string) *TestRunner {
 	for name, model := range providers {
 		tr.WithProvider(name, model)
@@ -218,11 +230,27 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 		}
 	}
 
+	// Filter providers with available API keys
+	var availableProviders []TestProvider
+	for _, provider := range tr.providers {
+		apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(provider.Name))
+		if os.Getenv(apiKeyEnv) != "" {
+			availableProviders = append(availableProviders, provider)
+		} else {
+			tr.t.Logf("Skipping provider %s: %s environment variable not set", provider.Name, apiKeyEnv)
+		}
+	}
+
+	if len(availableProviders) == 0 {
+		tr.t.Log("No providers available: missing API keys - skipping batch execution")
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, tr.batchCfg.BatchTimeout)
 	defer cancel()
 
 	tr.batchMetrics.BatchTiming.StartTime = time.Now()
-	tr.t.Logf("Starting batch execution with %d providers and %d test cases", len(tr.providers), len(tr.cases))
+	tr.t.Logf("Starting batch execution with %d providers and %d test cases", len(availableProviders), len(tr.cases))
 
 	// Create worker pool
 	var wg sync.WaitGroup
@@ -240,10 +268,10 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 		err      error
 		response string
 	}
-	results := make(chan testResult, len(tr.providers)*len(tr.cases))
+	results := make(chan testResult, len(availableProviders)*len(tr.cases))
 
-	for _, provider := range tr.providers {
-		client := tr.setupClient(provider)
+	for _, provider := range availableProviders {
+		client := tr.setupClient(tr.t, provider)
 		tr.t.Logf("Initialized client for provider: %s", provider.Name)
 
 		for _, tc := range tr.cases {
@@ -319,7 +347,7 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 
 	// Process results as they come in
 	completedTests := 0
-	totalTests := len(tr.providers) * len(tr.cases)
+	totalTests := len(availableProviders) * len(tr.cases)
 	for result := range results {
 		completedTests++
 		if result.err != nil {
@@ -384,12 +412,12 @@ func (tr *TestRunner) runBatchCase(ctx context.Context, t *testing.T, client llm
 	return response, nil
 }
 
-func (tr *TestRunner) setupClient(provider TestProvider) llm.LLM {
+func (tr *TestRunner) setupClient(t *testing.T, provider TestProvider) llm.LLM {
 	// Get API key from environment
 	apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(provider.Name))
 	apiKey := os.Getenv(apiKeyEnv)
 	if apiKey == "" {
-		tr.t.Skipf("Skipping tests for %s: %s environment variable not set", provider.Name, apiKeyEnv)
+		t.Skipf("Skipping tests for %s: %s environment variable not set", provider.Name, apiKeyEnv)
 	}
 
 	// Create options with provider-specific settings
@@ -424,7 +452,7 @@ func (tr *TestRunner) setupClient(provider TestProvider) llm.LLM {
 	// Create LLM client
 	client, err := gollm.NewLLM(opts...)
 	if err != nil {
-		tr.t.Fatalf("Failed to create client: %v", err)
+		t.Fatalf("Failed to create client: %v", err)
 	}
 
 	// Note: Response format for JSON schema validation is now set in runBatchCase
@@ -555,7 +583,7 @@ func ExpectMatches(pattern string) ValidationFunc {
 func (tr *TestRunner) Run(ctx context.Context) {
 	for _, provider := range tr.providers {
 		tr.t.Run(provider.Name, func(t *testing.T) {
-			client := tr.setupClient(provider)
+			client := tr.setupClient(t, provider)
 
 			for _, tc := range tr.cases {
 				t.Run(tc.Name, func(t *testing.T) {

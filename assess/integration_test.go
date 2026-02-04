@@ -154,6 +154,10 @@ func TestBatchIntegration(t *testing.T) {
 			BatchTimeout: 2 * time.Minute,
 		})
 
+	if !test.HasAvailableProviders() {
+		t.Skip("No providers available: missing API keys")
+	}
+
 	// Test cases with different validation requirements
 	testCases := []struct {
 		name      string
