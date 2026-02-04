@@ -200,14 +200,16 @@ func (p *CohereProvider) PrepareRequestWithSchema(prompt string, options map[str
 		},
 	}
 
-	// First, add the default options
+	// Filter to only Cohere v2 API supported parameters
 	for k, v := range p.options {
-		requestBody[k] = v
+		if cohereSupportedParams[k] {
+			requestBody[k] = v
+		}
 	}
-
-	// Then, add any additional options (which may override defaults)
 	for k, v := range options {
-		requestBody[k] = v
+		if cohereSupportedParams[k] {
+			requestBody[k] = v
+		}
 	}
 
 	return json.Marshal(requestBody)
