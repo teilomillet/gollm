@@ -113,21 +113,26 @@ func (tr *TestRunner) WithProvider(name, model string) *TestRunner {
 	return tr
 }
 
-// getProviderAPIKeyEnv returns the environment variable name for a provider's API key.
-func getProviderAPIKeyEnv(providerName string) string {
-	return fmt.Sprintf("%s_API_KEY", strings.ToUpper(providerName))
+// providerAPIKeyEnv returns the environment variable name for a provider's API key.
+func (p TestProvider) providerAPIKeyEnv() string {
+	return fmt.Sprintf("%s_API_KEY", strings.ToUpper(p.Name))
 }
 
-// getProviderAPIKey returns the API key for a provider from environment variables.
-func getProviderAPIKey(providerName string) string {
-	return os.Getenv(getProviderAPIKeyEnv(providerName))
+// apiKey returns the API key for a provider from environment variables.
+func (p TestProvider) apiKey() string {
+	return os.Getenv(p.providerAPIKeyEnv())
+}
+
+// hasAPIKey returns true if the provider has an API key set in environment variables.
+func (p TestProvider) hasAPIKey() bool {
+	return p.apiKey() != ""
 }
 
 // HasAvailableProviders checks if any configured provider has an API key set.
 // Use this to skip tests early when no providers are available.
 func (tr *TestRunner) HasAvailableProviders() bool {
 	for _, provider := range tr.providers {
-		if getProviderAPIKey(provider.Name) != "" {
+		if provider.hasAPIKey() {
 			return true
 		}
 	}
@@ -248,14 +253,16 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 	// Filter providers with available API keys
 	var availableProviders []TestProvider
 	for _, provider := range tr.providers {
-		if getProviderAPIKey(provider.Name) != "" {
+		if provider.hasAPIKey() {
 			availableProviders = append(availableProviders, provider)
 		} else {
-			tr.t.Logf("Skipping provider %s: %s environment variable not set", provider.Name, getProviderAPIKeyEnv(provider.Name))
+			tr.t.Logf("Skipping provider %s: %s environment variable not set", provider.Name, provider.providerAPIKeyEnv())
 		}
 	}
 
 	if len(availableProviders) == 0 {
+		// Note: Callers should use HasAvailableProviders() to skip tests early
+		// for clearer test output. This is a fallback to prevent nil panics.
 		tr.t.Log("No providers available: missing API keys - skipping batch execution")
 		return
 	}
