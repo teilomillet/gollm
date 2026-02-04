@@ -177,10 +177,20 @@ func (m *Memory) GetMessages() []types.MemoryMessage {
 				messages[i].Metadata[k] = v
 			}
 		}
-		// Deep copy ToolCalls slice
+		// Deep copy ToolCalls slice including nested Function.Arguments
 		if msg.ToolCalls != nil {
 			messages[i].ToolCalls = make([]types.ToolCall, len(msg.ToolCalls))
-			copy(messages[i].ToolCalls, msg.ToolCalls)
+			for j, tc := range msg.ToolCalls {
+				messages[i].ToolCalls[j] = types.ToolCall{
+					ID:   tc.ID,
+					Type: tc.Type,
+				}
+				messages[i].ToolCalls[j].Function.Name = tc.Function.Name
+				if tc.Function.Arguments != nil {
+					messages[i].ToolCalls[j].Function.Arguments = make([]byte, len(tc.Function.Arguments))
+					copy(messages[i].ToolCalls[j].Function.Arguments, tc.Function.Arguments)
+				}
+			}
 		}
 	}
 	return messages
@@ -211,6 +221,12 @@ type MemoryCapable interface {
 	AddStructuredMessage(role, content, cacheControl string)
 	// SetUseStructuredMessages configures whether to use structured messages.
 	SetUseStructuredMessages(use bool)
+	// AddToolResult adds a tool execution result to the conversation history.
+	AddToolResult(toolCallID, result string)
+	// AddToolError adds a tool execution error to the conversation history.
+	AddToolError(toolCallID, errorMessage string)
+	// AddAssistantMessageWithToolCalls adds an assistant message with tool calls.
+	AddAssistantMessageWithToolCalls(content string, toolCalls []types.ToolCall)
 }
 
 // Ensure LLMWithMemory implements MemoryCapable

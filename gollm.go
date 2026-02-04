@@ -153,21 +153,21 @@ func (l *llmImpl) SetUseStructuredMessages(use bool) {
 
 // AddToolResult adds a tool execution result to the conversation history.
 func (l *llmImpl) AddToolResult(toolCallID, result string) {
-	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
 		mem.AddToolResult(toolCallID, result)
 	}
 }
 
 // AddToolError adds a tool execution error to the conversation history.
 func (l *llmImpl) AddToolError(toolCallID, errorMessage string) {
-	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
 		mem.AddToolError(toolCallID, errorMessage)
 	}
 }
 
 // AddAssistantMessageWithToolCalls adds an assistant message with tool calls.
 func (l *llmImpl) AddAssistantMessageWithToolCalls(content string, toolCalls []ToolCall) {
-	if mem, ok := l.LLM.(*llm.LLMWithMemory); ok {
+	if mem, ok := l.LLM.(llm.MemoryCapable); ok {
 		mem.AddAssistantMessageWithToolCalls(content, toolCalls)
 	}
 }

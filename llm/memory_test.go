@@ -503,6 +503,31 @@ func TestMemoryGetMessages(t *testing.T) {
 		// Second copy's ToolCalls should be unchanged
 		assert.Equal(t, "get_weather", messages2[0].ToolCalls[0].Function.Name)
 	})
+
+	t.Run("deep copies ToolCalls Function.Arguments", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		toolCall := types.ToolCall{ID: "call_1", Type: "function"}
+		toolCall.Function.Name = "get_weather"
+		toolCall.Function.Arguments = []byte(`{"city":"NYC"}`)
+		memory.AddStructured(types.MemoryMessage{
+			Role:      "assistant",
+			Content:   "",
+			ToolCalls: []types.ToolCall{toolCall},
+		})
+
+		messages1 := memory.GetMessages()
+		messages2 := memory.GetMessages()
+
+		// Modify the Arguments byte slice in first copy
+		messages1[0].ToolCalls[0].Function.Arguments[2] = 'X' // change 'c' to 'X'
+
+		// Second copy's Arguments should be unchanged
+		assert.Equal(t, `{"city":"NYC"}`, string(messages2[0].ToolCalls[0].Function.Arguments))
+
+		// Original internal state should also be unchanged
+		messages3 := memory.GetMessages()
+		assert.Equal(t, `{"city":"NYC"}`, string(messages3[0].ToolCalls[0].Function.Arguments))
+	})
 }
 
 // TestLLMWithMemoryCreate tests NewLLMWithMemory creation
