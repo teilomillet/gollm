@@ -30,6 +30,10 @@ func TestProviderIntegration(t *testing.T) {
 			BatchTimeout: 5 * time.Minute,
 		})
 
+	if !test.HasAvailableProviders() {
+		t.Skip("No providers available: missing API keys")
+	}
+
 	// System prompt for consistent context
 	systemPrompt := `You are an AI assistant participating in a technical discussion about software development, 
 	focusing on topics like system design, performance optimization, and best practices. 
@@ -72,6 +76,10 @@ func TestJSONValidation(t *testing.T) {
 			MaxParallel:  2,
 			BatchTimeout: 5 * time.Minute,
 		})
+
+	if !test.HasAvailableProviders() {
+		t.Skip("No providers available: missing API keys")
+	}
 
 	// Generate schema from struct
 	schema, err := gollm.GenerateJSONSchema(SOLIDResponse{})
@@ -240,6 +248,10 @@ func TestBatchCrossProvider(t *testing.T) {
 			MaxParallel:  2,
 			BatchTimeout: 2 * time.Minute,
 		})
+
+	if !test.HasAvailableProviders() {
+		t.Skip("No providers available: missing API keys")
+	}
 
 	// System prompt to ensure consistent output format
 	systemPrompt := `You are a helpful assistant. Always provide your answers in a clear, concise format.

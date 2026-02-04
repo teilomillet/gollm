@@ -113,12 +113,21 @@ func (tr *TestRunner) WithProvider(name, model string) *TestRunner {
 	return tr
 }
 
+// getProviderAPIKeyEnv returns the environment variable name for a provider's API key.
+func getProviderAPIKeyEnv(providerName string) string {
+	return fmt.Sprintf("%s_API_KEY", strings.ToUpper(providerName))
+}
+
+// getProviderAPIKey returns the API key for a provider from environment variables.
+func getProviderAPIKey(providerName string) string {
+	return os.Getenv(getProviderAPIKeyEnv(providerName))
+}
+
 // HasAvailableProviders checks if any configured provider has an API key set.
 // Use this to skip tests early when no providers are available.
 func (tr *TestRunner) HasAvailableProviders() bool {
 	for _, provider := range tr.providers {
-		apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(provider.Name))
-		if os.Getenv(apiKeyEnv) != "" {
+		if getProviderAPIKey(provider.Name) != "" {
 			return true
 		}
 	}
@@ -239,11 +248,10 @@ func (tr *TestRunner) RunBatch(ctx context.Context) {
 	// Filter providers with available API keys
 	var availableProviders []TestProvider
 	for _, provider := range tr.providers {
-		apiKeyEnv := fmt.Sprintf("%s_API_KEY", strings.ToUpper(provider.Name))
-		if os.Getenv(apiKeyEnv) != "" {
+		if getProviderAPIKey(provider.Name) != "" {
 			availableProviders = append(availableProviders, provider)
 		} else {
-			tr.t.Logf("Skipping provider %s: %s environment variable not set", provider.Name, apiKeyEnv)
+			tr.t.Logf("Skipping provider %s: %s environment variable not set", provider.Name, getProviderAPIKeyEnv(provider.Name))
 		}
 	}
 
