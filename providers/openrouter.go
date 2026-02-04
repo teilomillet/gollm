@@ -170,11 +170,53 @@ func (p *OpenRouterProvider) PrepareRequest(prompt string, options map[string]in
 		delete(req, "system_message")
 	}
 
-	// Add the user prompt
-	messages = append(messages, map[string]interface{}{
-		"role":    "user",
-		"content": prompt,
-	})
+	// Add the user prompt (with image support)
+	if images, ok := req["images"].([]types.ContentPart); ok && len(images) > 0 {
+		// Build multimodal content array
+		contentArray := []map[string]interface{}{
+			{"type": "text", "text": prompt},
+		}
+
+		for _, img := range images {
+			switch img.Type {
+			case types.ContentTypeImageURL:
+				if img.ImageURL != nil {
+					imageContent := map[string]interface{}{
+						"type": "image_url",
+						"image_url": map[string]interface{}{
+							"url": img.ImageURL.URL,
+						},
+					}
+					if img.ImageURL.Detail != "" {
+						imageContent["image_url"].(map[string]interface{})["detail"] = img.ImageURL.Detail
+					}
+					contentArray = append(contentArray, imageContent)
+				}
+			case types.ContentTypeImage:
+				if img.Source != nil {
+					// Convert base64 to data URI for OpenAI-compatible format
+					dataURI := fmt.Sprintf("data:%s;base64,%s", img.Source.MediaType, img.Source.Data)
+					contentArray = append(contentArray, map[string]interface{}{
+						"type": "image_url",
+						"image_url": map[string]interface{}{
+							"url": dataURI,
+						},
+					})
+				}
+			}
+		}
+		delete(req, "images")
+
+		messages = append(messages, map[string]interface{}{
+			"role":    "user",
+			"content": contentArray,
+		})
+	} else {
+		messages = append(messages, map[string]interface{}{
+			"role":    "user",
+			"content": prompt,
+		})
+	}
 
 	req["messages"] = messages
 
@@ -588,34 +630,127 @@ func (p *OpenRouterProvider) PrepareRequestWithMessages(messages []types.MemoryM
 		delete(req, "provider_preferences")
 	}
 
-	// Convert memory messages to OpenRouter format
+	// Convert memory messages to OpenRouter format (OpenAI-compatible)
 	formattedMessages := make([]map[string]interface{}, 0, len(messages))
 	for _, msg := range messages {
 		formattedMsg := map[string]interface{}{
-			"role":    msg.Role,
-			"content": msg.Content,
+			"role": msg.Role,
 		}
 
-		// Handle Anthropic-style prompt caching if enabled
-		if caching, ok := req["enable_prompt_caching"].(bool); ok && caching && msg.Role == "user" {
-			// Check if the message is large enough to benefit from caching
-			if len(msg.Content) > 1000 {
-				// For Anthropic models, we need to use multipart messages with cache_control
-				if strings.HasPrefix(p.model, "anthropic/") {
-					formattedMsg["content"] = []map[string]interface{}{
-						{
-							"type": "text",
-							"text": msg.Content,
-							"cache_control": map[string]string{
-								"type": "ephemeral",
+		// Check if message has multimodal content (images)
+		if msg.HasMultiContent() {
+			contentArray := []map[string]interface{}{}
+			for _, part := range msg.MultiContent {
+				switch part.Type {
+				case types.ContentTypeText:
+					contentArray = append(contentArray, map[string]interface{}{
+						"type": "text",
+						"text": part.Text,
+					})
+				case types.ContentTypeImageURL:
+					if part.ImageURL != nil {
+						imageContent := map[string]interface{}{
+							"type": "image_url",
+							"image_url": map[string]interface{}{
+								"url": part.ImageURL.URL,
 							},
-						},
+						}
+						if part.ImageURL.Detail != "" {
+							imageContent["image_url"].(map[string]interface{})["detail"] = part.ImageURL.Detail
+						}
+						contentArray = append(contentArray, imageContent)
+					}
+				case types.ContentTypeImage:
+					if part.Source != nil {
+						// Convert base64 to data URI for OpenAI-compatible format
+						dataURI := fmt.Sprintf("data:%s;base64,%s", part.Source.MediaType, part.Source.Data)
+						contentArray = append(contentArray, map[string]interface{}{
+							"type": "image_url",
+							"image_url": map[string]interface{}{
+								"url": dataURI,
+							},
+						})
+					}
+				}
+			}
+			formattedMsg["content"] = contentArray
+		} else {
+			formattedMsg["content"] = msg.Content
+
+			// Handle Anthropic-style prompt caching if enabled
+			if caching, ok := req["enable_prompt_caching"].(bool); ok && caching && msg.Role == "user" {
+				// Check if the message is large enough to benefit from caching
+				if len(msg.Content) > 1000 {
+					// For Anthropic models, we need to use multipart messages with cache_control
+					if strings.HasPrefix(p.model, "anthropic/") {
+						formattedMsg["content"] = []map[string]interface{}{
+							{
+								"type": "text",
+								"text": msg.Content,
+								"cache_control": map[string]string{
+									"type": "ephemeral",
+								},
+							},
+						}
 					}
 				}
 			}
 		}
 
 		formattedMessages = append(formattedMessages, formattedMsg)
+	}
+
+	// Handle images passed in options (for the last user message)
+	if images, ok := req["images"].([]types.ContentPart); ok && len(images) > 0 {
+		// Find and update the last user message to include images
+		for i := len(formattedMessages) - 1; i >= 0; i-- {
+			if formattedMessages[i]["role"] == "user" {
+				existingContent := formattedMessages[i]["content"]
+				var contentArray []map[string]interface{}
+
+				// Convert existing content to array if it's a string
+				if strContent, ok := existingContent.(string); ok {
+					contentArray = []map[string]interface{}{
+						{"type": "text", "text": strContent},
+					}
+				} else if arrContent, ok := existingContent.([]map[string]interface{}); ok {
+					contentArray = arrContent
+				}
+
+				// Add images
+				for _, img := range images {
+					switch img.Type {
+					case types.ContentTypeImageURL:
+						if img.ImageURL != nil {
+							imageContent := map[string]interface{}{
+								"type": "image_url",
+								"image_url": map[string]interface{}{
+									"url": img.ImageURL.URL,
+								},
+							}
+							if img.ImageURL.Detail != "" {
+								imageContent["image_url"].(map[string]interface{})["detail"] = img.ImageURL.Detail
+							}
+							contentArray = append(contentArray, imageContent)
+						}
+					case types.ContentTypeImage:
+						if img.Source != nil {
+							dataURI := fmt.Sprintf("data:%s;base64,%s", img.Source.MediaType, img.Source.Data)
+							contentArray = append(contentArray, map[string]interface{}{
+								"type": "image_url",
+								"image_url": map[string]interface{}{
+									"url": dataURI,
+								},
+							})
+						}
+					}
+				}
+
+				formattedMessages[i]["content"] = contentArray
+				break
+			}
+		}
+		delete(req, "images")
 	}
 
 	req["messages"] = formattedMessages

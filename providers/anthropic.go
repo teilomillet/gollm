@@ -194,20 +194,82 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]int
 		}
 	}
 
-	// Handle user message with potential caching
-	userMessage := map[string]interface{}{
-		"role": "user",
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": prompt,
-			},
-		},
+	// Build user message content
+	userContent := []map[string]interface{}{}
+
+	// Check if we have images to include
+	images, hasImages := options["images"].([]types.ContentPart)
+	if hasImages && len(images) > 0 {
+		// Add images first, then text (Anthropic prefers this order)
+		for _, img := range images {
+			switch img.Type {
+			case types.ContentTypeImage:
+				// Direct base64 image
+				if img.Source != nil {
+					userContent = append(userContent, map[string]interface{}{
+						"type": "image",
+						"source": map[string]interface{}{
+							"type":       "base64",
+							"media_type": img.Source.MediaType,
+							"data":       img.Source.Data,
+						},
+					})
+				}
+			case types.ContentTypeImageURL:
+				// URL-based image - Anthropic supports URL sources
+				if img.ImageURL != nil {
+					// Check if it's a data URI (base64)
+					if strings.HasPrefix(img.ImageURL.URL, "data:") {
+						// Parse data URI: data:image/jpeg;base64,/9j/4AAQ...
+						parts := strings.SplitN(img.ImageURL.URL, ",", 2)
+						if len(parts) == 2 {
+							// Extract media type from data:image/jpeg;base64
+							mediaType := "image/jpeg" // default
+							if strings.Contains(parts[0], "image/png") {
+								mediaType = "image/png"
+							} else if strings.Contains(parts[0], "image/gif") {
+								mediaType = "image/gif"
+							} else if strings.Contains(parts[0], "image/webp") {
+								mediaType = "image/webp"
+							}
+							userContent = append(userContent, map[string]interface{}{
+								"type": "image",
+								"source": map[string]interface{}{
+									"type":       "base64",
+									"media_type": mediaType,
+									"data":       parts[1],
+								},
+							})
+						}
+					} else {
+						// Regular URL - Anthropic supports URL source type
+						userContent = append(userContent, map[string]interface{}{
+							"type": "image",
+							"source": map[string]interface{}{
+								"type": "url",
+								"url":  img.ImageURL.URL,
+							},
+						})
+					}
+				}
+			}
+		}
 	}
 
+	// Add text content
+	textContent := map[string]interface{}{
+		"type": "text",
+		"text": prompt,
+	}
 	// Add cache_control only if caching is enabled
 	if caching, ok := options["enable_caching"].(bool); ok && caching {
-		userMessage["content"].([]map[string]interface{})[0]["cache_control"] = map[string]string{"type": "ephemeral"}
+		textContent["cache_control"] = map[string]string{"type": "ephemeral"}
+	}
+	userContent = append(userContent, textContent)
+
+	userMessage := map[string]interface{}{
+		"role":    "user",
+		"content": userContent,
 	}
 
 	requestBody["messages"] = append(requestBody["messages"].([]map[string]interface{}), userMessage)
@@ -655,20 +717,84 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMe
 			continue
 		}
 
-		// Regular text message
-		content = []map[string]interface{}{
-			{
-				"type": "text",
-				"text": msg.Content,
-			},
+		// Check if message has multimodal content
+		if msg.HasMultiContent() {
+			// Handle multimodal content (text + images)
+			for _, part := range msg.MultiContent {
+				switch part.Type {
+				case types.ContentTypeText:
+					textContent := map[string]interface{}{
+						"type": "text",
+						"text": part.Text,
+					}
+					content = append(content, textContent)
+				case types.ContentTypeImage:
+					// Direct base64 image
+					if part.Source != nil {
+						content = append(content, map[string]interface{}{
+							"type": "image",
+							"source": map[string]interface{}{
+								"type":       "base64",
+								"media_type": part.Source.MediaType,
+								"data":       part.Source.Data,
+							},
+						})
+					}
+				case types.ContentTypeImageURL:
+					// URL-based image
+					if part.ImageURL != nil {
+						if strings.HasPrefix(part.ImageURL.URL, "data:") {
+							// Parse data URI
+							parts := strings.SplitN(part.ImageURL.URL, ",", 2)
+							if len(parts) == 2 {
+								mediaType := "image/jpeg"
+								if strings.Contains(parts[0], "image/png") {
+									mediaType = "image/png"
+								} else if strings.Contains(parts[0], "image/gif") {
+									mediaType = "image/gif"
+								} else if strings.Contains(parts[0], "image/webp") {
+									mediaType = "image/webp"
+								}
+								content = append(content, map[string]interface{}{
+									"type": "image",
+									"source": map[string]interface{}{
+										"type":       "base64",
+										"media_type": mediaType,
+										"data":       parts[1],
+									},
+								})
+							}
+						} else {
+							// Regular URL
+							content = append(content, map[string]interface{}{
+								"type": "image",
+								"source": map[string]interface{}{
+									"type": "url",
+									"url":  part.ImageURL.URL,
+								},
+							})
+						}
+					}
+				}
+			}
+		} else {
+			// Regular text message
+			content = []map[string]interface{}{
+				{
+					"type": "text",
+					"text": msg.Content,
+				},
+			}
 		}
 
-		// Add cache_control if specified
-		if msg.CacheControl != "" {
-			content[0]["cache_control"] = map[string]string{"type": msg.CacheControl}
-		} else if caching, ok := options["enable_caching"].(bool); ok && caching {
-			// Add default caching if enabled globally
-			content[0]["cache_control"] = map[string]string{"type": "ephemeral"}
+		// Add cache_control if specified (to the last content block)
+		if len(content) > 0 {
+			if msg.CacheControl != "" {
+				content[len(content)-1]["cache_control"] = map[string]string{"type": msg.CacheControl}
+			} else if caching, ok := options["enable_caching"].(bool); ok && caching {
+				// Add default caching if enabled globally
+				content[len(content)-1]["cache_control"] = map[string]string{"type": "ephemeral"}
+			}
 		}
 
 		message := map[string]interface{}{
