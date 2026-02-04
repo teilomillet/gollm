@@ -177,8 +177,14 @@ func (p *VLLMProvider) PrepareRequestWithSchema(prompt string, options map[strin
 		"messages": []map[string]interface{}{
 			{"role": "user", "content": prompt},
 		},
+		// OpenAI-compatible JSON schema format used by vLLM
 		"response_format": map[string]interface{}{
-			"type": "json_object",
+			"type": "json_schema",
+			"json_schema": map[string]interface{}{
+				"name":   "structured_response",
+				"schema": schemaObj,
+				"strict": true,
+			},
 		},
 	}
 

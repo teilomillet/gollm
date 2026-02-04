@@ -10,6 +10,18 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+// cohereSupportedParams defines the parameters accepted by Cohere v2 API.
+// Used to filter out unsupported parameters before sending requests.
+var cohereSupportedParams = map[string]bool{
+	"temperature":       true,
+	"max_tokens":        true,
+	"seed":              true,
+	"frequency_penalty": true,
+	"presence_penalty":  true,
+	"k":                 true,
+	"p":                 true,
+}
+
 // CohereProvider implements the Provider interface for Cohere's API.
 // It supports Cohere's language models and provides access to their capabilities,
 // including chat completion and structured output
@@ -115,7 +127,7 @@ func (p *CohereProvider) SupportsJSONSchema() bool {
 func (p *CohereProvider) Headers() map[string]string {
 	headers := map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "bearer " + p.apiKey,
+		"Authorization": "Bearer " + p.apiKey,
 	}
 
 	for k, v := range p.extraHeaders {
@@ -149,27 +161,14 @@ func (p *CohereProvider) PrepareRequest(prompt string, options map[string]any) (
 		},
 	}
 
-	// Cohere v2 API supported parameters
-	supportedParams := map[string]bool{
-		"temperature":       true,
-		"max_tokens":        true,
-		"seed":              true,
-		"frequency_penalty": true,
-		"presence_penalty":  true,
-		"k":                 true,
-		"p":                 true,
-	}
-
-	// First, add default options (filter unsupported)
+	// Filter to only Cohere v2 API supported parameters
 	for k, v := range p.options {
-		if supportedParams[k] {
+		if cohereSupportedParams[k] {
 			requestBody[k] = v
 		}
 	}
-
-	// Then, add any additional options (which may override defaults, filter unsupported)
 	for k, v := range options {
-		if supportedParams[k] {
+		if cohereSupportedParams[k] {
 			requestBody[k] = v
 		}
 	}
@@ -344,34 +343,15 @@ func (p *CohereProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 		"messages": cohereMessages,
 	}
 
-	// Add other options (filter unsupported parameters)
-	// Cohere v2 API supported parameters: temperature, max_tokens, seed, frequency_penalty, presence_penalty, k, p
-	supportedParams := map[string]bool{
-		"temperature":       true,
-		"max_tokens":        true,
-		"seed":              true,
-		"frequency_penalty": true,
-		"presence_penalty":  true,
-		"k":                 true,
-		"p":                 true,
-	}
-
+	// Filter to only Cohere v2 API supported parameters (see cohereSupportedParams)
 	for k, v := range p.options {
-		if k != "messages" {
-			if supportedParams[k] {
-				request[k] = v
-			} else {
-				p.logger.Debug("Filtering unsupported parameter from p.options: %s", k)
-			}
+		if k != "messages" && cohereSupportedParams[k] {
+			request[k] = v
 		}
 	}
 	for k, v := range options {
-		if k != "messages" && k != "system_prompt" && k != "structured_messages" {
-			if supportedParams[k] {
-				request[k] = v
-			} else {
-				p.logger.Debug("Filtering unsupported parameter from options: %s", k)
-			}
+		if k != "messages" && k != "system_prompt" && k != "structured_messages" && cohereSupportedParams[k] {
+			request[k] = v
 		}
 	}
 
