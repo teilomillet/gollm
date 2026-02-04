@@ -443,7 +443,7 @@ func TestMemoryGetPrompt(t *testing.T) {
 	})
 }
 
-// TestMemoryGetMessages tests GetMessages returns a copy
+// TestMemoryGetMessages tests GetMessages returns a deep copy
 func TestMemoryGetMessages(t *testing.T) {
 	logger := utils.NewLogger(utils.LogLevelDebug)
 
@@ -459,6 +459,49 @@ func TestMemoryGetMessages(t *testing.T) {
 
 		// Second copy should be unchanged
 		assert.Equal(t, "Hello", messages2[0].Content)
+	})
+
+	t.Run("deep copies Metadata map", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		memory.AddStructured(types.MemoryMessage{
+			Role:     "user",
+			Content:  "Hello",
+			Metadata: map[string]interface{}{"key": "original"},
+		})
+
+		messages1 := memory.GetMessages()
+		messages2 := memory.GetMessages()
+
+		// Modify the Metadata map in first copy
+		messages1[0].Metadata["key"] = "modified"
+
+		// Second copy's Metadata should be unchanged
+		assert.Equal(t, "original", messages2[0].Metadata["key"])
+
+		// Original internal state should also be unchanged
+		messages3 := memory.GetMessages()
+		assert.Equal(t, "original", messages3[0].Metadata["key"])
+	})
+
+	t.Run("deep copies ToolCalls slice", func(t *testing.T) {
+		memory, _ := NewMemory(1000, "gpt-4", logger)
+		toolCall := types.ToolCall{ID: "call_1", Type: "function"}
+		toolCall.Function.Name = "get_weather"
+		toolCall.Function.Arguments = []byte(`{"city":"NYC"}`)
+		memory.AddStructured(types.MemoryMessage{
+			Role:      "assistant",
+			Content:   "",
+			ToolCalls: []types.ToolCall{toolCall},
+		})
+
+		messages1 := memory.GetMessages()
+		messages2 := memory.GetMessages()
+
+		// Modify the ToolCalls in first copy
+		messages1[0].ToolCalls[0].Function.Name = "modified_tool"
+
+		// Second copy's ToolCalls should be unchanged
+		assert.Equal(t, "get_weather", messages2[0].ToolCalls[0].Function.Name)
 	})
 }
 

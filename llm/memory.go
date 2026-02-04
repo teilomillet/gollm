@@ -160,9 +160,29 @@ func (m *Memory) GetMessages() []types.MemoryMessage {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	// Return a copy to prevent external modifications
+	// Return a deep copy to prevent external modifications
 	messages := make([]types.MemoryMessage, len(m.messages))
-	copy(messages, m.messages)
+	for i, msg := range m.messages {
+		messages[i] = types.MemoryMessage{
+			Role:         msg.Role,
+			Content:      msg.Content,
+			Tokens:       msg.Tokens,
+			CacheControl: msg.CacheControl,
+			ToolCallID:   msg.ToolCallID,
+		}
+		// Deep copy Metadata map
+		if msg.Metadata != nil {
+			messages[i].Metadata = make(map[string]interface{}, len(msg.Metadata))
+			for k, v := range msg.Metadata {
+				messages[i].Metadata[k] = v
+			}
+		}
+		// Deep copy ToolCalls slice
+		if msg.ToolCalls != nil {
+			messages[i].ToolCalls = make([]types.ToolCall, len(msg.ToolCalls))
+			copy(messages[i].ToolCalls, msg.ToolCalls)
+		}
+	}
 	return messages
 }
 
