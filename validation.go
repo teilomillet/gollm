@@ -7,6 +7,20 @@ import (
 	"github.com/teilomillet/gollm/llm"
 )
 
+// ValidatorFunc is the signature for custom validation functions.
+// Custom validators receive the value to validate and return an error if validation fails.
+// Use gollm.DefaultValidate within custom validators to fall back to standard validation.
+//
+// Example:
+//
+//	validator := gollm.ValidatorFunc(func(v interface{}) error {
+//	    if config, ok := v.(*gollm.Config); ok && config.Provider == "google" {
+//	        return nil // Skip validation for Google
+//	    }
+//	    return gollm.DefaultValidate(v)
+//	})
+type ValidatorFunc = llm.ValidatorFunc
+
 // Validate checks if the given struct is valid according to its validation rules.
 // It uses struct tags to define validation rules and performs comprehensive validation
 // of the input structure.
@@ -47,6 +61,43 @@ import (
 //   - error: nil if validation passes, otherwise returns detailed validation errors
 func Validate(s interface{}) error {
 	return llm.Validate(s)
+}
+
+// DefaultValidate performs the standard struct validation using the go-playground/validator.
+// This can be called from custom validators to fall back to default validation behavior.
+//
+// Example usage in a custom validator:
+//
+//	gollm.SetCustomValidator(func(v interface{}) error {
+//	    if config, ok := v.(*gollm.Config); ok && config.Provider == "google" {
+//	        return nil // Skip validation for Google
+//	    }
+//	    return gollm.DefaultValidate(v) // Use default for others
+//	})
+func DefaultValidate(s interface{}) error {
+	return llm.DefaultValidate(s)
+}
+
+// ValidateWithCustomValidator checks if the given struct is valid, using a custom validator if provided.
+// This allows for scoped custom validation without affecting other goroutines.
+//
+// Parameters:
+//   - s: The struct to validate. Must be a pointer to a struct.
+//   - customValidator: Optional ValidatorFunc. If nil, uses default validation.
+//
+// Returns:
+//   - error: nil if validation passes, otherwise returns validation errors
+//
+// Example:
+//
+//	err := gollm.ValidateWithCustomValidator(cfg, func(v interface{}) error {
+//	    if config, ok := v.(*gollm.Config); ok && config.Provider == "google" {
+//	        return nil // Skip validation for Google
+//	    }
+//	    return gollm.DefaultValidate(v)
+//	})
+func ValidateWithCustomValidator(s interface{}, customValidator ValidatorFunc) error {
+	return llm.ValidateWithCustomValidator(s, customValidator)
 }
 
 // GenerateJSONSchema generates a JSON schema for the given struct.

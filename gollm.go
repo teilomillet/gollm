@@ -281,8 +281,8 @@ func NewLLM(opts ...ConfigOption) (LLM, error) {
 		}
 	}
 
-	// Validate config
-	if err := llm.Validate(cfg); err != nil {
+	// Validate config (with custom validator if provided)
+	if err := llm.ValidateWithCustomValidator(cfg, cfg.CustomValidator); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
