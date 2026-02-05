@@ -224,7 +224,7 @@ func (p *AnthropicProvider) PrepareRequest(prompt string, options map[string]int
 
 	// Add other options
 	for k, v := range options {
-		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" && k != "enable_caching" {
+		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" && k != "enable_caching" && k != "images" {
 			requestBody[k] = v
 		}
 	}
@@ -698,7 +698,7 @@ func (p *AnthropicProvider) PrepareRequestWithMessages(messages []types.MemoryMe
 
 	// Add other options
 	for k, v := range options {
-		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" && k != "enable_caching" && k != "structured_messages" {
+		if k != "system_prompt" && k != "max_tokens" && k != "tools" && k != "tool_choice" && k != "enable_caching" && k != "structured_messages" && k != "images" {
 			requestBody[k] = v
 		}
 	}

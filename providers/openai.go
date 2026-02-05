@@ -228,7 +228,7 @@ func (p *OpenAIProvider) PrepareRequest(prompt string, options map[string]interf
 
 	// Then add options from the function parameters (may override provider options)
 	for k, v := range options {
-		if k != "tools" && k != "tool_choice" && k != "system_prompt" {
+		if k != "tools" && k != "tool_choice" && k != "system_prompt" && k != "images" {
 			mergedOptions[k] = v
 		}
 	}
@@ -699,7 +699,7 @@ func (p *OpenAIProvider) PrepareRequestWithMessages(messages []types.MemoryMessa
 
 	// Then add options from the function parameters (may override provider options)
 	for k, v := range options {
-		if k != "tools" && k != "tool_choice" && k != "system_prompt" && k != "structured_messages" {
+		if k != "tools" && k != "tool_choice" && k != "system_prompt" && k != "structured_messages" && k != "images" {
 			mergedOptions[k] = v
 		}
 	}
