@@ -13,6 +13,18 @@ import (
 	"github.com/teilomillet/gollm/utils"
 )
 
+func TestMiniMaxModelConstants(t *testing.T) {
+	if got := MiniMaxModelM31Flash; got != "MiniMax-M3.1-Flash" {
+		t.Fatalf("MiniMaxModelM31Flash = %q", got)
+	}
+	if got := MiniMaxModelM3; got != "MiniMax-M3" {
+		t.Fatalf("MiniMaxModelM3 = %q", got)
+	}
+	if got := MiniMaxModelM27; got != "MiniMax-M2.7" {
+		t.Fatalf("MiniMaxModelM27 = %q", got)
+	}
+}
+
 func TestMiniMaxProviderVariants(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -65,7 +77,7 @@ func TestMiniMaxProviderVariants(t *testing.T) {
 			assert.Equal(t, tt.requestPath, providerConfig.RequestPath)
 			assert.Equal(t, tt.providerType, providerConfig.Type)
 
-			for _, model := range []string{MiniMaxModelM3, MiniMaxModelM27} {
+			for _, model := range []string{MiniMaxModelM31Flash, MiniMaxModelM3, MiniMaxModelM27} {
 				t.Run(model, func(t *testing.T) {
 					provider, err := registry.Get(tt.providerName, "test-key", model, nil)
 					require.NoError(t, err)

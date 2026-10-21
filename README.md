@@ -68,7 +68,7 @@
 - **Groq**: Llama-3, Mixtral models with high-speed inference
 - **Ollama**: Local models support (Llama-3, Mistral, etc.)
 - **Mistral**: Mistral Large, Mistral Medium
-- **MiniMax**: MiniMax-M3 and MiniMax-M2.7 through global or China endpoints
+- **MiniMax**: MiniMax-M3.1-Flash and MiniMax-M3 through global or China endpoints
 - **OpenRouter**: Access to multiple providers through a single API with:
   - Model fallback capabilities
   - Auto-routing between models
@@ -110,11 +110,11 @@ Use `minimax` for the global chat completions endpoint or `minimax-cn` for the C
 llm, err := gollm.NewLLM(
     gollm.SetProvider("minimax"),
     gollm.SetAPIKey(os.Getenv("MINIMAX_API_KEY")),
-    gollm.SetModel("MiniMax-M3"),
+    gollm.SetModel("MiniMax-M3.1-Flash"),
 )
 ```
 
-Both `MiniMax-M3` and `MiniMax-M2.7` can be selected with any MiniMax provider alias.
+`MiniMax-M3.1-Flash` and `MiniMax-M3` can be selected with any MiniMax provider alias. `MiniMax-M2.7` remains available for explicitly configured legacy requests.
 
 ### Basic Usage
 

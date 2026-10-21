@@ -2,7 +2,11 @@
 package providers
 
 const (
-	MiniMaxModelM3  = "MiniMax-M3"
+	MiniMaxModelM31Flash = "MiniMax-M3.1-Flash"
+	MiniMaxModelM3       = "MiniMax-M3"
+
+	// Deprecated: retained for explicitly configured legacy requests.
+	// Use MiniMaxModelM31Flash or MiniMaxModelM3 for new integrations.
 	MiniMaxModelM27 = "MiniMax-M2.7"
 )
 
